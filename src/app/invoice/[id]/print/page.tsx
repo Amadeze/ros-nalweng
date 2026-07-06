@@ -84,7 +84,7 @@ export default async function InvoicePrintPage({
       </div>
 
       {/* ── A4 Invoice Body ── */}
-      <div className="no-print:mt-16 mx-auto max-w-[794px] px-4 py-8 print:p-0 print:m-0">
+      <div className="no-print:mt-16 mx-auto max-w-198.5 px-4 py-8 print:p-0 print:m-0">
         <div className="rounded-xl bg-white shadow-lg print:shadow-none print:rounded-none">
           {/* VOID watermark */}
           {isVoid && (

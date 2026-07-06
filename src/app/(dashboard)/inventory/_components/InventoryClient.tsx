@@ -43,7 +43,7 @@ export function InventoryClient({
             <Button
               size="sm"
               variant="outline"
-              className="gap-1.5 text-xs"
+              className="bg-white/50 border-white/60 text-slate-700 shadow-sm backdrop-blur-md hover:bg-white/70"
               onClick={() => setPkgDrawerOpen(true)}
             >
               <Package size={13} />

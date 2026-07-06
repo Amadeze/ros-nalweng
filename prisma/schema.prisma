@@ -30,6 +30,7 @@ enum ProductType {
   GREEN_BEAN    // biji kopi mentah
   ROASTED_BEAN  // biji kopi yang sudah di-roast
   FINISHED_GOODS // produk jadi siap jual
+  PACKAGING //Packaging
 }
 
 enum RoastLevel {

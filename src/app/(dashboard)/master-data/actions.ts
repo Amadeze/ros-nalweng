@@ -362,7 +362,7 @@ export type RecipeInput = {
 
 export type CreateProductInput = {
   name: string;
-  type: "GREEN_BEAN" | "ROASTED_BEAN" | "FINISHED_GOODS";
+  type: "GREEN_BEAN" | "ROASTED_BEAN" | "FINISHED_GOODS" | "PACKAGING";
   origin?:      string;
   roastLevel?:  "LIGHT" | "MEDIUM" | "MEDIUM_DARK" | "DARK" | null;
   description?: string;
@@ -379,6 +379,7 @@ const TYPE_PREFIX: Record<CreateProductInput["type"], string> = {
   GREEN_BEAN:     "GB",
   ROASTED_BEAN:   "RB",
   FINISHED_GOODS: "FG",
+  PACKAGING:      "PK",
 };
 
 // =============================================================================

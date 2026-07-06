@@ -385,3 +385,36 @@ export async function createPackagingPurchase(
     return { success: false, error: err instanceof Error ? err.message : "Terjadi kesalahan." };
   }
 }
+// =============================================================================
+// CREATE PACKAGING (QUICK ADD)
+// =============================================================================
+
+export async function createPackaging(data: {
+  code: string;
+  name: string;
+  weightGrams: number;
+  costPerUnit: number;
+}) {
+  try {
+    const newPkg = await prisma.packaging.create({
+      data: {
+        code: data.code,
+        name: data.name,
+        weightGrams: data.weightGrams,
+        costPerUnit: data.costPerUnit,
+        isActive: true,
+      },
+    });
+
+    // Refresh halaman agar dropdown kemasan otomatis mendapatkan data terbaru
+    revalidatePath("/inventory"); 
+
+    return { success: true as const, packagingId: newPkg.id };
+  } catch (err) {
+    console.error("[createPackaging]", err);
+    return { 
+      success: false as const, 
+      error: "Gagal menyimpan kemasan. Pastikan kode kemasan unik dan belum digunakan." 
+    };
+  }
+}

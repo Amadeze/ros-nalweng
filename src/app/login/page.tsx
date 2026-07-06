@@ -95,7 +95,7 @@ function LoginForm() {
 // 2. HALAMAN UTAMA YANG MEMBUNGKUS FORM DENGAN SUSPENSE
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-slate-100 via-blue-50 to-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         {/* Card */}
         <div className="rounded-[2rem] border border-white/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-slate-200/60 p-8">

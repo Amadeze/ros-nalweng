@@ -39,7 +39,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="h-full bg-gradient-to-br from-slate-100 via-blue-50 to-slate-100">
+      <body className="h-full bg-linear-to-br from-slate-100 via-blue-50 to-slate-100">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster position="bottom-right" richColors />
