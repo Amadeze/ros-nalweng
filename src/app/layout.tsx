@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+﻿import type { Metadata, Viewport } from "next"; // <-- Tambahkan Viewport di sini
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,6 +18,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Roastery OS - Nalweng",
   description: "Roastery Operating System by Nalweng Roastery",
+};
+
+// 👇 Tambahkan blok kode viewport ini 👇
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
