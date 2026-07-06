@@ -1,10 +1,17 @@
 ﻿import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg"; // Tambahkan import Pool dari pg
 
 function createPrismaClient() {
-  const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL ?? "",
-  });
+  const connectionString = process.env.DATABASE_URL ?? "";
+  
+  // 1. Buat instance Pool dari pg
+  const pool = new Pool({ connectionString });
+  
+  // 2. Masukkan pool tersebut ke adapter
+  const adapter = new PrismaPg(pool);
+  
+  // 3. Pasang adapter ke Prisma Client
   return new PrismaClient({ adapter });
 }
 
