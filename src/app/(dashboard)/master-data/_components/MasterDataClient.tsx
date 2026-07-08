@@ -348,7 +348,7 @@ export function MasterDataClient({ data }: { data: MasterPageData }) {
         title="Data Master"
         description="Kelola referensi Supplier, Pelanggan, Produk, dan Pengguna"
         actionButton={
-          <Button size="sm" onClick={openCreate} className="gap-1.5 bg-zinc-900 text-white hover:bg-zinc-700">
+          <Button size="sm" onClick={openCreate} className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-md rounded-xl">
             <Plus size={14} />
             Tambah {activeTabMeta.label}
           </Button>
@@ -367,7 +367,7 @@ export function MasterDataClient({ data }: { data: MasterPageData }) {
                 className={cn(
                   "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl py-2 px-2 text-[10px] sm:text-xs font-bold transition-all duration-300 shadow-sm text-center",
                   active
-                    ? "bg-slate-900 text-white shadow-md ring-2 ring-slate-800/20 scale-[1.02]"
+                    ? "bg-blue-500 text-white shadow-md ring-2 ring-blue-500/20 scale-[1.02]"
                     : "bg-white/40 text-slate-600 border border-white/60 hover:bg-white/60 hover:text-slate-800 hover:scale-[1.02]"
                 )}
               >
@@ -400,7 +400,7 @@ export function MasterDataClient({ data }: { data: MasterPageData }) {
         title={drawerTitle}
         size={drawerSize}
         submitButton={
-          <Button type="submit" form={submitFormId} size="sm" className="gap-1.5 bg-zinc-900 text-white hover:bg-zinc-700">
+          <Button type="submit" form={submitFormId} size="sm" className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-md rounded-xl">
             {mode === "edit" ? "Simpan Perubahan" : "Simpan"}
           </Button>
         }

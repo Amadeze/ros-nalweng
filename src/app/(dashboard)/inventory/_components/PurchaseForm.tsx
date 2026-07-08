@@ -263,7 +263,7 @@ export function PurchaseForm({
                   className={cn(
                     "flex-1 rounded-xl border py-2 text-xs font-bold transition-all shadow-sm",
                     field.value === mode
-                      ? "border-slate-800 bg-slate-800 text-white shadow-md ring-2 ring-slate-800/20 ring-offset-1"
+                      ? "bg-blue-500 hover:bg-blue-600 text-white shadow-md ring-2 ring-blue-500/20 ring-offset-1"
                       : "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60"
                   )}
                 >

@@ -122,7 +122,9 @@ export function UserForm({ id, onSuccess, initialData }: UserFormProps) {
           render={({ field }) => (
             <Select value={field.value} onValueChange={(v) => v && field.onChange(v)}>
               <SelectTrigger className="h-9 w-full text-sm">
-                <SelectValue placeholder="Pilih role..." />
+                <SelectValue placeholder="Pilih role...">
+                  {field.value ? USER_ROLES.find((r) => r.value === field.value)?.label : null}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {USER_ROLES.map((role) => (

@@ -40,7 +40,7 @@ export function ProductionClient({
         actionButton={
           <Button
             size="sm"
-            className="gap-1.5 bg-slate-800 text-white hover:bg-slate-700 shadow-md rounded-xl font-bold"
+            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 shadow-md rounded-xl font-bold"
             onClick={() => setDrawerOpen(true)}
           >
             <Factory size={14} />
@@ -63,7 +63,7 @@ export function ProductionClient({
             form="production-form"
             size="sm"
             disabled={isSubmitting || !canProduce}
-            className="gap-1.5 bg-slate-800 text-white hover:bg-slate-700 shadow-md rounded-xl font-bold disabled:opacity-60"
+            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 shadow-md rounded-xl font-bold disabled:opacity-60"
           >
             {isSubmitting && <Loader2 size={13} className="animate-spin" />}
             {isSubmitting ? "Menyimpan..." : "Simpan Batch"}

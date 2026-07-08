@@ -148,7 +148,7 @@ export function KeuanganClient({ data, expenses }: KeuanganClientProps) {
               className={cn(
                 "rounded-xl px-5 py-2 text-xs font-bold transition-all duration-300 shadow-sm",
                 activeTab === tab.id
-                  ? "bg-slate-900 text-white shadow-md scale-[1.02]"
+                  ? "bg-blue-500 text-white shadow-md scale-[1.02]"
                   : "bg-white/40 text-slate-600 border border-white/60 hover:bg-white/60 hover:text-slate-800"
               )}
             >

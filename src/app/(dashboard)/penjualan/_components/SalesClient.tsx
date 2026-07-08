@@ -35,7 +35,7 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
         actionButton={
           <Button
             size="sm"
-            className="gap-1.5 bg-slate-800 text-white hover:bg-slate-700 shadow-md rounded-xl font-bold"
+            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 shadow-md rounded-xl font-bold"
             onClick={() => setDrawerOpen(true)}
           >
             <ReceiptText size={14} />
@@ -58,7 +58,7 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
             form="invoice-form"
             size="sm"
             disabled={isSubmitting}
-            className="gap-1.5 bg-slate-800 text-white hover:bg-slate-700 shadow-md rounded-xl font-bold disabled:opacity-60"
+            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 shadow-md rounded-xl font-bold disabled:opacity-60"
           >
             {isSubmitting && <Loader2 size={13} className="animate-spin" />}
             {isSubmitting ? "Menyimpan..." : "Terbitkan Nota"}
@@ -84,7 +84,7 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
         title="Tambah Pelanggan Baru"
         size="md"
         submitButton={
-          <Button type="submit" form="new-customer-form" size="sm" className="gap-1.5 bg-slate-800 text-white hover:bg-slate-700 shadow-md rounded-xl font-bold">
+          <Button type="submit" form="new-customer-form" size="sm" className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 shadow-md rounded-xl font-bold">
             Simpan Pelanggan
           </Button>
         }

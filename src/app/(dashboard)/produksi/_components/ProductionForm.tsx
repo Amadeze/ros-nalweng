@@ -269,7 +269,9 @@ export function ProductionForm({
               onValueChange={(val: string | null) => field.onChange(val ?? "")}
             >
               <SelectTrigger className={cn("w-full h-9", glassInput)}>
-                <SelectValue placeholder="Pilih SKU Finished Goods..." />
+                <SelectValue placeholder="Pilih SKU Finished Goods...">
+                  {field.value ? fgOptions.find((f) => f.id === field.value)?.name : null}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {fgOptions.length === 0 ? (
@@ -379,7 +381,9 @@ export function ProductionForm({
                         }}
                       >
                         <SelectTrigger className={cn("h-9 text-xs font-medium", glassInput)}>
-                          <SelectValue placeholder="Pilih Roasted Bean..." />
+                          <SelectValue placeholder="Pilih Roasted Bean...">
+                            {f.value ? rbOptions.find((r) => r.id === f.value)?.name : null}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {rbOptions.length === 0 ? (
@@ -443,7 +447,9 @@ export function ProductionForm({
               onValueChange={(val: string | null) => field.onChange(val ?? "")}
             >
               <SelectTrigger className={cn("w-full h-9 font-medium", glassInput)}>
-                <SelectValue placeholder="Pilih kemasan..." />
+                <SelectValue placeholder="Pilih kemasan...">
+                  {field.value ? packagingOptions.find((p) => p.id === field.value)?.name : null}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {packagingOptions.length === 0 ? (

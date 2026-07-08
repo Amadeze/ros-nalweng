@@ -114,7 +114,9 @@ export function CatatPengeluaranDrawer({ open, onOpenChange }: Props) {
             }}
           >
             <SelectTrigger className="h-10 text-sm">
-              <SelectValue placeholder="Pilih kategori pengeluaran" />
+              <SelectValue placeholder="Pilih kategori pengeluaran">
+                {selectedCat ? CATEGORIES.find((c) => c.value === selectedCat)?.label : null}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {CATEGORIES.map((c) => (

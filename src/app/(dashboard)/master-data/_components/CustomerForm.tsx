@@ -91,7 +91,9 @@ export function CustomerForm({ id, onSuccess, initialData }: CustomerFormProps) 
           render={({ field }) => (
             <Select value={field.value} onValueChange={(v) => field.onChange(v)}>
               <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Pilih level..." />
+                <SelectValue placeholder="Pilih level...">
+                  {field.value === "RETAIL" ? "Eceran (Retail)" : field.value === "WHOLESALE_SILVER" ? "Grosir Silver" : field.value === "WHOLESALE_GOLD" ? "Grosir Gold" : null}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="RETAIL">Eceran (Retail)</SelectItem>

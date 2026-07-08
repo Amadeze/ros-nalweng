@@ -234,7 +234,9 @@ export function RoastingForm({
               onValueChange={(val: string | null) => field.onChange(val ?? "")}
             >
               <SelectTrigger className={cn("w-full h-9", glassInput)}>
-                <SelectValue placeholder="Pilih Green Bean..." />
+                <SelectValue placeholder="Pilih Green Bean...">
+                  {field.value ? gbOptions.find((g) => g.id === field.value)?.name : null}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {gbOptions.length === 0 ? (
@@ -303,7 +305,7 @@ export function RoastingForm({
                   className={cn(
                     "flex-1 rounded-xl border py-2 text-xs font-bold transition-all shadow-sm",
                     field.value === mode
-                      ? "border-slate-800 bg-slate-800 text-white shadow-md ring-2 ring-slate-800/20 ring-offset-1"
+                      ? "border-blue-500 bg-blue-500 text-white shadow-md ring-2 ring-blue-500/20 ring-offset-1"
                       : "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60"
                   )}
                 >
@@ -328,7 +330,9 @@ export function RoastingForm({
                 onValueChange={(val: string | null) => field.onChange(val ?? "")}
               >
                 <SelectTrigger className={cn("w-full h-9", glassInput)}>
-                  <SelectValue placeholder="Pilih produk RB..." />
+                  <SelectValue placeholder="Pilih produk RB...">
+                    {field.value ? rbOptions.find((r) => r.id === field.value)?.name : null}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {rbOptions.length === 0 ? (
@@ -384,7 +388,9 @@ export function RoastingForm({
                     onValueChange={(val: string | null) => field.onChange(val ?? "")}
                   >
                     <SelectTrigger className={cn("w-full h-9", glassInput)}>
-                      <SelectValue placeholder="Pilih level..." />
+                      <SelectValue placeholder="Pilih level...">
+                        {field.value ? ROAST_LEVEL_LABELS[field.value as keyof typeof ROAST_LEVEL_LABELS] : null}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {ROAST_LEVELS.map((rl) => (

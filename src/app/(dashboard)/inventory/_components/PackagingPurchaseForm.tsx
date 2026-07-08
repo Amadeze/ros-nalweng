@@ -257,7 +257,7 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess }: Pack
               <Button type="button" variant="ghost" onClick={() => setIsQuickAddOpen(false)} className="text-slate-600 hover:bg-white/40">
                 Batal
               </Button>
-              <Button type="submit" disabled={isAddingPkg} className="bg-slate-800 hover:bg-slate-900 text-white shadow-md">
+              <Button type="submit" disabled={isAddingPkg} className="bg-blue-500 hover:bg-blue-600 text-white shadow-md rounded-xl font-bold">
                 {isAddingPkg ? "Menyimpan..." : "Simpan Kemasan"}
               </Button>
             </div>

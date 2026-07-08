@@ -123,7 +123,7 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
             className={cn(
               "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl py-2 px-2 text-[10px] sm:text-xs font-bold transition-all duration-300 shadow-sm text-center",
               activeTab === tab.id
-                ? "bg-slate-900 text-white shadow-md ring-2 ring-slate-800/20 scale-[1.02]"
+                ? "bg-blue-500 text-white shadow-md ring-2 ring-blue-500/20 scale-[1.02]"
                 : "bg-white/40 text-slate-600 border border-white/60 hover:bg-white/60 hover:text-slate-800 hover:scale-[1.02]"
             )}
           >

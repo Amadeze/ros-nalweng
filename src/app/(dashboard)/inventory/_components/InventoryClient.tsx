@@ -70,7 +70,7 @@ export function InventoryClient({
             </Button>
             <Button
               size="sm"
-              className="gap-1.5 bg-zinc-900 text-white hover:bg-zinc-700"
+              className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-md rounded-xl"
               onClick={() => setGbDrawerOpen(true)}
             >
               <Plus size={14} />
@@ -95,7 +95,7 @@ export function InventoryClient({
             form="purchase-form"
             size="sm"
             disabled={isSubmitting}
-            className="gap-1.5 bg-zinc-900 text-white hover:bg-zinc-700 disabled:opacity-60"
+            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-md rounded-xl disabled:opacity-60"
           >
             {isSubmitting && <Loader2 size={13} className="animate-spin" />}
             {isSubmitting ? "Menyimpan..." : "Simpan"}
@@ -123,7 +123,7 @@ export function InventoryClient({
             type="button"
             size="sm"
             disabled={isSubmitting}
-            className="gap-1.5 bg-zinc-900 text-white hover:bg-zinc-700 disabled:opacity-60"
+            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-md rounded-xl disabled:opacity-60"
             onClick={() => {
               setIsSubmitting(true);
               (document.getElementById("pkg-purchase-form") as HTMLFormElement)?.requestSubmit();
@@ -154,7 +154,7 @@ export function InventoryClient({
             type="button"
             size="sm"
             disabled={isSubmitting}
-            className="gap-1.5 bg-zinc-900 text-white hover:bg-zinc-700 disabled:opacity-60"
+            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-md rounded-xl disabled:opacity-60"
             onClick={() => {
               setIsSubmitting(true);
               (document.getElementById("adjustment-form") as HTMLFormElement)?.requestSubmit();

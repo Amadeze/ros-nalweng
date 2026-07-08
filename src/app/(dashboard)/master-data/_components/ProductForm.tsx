@@ -182,7 +182,9 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
           render={({ field }) => (
             <Select value={field.value} onValueChange={(v) => v && field.onChange(v)} disabled={isEditMode}>
               <SelectTrigger className={cn("h-9 w-full text-sm", glassInput)}>
-                <SelectValue placeholder="Pilih tipe..." />
+                <SelectValue placeholder="Pilih tipe...">
+                  {field.value ? PRODUCT_TYPES.find((t) => t.value === field.value)?.label : null}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {PRODUCT_TYPES.map((t) => (
@@ -215,7 +217,9 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
             render={({ field }) => (
               <Select value={field.value ?? ""} onValueChange={(v) => field.onChange(v || null)}>
                 <SelectTrigger className={cn("h-9 w-full text-sm", glassInput)}>
-                  <SelectValue placeholder="Pilih tingkat roast..." />
+                  <SelectValue placeholder="Pilih tingkat roast...">
+                    {field.value ? ROAST_LEVELS.find((r) => r.value === field.value)?.label : null}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {ROAST_LEVELS.map((r) => (
@@ -266,7 +270,7 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
             name="isActive"
             render={({ field }) => (
               <div className="flex gap-2">
-                {[{ v: true, label: "Aktif", cls: "border-slate-800 bg-slate-800 text-white shadow-md ring-2 ring-slate-800/20 ring-offset-1" }, { v: false, label: "Nonaktif", cls: "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60" }].map(({ v, label, cls }) => (
+                {[{ v: true, label: "Aktif", cls: "border-blue-500 bg-blue-500 text-white shadow-md ring-2 ring-blue-500/20 ring-offset-1" }, { v: false, label: "Nonaktif", cls: "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60" }].map(({ v, label, cls }) => (
                   <button key={String(v)} type="button" onClick={() => field.onChange(v)}
                     className={cn("flex-1 rounded-xl border py-2 text-xs font-bold transition-all shadow-sm",
                       field.value === v ? cls : "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60")}>
@@ -301,7 +305,9 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
                 render={({ field }) => (
                   <Select value={field.value ?? ""} onValueChange={(v) => field.onChange(v || "")}>
                     <SelectTrigger className={cn("h-9 w-full text-sm", glassInput)}>
-                      <SelectValue placeholder="Pilih kemasan..." />
+                      <SelectValue placeholder="Pilih kemasan...">
+                        {field.value ? packagings.find((pkg) => pkg.id === field.value)?.name : null}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {packagings.map((pkg) => (
@@ -361,7 +367,9 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
                       render={({ field: f }) => (
                         <Select value={f.value ?? ""} onValueChange={(v) => f.onChange(v || "")}>
                           <SelectTrigger className={cn("h-9 w-full text-xs font-medium", glassInput)}>
-                            <SelectValue placeholder="Pilih Roasted Bean..." />
+                            <SelectValue placeholder="Pilih Roasted Bean...">
+                              {f.value ? roastedBeans.find((rb) => rb.id === f.value)?.name : null}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {roastedBeans.map((rb) => (
