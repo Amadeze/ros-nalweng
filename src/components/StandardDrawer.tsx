@@ -47,11 +47,11 @@ export function StandardDrawer({
         className={[
           SIZE_MAP[size],
           "flex flex-col gap-0 p-0 overflow-hidden",
-          "rounded-[2rem] border border-white/60 bg-white/40 backdrop-blur-2xl shadow-2xl shadow-slate-300/50",
+          "rounded-[2rem] border border-white/60 bg-white/70 backdrop-blur-3xl shadow-2xl shadow-slate-300/50",
         ].join(" ")}
       >
         {/* ── Modal Header ── */}
-        <DialogHeader className="flex shrink-0 flex-row items-start justify-between gap-4 border-b border-white/40 bg-white/30 px-6 py-5 backdrop-blur-md">
+        <DialogHeader className="flex shrink-0 flex-row items-start justify-between gap-4 px-8 pt-8 pb-2">
           <div className="min-w-0 pt-0.5 text-left">
             <DialogTitle className="truncate text-xl font-black text-slate-800 tracking-tight">
               {title}
@@ -76,12 +76,12 @@ export function StandardDrawer({
         </DialogHeader>
 
         {/* ── Modal Body — scrollable ── */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 max-h-[70vh] custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-8 py-6 max-h-[70vh] custom-scrollbar">
           {isLoading ? <FormSkeleton /> : children}
         </div>
 
         {/* ── Modal Footer ── */}
-        <div className="shrink-0 border-t border-white/40 bg-white/30 px-6 py-4 backdrop-blur-md">
+        <div className="shrink-0 px-8 pb-8 pt-4">
           <DialogFooter className="flex-row justify-end gap-3 sm:justify-end bg-transparent border-none p-0">
             <DialogClose
               render={
