@@ -51,9 +51,9 @@ function NavItem({
     <Link
       href={href}
       className={cn(
-        "group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-300",
+        "group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-300",
         active
-          ? "bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg shadow-slate-900/30 translate-x-1 scale-[1.02]"
+          ? "bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/30 translate-x-1"
           : "text-slate-600 hover:bg-white/40 hover:text-slate-900 hover:translate-x-1 hover:scale-[1.02] active:scale-95"
       )}
     >
@@ -90,8 +90,8 @@ export function Sidebar({ userRole }: { userRole: string }) {
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col rounded-2xl bg-white/30 backdrop-blur-2xl border border-white/60 text-slate-800 shadow-2xl md:bg-transparent md:backdrop-blur-none md:border-transparent md:shadow-none">
       {/* Brand */}
-      <div className="flex h-24 items-center px-6 pt-6 mb-2 transition-transform duration-500 hover:scale-105">
-        <img src="/logo.png" alt="Nalweng Logo" className="h-16 w-auto object-contain" />
+      <div className="flex h-24 items-center px-4 pt-6 mb-2 transition-transform duration-500 hover:scale-105">
+        <img src="/logo.png" alt="Nalweng Logo" className="w-full h-auto max-w-[170px] object-contain" />
       </div>
 
       <div className="mx-6 h-px bg-white/40 my-2" />

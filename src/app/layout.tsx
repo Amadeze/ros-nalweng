@@ -1,4 +1,4 @@
-﻿import type { Metadata, Viewport } from "next"; // <-- Tambahkan Viewport di sini
+import type { Metadata, Viewport } from "next"; // <-- Tambahkan Viewport di sini
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -39,7 +39,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="h-full bg-linear-to-br from-slate-100 via-blue-50 to-slate-100">
+      <body className="h-full">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster position="bottom-right" richColors />
