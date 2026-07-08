@@ -366,7 +366,7 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
                           <SelectContent>
                             {roastedBeans.map((rb) => (
                               <SelectItem key={rb.id} value={rb.id}>
-                                {rb.name} <span className="text-slate-400">({rb.code})</span>
+                                {rb.name}
                               </SelectItem>
                             ))}
                           </SelectContent>

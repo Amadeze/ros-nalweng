@@ -244,8 +244,7 @@ export function RoastingForm({
                 ) : (
                   gbOptions.map((g) => (
                     <SelectItem key={g.id} value={g.id}>
-                      {g.name}
-                      {g.origin ? ` — ${g.origin}` : ""}
+                      {g.name}{g.origin ? ` — ${g.origin}` : ""}
                       {" "}
                       <span className="text-slate-400 font-normal">({formatKg(g.stockKg)})</span>
                     </SelectItem>
@@ -337,8 +336,7 @@ export function RoastingForm({
                   ) : (
                     rbOptions.map((r) => (
                       <SelectItem key={r.id} value={r.id}>
-                        {r.name}
-                        {r.roastLevel ? ` — ${ROAST_LEVEL_LABELS[r.roastLevel] ?? r.roastLevel}` : ""}
+                        {r.name}{r.roastLevel ? ` — ${ROAST_LEVEL_LABELS[r.roastLevel] ?? r.roastLevel}` : ""}
                       </SelectItem>
                     ))
                   )}

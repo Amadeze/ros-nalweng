@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -149,7 +149,6 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
             <Table>
               <TableHeader>
                 <TableRow className={glassHeader}>
-                  <TableHead className=" w-32 text-xs font-bold uppercase tracking-widest text-slate-500">Kode</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Nama / Asal</TableHead>
                   <TableHead className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Stok</TableHead>
                   <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">HPP /kg</TableHead>
@@ -158,11 +157,10 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
               </TableHeader>
               <TableBody>
                 {gbStocks.length === 0 ? (
-                  <EmptyRows colSpan={5} label="Belum ada Green Bean. Catat barang datang pertama." />
+                  <EmptyRows colSpan={4} label="Belum ada Green Bean. Catat barang datang pertama." />
                 ) : (
                   gbStocks.map((row) => (
                     <TableRow key={row.id} className="hover:bg-white/40 transition-colors">
-                      <TableCell  className="font-mono text-xs font-semibold text-slate-500">{row.code}</TableCell>
                       <TableCell>
                         <p className="text-sm font-bold text-slate-900">{row.name}</p>
                         {row.origin && (
@@ -197,10 +195,11 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
                 <div key={row.id} className="flex justify-between items-center rounded-[1.25rem] border border-white/60 bg-white/30 p-4 shadow-sm backdrop-blur-xl">
                   <div className="flex flex-col gap-1">
                     <p className="font-bold text-slate-900">{row.name}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="font-mono text-[10px] font-semibold text-slate-600">{row.code}</span>
-                      {row.origin && <><span className="text-[10px] text-slate-400">•</span><span className="text-[10px] font-bold text-slate-500 uppercase">{row.origin}</span></>}
-                    </div>
+                    {row.origin && (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">{row.origin}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span className={`font-mono text-sm font-black ${row.stockKg <= 0 ? 'text-slate-400' : 'text-emerald-700'}`}>{formatKg(row.stockKg)}</span>
@@ -221,7 +220,6 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
             <Table>
               <TableHeader>
                 <TableRow className={glassHeader}>
-                  <TableHead className=" w-32 text-xs font-bold uppercase tracking-widest text-slate-500">Kode</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Nama / Roast Level</TableHead>
                   <TableHead className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Stok</TableHead>
                   <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">HPP /kg</TableHead>
@@ -230,11 +228,10 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
               </TableHeader>
               <TableBody>
                 {rbStocks.length === 0 ? (
-                  <EmptyRows colSpan={5} label="Belum ada Roasted Bean. Catat batch roasting terlebih dahulu." />
+                  <EmptyRows colSpan={4} label="Belum ada Roasted Bean. Catat batch roasting terlebih dahulu." />
                 ) : (
                   rbStocks.map((row) => (
                     <TableRow key={row.id} className="hover:bg-white/40 transition-colors">
-                      <TableCell  className="font-mono text-xs font-semibold text-slate-500">{row.code}</TableCell>
                       <TableCell>
                         <p className="text-sm font-bold text-slate-900">{row.name}</p>
                         {row.roastLevel && (
@@ -269,10 +266,11 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
                 <div key={row.id} className="flex justify-between items-center rounded-[1.25rem] border border-white/60 bg-white/30 p-4 shadow-sm backdrop-blur-xl">
                   <div className="flex flex-col gap-1">
                     <p className="font-bold text-slate-900">{row.name}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="font-mono text-[10px] font-semibold text-slate-600">{row.code}</span>
-                      {row.roastLevel && <><span className="text-[10px] text-slate-400">•</span><span className="text-[10px] font-bold text-slate-500 uppercase">{row.roastLevel.replace('_', ' ')}</span></>}
-                    </div>
+                    {row.roastLevel && (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">{row.roastLevel.replace("_", " ")}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span className={`font-mono text-sm font-black ${row.stockKg <= 0 ? 'text-slate-400' : 'text-emerald-700'}`}>{formatKg(row.stockKg)}</span>
@@ -285,7 +283,7 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
         </section>
       )}
 
-      {/* â”€â”€ Finished Goods â”€â”€ */}
+      {/* ——— Finished Goods ——— */}
       {activeTab === "fg" && (
         <section className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <SectionTitle icon="🛍️" label="Finished Goods" count={fgStocks?.length || 0} />
@@ -293,7 +291,6 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
             <Table>
               <TableHeader>
                 <TableRow className={glassHeader}>
-                  <TableHead className=" w-32 text-xs font-bold uppercase tracking-widest text-slate-500">Kode</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Produk</TableHead>
                   <TableHead className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Stok (Unit)</TableHead>
                   <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">HPP /unit</TableHead>
@@ -302,11 +299,10 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
               </TableHeader>
               <TableBody>
                 {!fgStocks || fgStocks.length === 0 ? (
-                  <EmptyRows colSpan={5} label="Belum ada Finished Goods." />
+                  <EmptyRows colSpan={4} label="Belum ada Finished Goods. Lakukan produksi terlebih dahulu." />
                 ) : (
                   fgStocks.map((row) => (
                     <TableRow key={row.id} className="hover:bg-white/40 transition-colors">
-                      <TableCell  className="font-mono text-xs font-semibold text-slate-500">{row.code}</TableCell>
                       <TableCell>
                         <p className="text-sm font-bold text-slate-900">{row.name}</p>
                       </TableCell>
@@ -338,7 +334,6 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
                 <div key={row.id} className="flex justify-between items-center rounded-[1.25rem] border border-white/60 bg-white/30 p-4 shadow-sm backdrop-blur-xl">
                   <div className="flex flex-col gap-1">
                     <p className="font-bold text-slate-900">{row.name}</p>
-                    <span className="font-mono text-[10px] font-semibold text-slate-600 mt-0.5">{row.code}</span>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span className={`font-mono text-sm font-black ${row.stockUnit <= 0 ? 'text-slate-400' : 'text-emerald-700'}`}>{row.stockUnit} Unit</span>
@@ -351,7 +346,7 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
         </section>
       )}
 
-      {/* â”€â”€ Packaging â”€â”€ */}
+      {/* ——— Packaging ——— */}
       {activeTab === "pkg" && (
         <section className="animate-in fade-in slide-in-from-bottom-2 duration-300">
           <SectionTitle icon="📦" label="Packaging" count={pkgStocks.length} />
@@ -359,8 +354,7 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
             <Table>
               <TableHeader>
                 <TableRow className={glassHeader}>
-                  <TableHead className=" w-32 text-xs font-bold uppercase tracking-widest text-slate-500">Kode</TableHead>
-                  <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Nama</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Nama Barang</TableHead>
                   <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">Berat Kemasan</TableHead>
                   <TableHead className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Stok</TableHead>
                   <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">HPP /unit</TableHead>
@@ -369,12 +363,11 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
               </TableHeader>
               <TableBody>
                 {pkgStocks.length === 0 ? (
-                  <EmptyRows colSpan={6} label="Belum ada packaging." />
+                  <EmptyRows colSpan={4} label="Belum ada Kemasan. Catat pembelian kemasan terlebih dahulu." />
                 ) : (
                   pkgStocks.map((row) => (
                     <TableRow key={row.id} className="hover:bg-white/40 transition-colors">
-                      <TableCell  className="font-mono text-xs font-semibold text-slate-500">{row.code}</TableCell>
-                      <TableCell  className="text-sm font-bold text-slate-900">{row.name}</TableCell>
+                      <TableCell className="text-sm font-bold text-slate-900">{row.name}</TableCell>
                       <TableCell  className="text-right text-[11px] font-bold text-slate-500">{row.weightGrams} g</TableCell>
                       <TableCell className="text-right">
                         <span className={`text-sm font-black tabular-nums ${row.stockUnit <= 0 ? "text-slate-400" : "text-slate-900"}`}>

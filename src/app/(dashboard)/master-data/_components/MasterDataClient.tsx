@@ -111,7 +111,6 @@ function SupplierTable({ rows, onEdit }: { rows: SupplierRow[]; onEdit: (r: Supp
       <table className="w-full text-sm">
         <thead className="border-b border-white/50 bg-white/40 backdrop-blur-md">
           <tr>
-            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Kode</th>
             <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Nama</th>
             <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden md:table-cell">No. Telp</th>
             <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden lg:table-cell">Wilayah</th>
@@ -123,7 +122,6 @@ function SupplierTable({ rows, onEdit }: { rows: SupplierRow[]; onEdit: (r: Supp
         <tbody className="divide-y divide-white/30">
           {rows.map((row) => (
             <tr key={row.id} className="hover:bg-white/40 transition-colors">
-              <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{row.code}</td>
               <td className="px-4 py-3">
                 <p className="font-medium text-slate-800">{row.name}</p>
                 {row.address && <p className="text-[11px] text-slate-500 truncate max-w-[180px]">{row.address}</p>}
@@ -156,7 +154,6 @@ function CustomerTable({ rows, onEdit }: { rows: CustomerRow[]; onEdit: (r: Cust
       <table className="w-full text-sm">
         <thead className="border-b border-white/50 bg-white/40 backdrop-blur-md">
           <tr>
-            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Kode</th>
             <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Nama</th>
             <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden md:table-cell">No. Telp</th>
             <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden lg:table-cell">Email</th>
@@ -168,7 +165,6 @@ function CustomerTable({ rows, onEdit }: { rows: CustomerRow[]; onEdit: (r: Cust
         <tbody className="divide-y divide-white/30">
           {rows.map((row) => (
             <tr key={row.id} className="hover:bg-white/40 transition-colors">
-              <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{row.code}</td>
               <td className="px-4 py-3">
                 <p className="font-medium text-slate-800">{row.name}</p>
                 {row.address && <p className="text-[11px] text-slate-500 truncate max-w-[180px]">{row.address}</p>}
@@ -197,7 +193,6 @@ function ProductTable({ rows, onEdit }: { rows: ProductRow[]; onEdit: (r: Produc
       <table className="w-full text-sm">
         <thead className="border-b border-white/50 bg-white/40 backdrop-blur-md">
           <tr>
-            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Kode</th>
             <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Nama</th>
             <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Tipe</th>
             <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden md:table-cell">Origin</th>
@@ -209,7 +204,6 @@ function ProductTable({ rows, onEdit }: { rows: ProductRow[]; onEdit: (r: Produc
         <tbody className="divide-y divide-white/30">
           {rows.map((row) => (
             <tr key={row.id} className="hover:bg-white/40 transition-colors">
-              <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{row.code}</td>
               <td className="px-4 py-3">
                 <p className="font-medium text-slate-800">{row.name}</p>
                 {row.description && <p className="text-[11px] text-zinc-400 truncate max-w-[200px]">{row.description}</p>}

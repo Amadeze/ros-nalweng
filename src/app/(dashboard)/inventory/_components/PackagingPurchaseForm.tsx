@@ -163,7 +163,7 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess }: Pack
             >
               <option value="" disabled>Pilih kemasan...</option>
               {packagings.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
             {errors.packagingId && <p className="text-xs text-red-500 font-medium">{errors.packagingId.message}</p>}
