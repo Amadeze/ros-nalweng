@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createCustomer, updateCustomer } from "../actions";
 import type { CustomerRow } from "../actions";
 
@@ -17,6 +18,7 @@ const schema = z.object({
   phone:    z.string().optional(),
   email:    z.string().email("Format email tidak valid").optional().or(z.literal("")),
   address:  z.string().optional(),
+  tier:     z.enum(["RETAIL", "WHOLESALE_SILVER", "WHOLESALE_GOLD"]),
   isActive: z.boolean(),
 });
 
@@ -35,8 +37,8 @@ export function CustomerForm({ id, onSuccess, initialData }: CustomerFormProps) 
   const { register, handleSubmit, control, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: initialData
-      ? { name: initialData.name, phone: initialData.phone ?? "", email: initialData.email ?? "", address: initialData.address ?? "", isActive: initialData.isActive }
-      : { name: "", phone: "", email: "", address: "", isActive: true },
+      ? { name: initialData.name, phone: initialData.phone ?? "", email: initialData.email ?? "", address: initialData.address ?? "", tier: initialData.tier, isActive: initialData.isActive }
+      : { name: "", phone: "", email: "", address: "", tier: "RETAIL", isActive: true },
   });
 
   const onSubmit = async (values: FormValues) => {
@@ -78,7 +80,27 @@ export function CustomerForm({ id, onSuccess, initialData }: CustomerFormProps) 
 
       <div className="space-y-1.5">
         <Label className="text-xs font-medium text-zinc-700">Alamat</Label>
-        <Input placeholder="Jl. ..." className="h-9" {...register("address")} />
+        <Input placeholder="Jl. Sudirman No.1" className="h-9" {...register("address")} />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs font-medium text-zinc-700">Level Harga (Tier)</Label>
+        <Controller
+          control={control}
+          name="tier"
+          render={({ field }) => (
+            <Select value={field.value} onValueChange={(v) => field.onChange(v)}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Pilih level..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="RETAIL">Eceran (Retail)</SelectItem>
+                <SelectItem value="WHOLESALE_SILVER">Grosir Silver</SelectItem>
+                <SelectItem value="WHOLESALE_GOLD">Grosir Gold</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        />
       </div>
 
       {isEditMode && (

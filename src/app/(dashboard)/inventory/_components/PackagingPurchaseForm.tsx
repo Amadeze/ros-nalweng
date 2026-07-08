@@ -127,14 +127,19 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess }: Pack
         {/* Supplier */}
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold text-slate-700">Supplier <span className="text-red-500">*</span></Label>
-          <Controller control={control} name="supplierId" render={({ field }) => (
-            <Select value={field.value ?? ""} onValueChange={field.onChange}>
-              <SelectTrigger className={glassInput}><SelectValue placeholder="Pilih supplier" /></SelectTrigger>
-              <SelectContent className="bg-white/80 backdrop-blur-xl border-white/60">
-                {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}/>
+          <select
+            className={cn(
+              "w-full h-9 rounded-lg border px-3 text-sm transition-all appearance-none outline-none",
+              glassInput,
+              errors.supplierId ? "border-red-500 ring-2 ring-red-500/20" : ""
+            )}
+            {...register("supplierId")}
+          >
+            <option value="" disabled>Pilih supplier...</option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
           {errors.supplierId && <p className="text-xs text-red-500 font-medium">{errors.supplierId.message}</p>}
         </div>
 
@@ -148,16 +153,19 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess }: Pack
         <div className="flex items-end gap-2">
           <div className="flex-1 space-y-1.5">
             <Label className="text-xs font-semibold text-slate-700">Kemasan <span className="text-red-500">*</span></Label>
-            <Controller control={control} name="packagingId" render={({ field }) => (
-              <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                <SelectTrigger className={glassInput}><SelectValue placeholder="Pilih kemasan" /></SelectTrigger>
-                <SelectContent className="bg-white/80 backdrop-blur-xl border-white/60">
-                  {packagings.map((p) => (
-                    <SelectItem key={p.id} value={p.id}><span className="font-medium">{p.name}</span> <span className="text-slate-400 text-[10px]">({p.code})</span></SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}/>
+            <select
+              className={cn(
+                "w-full h-9 rounded-lg border px-3 text-sm transition-all appearance-none outline-none",
+                glassInput,
+                errors.packagingId ? "border-red-500 ring-2 ring-red-500/20" : ""
+              )}
+              {...register("packagingId")}
+            >
+              <option value="" disabled>Pilih kemasan...</option>
+              {packagings.map((p) => (
+                <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+              ))}
+            </select>
             {errors.packagingId && <p className="text-xs text-red-500 font-medium">{errors.packagingId.message}</p>}
           </div>
           <Button 

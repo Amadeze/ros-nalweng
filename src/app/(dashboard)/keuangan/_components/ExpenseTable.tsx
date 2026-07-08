@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { formatDate, formatRupiah } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -40,27 +40,27 @@ export function ExpenseTable({ rows }: ExpenseTableProps) {
   return (
     <div className="space-y-3">
       {/* Summary */}
-      <div className="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5">
+      <div className="flex items-center justify-between rounded-xl border border-white/60 bg-white/30 backdrop-blur-xl px-4 py-2.5 shadow-sm">
         <p className="text-xs text-zinc-500">{rows.length} pengeluaran tercatat</p>
         <p className="font-mono text-sm font-bold text-red-600">
           Total: {formatRupiah(total)}
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+      <div className="hidden md:block overflow-hidden rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl shadow-lg shadow-slate-200/30">
         <Table>
           <TableHeader>
-            <TableRow className="bg-zinc-50 hover:bg-zinc-50">
-              <TableHead className="text-xs font-semibold text-zinc-500">Tanggal</TableHead>
-              <TableHead className="text-xs font-semibold text-zinc-500">Kategori</TableHead>
-              <TableHead className="text-xs font-semibold text-zinc-500">Keterangan</TableHead>
-              <TableHead className="text-right text-xs font-semibold text-zinc-500">Nominal</TableHead>
+            <TableRow className="bg-white/40 border-b border-white/50 backdrop-blur-md hover:bg-white/40">
+              <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Tanggal</TableHead>
+              <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Kategori</TableHead>
+              <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Keterangan</TableHead>
+              <TableHead className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Nominal</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((row) => (
-              <TableRow key={row.id} className="hover:bg-zinc-50/50">
-                <TableCell className="text-sm text-zinc-600">
+              <TableRow key={row.id} className="hover:bg-white/40 transition-colors">
+                <TableCell  className="text-sm text-zinc-600">
                   {formatDate(row.date)}
                 </TableCell>
                 <TableCell>
@@ -71,10 +71,10 @@ export function ExpenseTable({ rows }: ExpenseTableProps) {
                     {CATEGORY_LABEL[row.category] ?? row.category}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-sm text-zinc-500">
-                  {row.description ?? <span className="italic text-zinc-300">—</span>}
+                <TableCell  className="text-sm text-zinc-500">
+                  {row.description ?? <span className="italic text-zinc-300">â€”</span>}
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm font-semibold text-red-600">
+                <TableCell  className="text-right font-mono text-sm font-semibold text-red-600">
                   {formatRupiah(row.amount)}
                 </TableCell>
               </TableRow>
@@ -85,3 +85,5 @@ export function ExpenseTable({ rows }: ExpenseTableProps) {
     </div>
   );
 }
+
+

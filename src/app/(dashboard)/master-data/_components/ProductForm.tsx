@@ -12,6 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { createProduct, updateProduct } from "../actions";
 import type { ProductRow, PackagingRow } from "../actions";
+import { cn } from "@/lib/utils";
+
+const glassInput = "bg-white/40 border-white/60 backdrop-blur-md transition-all focus:bg-white/60 focus:border-white/80";
+const glassCard = "rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl p-4 shadow-sm";
 
 // =============================================================================
 // Constants
@@ -47,6 +51,9 @@ const schema = z.object({
   origin:            z.string().optional(),
   roastLevel:        z.enum(["LIGHT", "MEDIUM", "MEDIUM_DARK", "DARK"]).nullable().optional(),
   description:       z.string().optional(),
+  price:             z.number().optional(),
+  priceSilver:       z.number().optional(),
+  priceGold:         z.number().optional(),
   isActive:          z.boolean(),
   recipePackagingId: z.string().optional(),
   recipeOutputGrams: z.number().optional(),
@@ -91,6 +98,9 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
           origin:            initialData.origin ?? "",
           roastLevel:        (initialData.roastLevel as FormValues["roastLevel"]) ?? null,
           description:       initialData.description ?? "",
+          price:             initialData.price ?? 0,
+          priceSilver:       initialData.priceSilver ?? 0,
+          priceGold:         initialData.priceGold ?? 0,
           isActive:          initialData.isActive,
           recipePackagingId: existingRecipe?.packagingId ?? "",
           recipeOutputGrams: existingRecipe?.outputGrams ?? 0,
@@ -99,7 +109,7 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
         }
       : {
           name: "", type: "GREEN_BEAN", origin: "", roastLevel: null,
-          description: "", isActive: true,
+          description: "", price: 0, priceSilver: 0, priceGold: 0, isActive: true,
           recipePackagingId: "", recipeOutputGrams: 0, recipeNotes: "", recipeItems: [],
         },
   });
@@ -141,8 +151,8 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
     setIsSubmitting(true);
     try {
       const result = isEditMode
-        ? await updateProduct({ id: initialData!.id, name: values.name, origin: values.origin, roastLevel: values.roastLevel, description: values.description, isActive: values.isActive, recipe })
-        : await createProduct({ name: values.name, type: values.type, origin: values.origin, roastLevel: values.roastLevel, description: values.description, recipe });
+        ? await updateProduct({ id: initialData!.id, name: values.name, origin: values.origin, roastLevel: values.roastLevel, description: values.description, price: values.price, priceSilver: values.priceSilver, priceGold: values.priceGold, isActive: values.isActive, recipe })
+        : await createProduct({ name: values.name, type: values.type, origin: values.origin, roastLevel: values.roastLevel, description: values.description, price: values.price, priceSilver: values.priceSilver, priceGold: values.priceGold, recipe });
 
       if (!result.success) { toast.error(result.error); return; }
       toast.success(isEditMode ? `${result.code} berhasil diperbarui` : `Produk ${result.code} berhasil ditambahkan`);
@@ -155,24 +165,23 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
   };
 
   return (
-    <form id={id} onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-
+    <form id={id} onSubmit={handleSubmit(onSubmit)} className="space-y-5 relative">
       {/* ── Nama ── */}
       <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-zinc-700">Nama Produk <span className="text-red-500">*</span></Label>
-        <Input placeholder="Arabica Gayo, Full Arabica 250g, dll." className="h-9" {...register("name")} />
-        {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Nama Produk <span className="text-red-500">*</span></Label>
+        <Input placeholder="Arabica Gayo, Full Arabica 250g, dll." className={cn("h-9 font-medium", glassInput)} {...register("name")} />
+        {errors.name && <p className="text-[10px] text-red-500 font-medium pt-0.5">{errors.name.message}</p>}
       </div>
 
       {/* ── Tipe ── */}
       <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-zinc-700">Tipe Produk <span className="text-red-500">*</span></Label>
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Tipe Produk <span className="text-red-500">*</span></Label>
         <Controller
           control={control}
           name="type"
           render={({ field }) => (
             <Select value={field.value} onValueChange={(v) => v && field.onChange(v)} disabled={isEditMode}>
-              <SelectTrigger className="h-9 w-full text-sm">
+              <SelectTrigger className={cn("h-9 w-full text-sm", glassInput)}>
                 <SelectValue placeholder="Pilih tipe..." />
               </SelectTrigger>
               <SelectContent>
@@ -184,28 +193,28 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
           )}
         />
         {isEditMode && (
-          <p className="text-[11px] text-zinc-400 flex items-center gap-1">
-            <Info size={10} /> Tipe tidak dapat diubah setelah produk dibuat.
+          <p className="text-[10px] font-medium text-slate-500 flex items-center gap-1 pt-0.5">
+            <Info size={12} className="opacity-70" /> Tipe tidak dapat diubah setelah produk dibuat.
           </p>
         )}
       </div>
 
       {/* ── Origin ── */}
       <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-zinc-700">Origin / Asal</Label>
-        <Input placeholder="Gayo, Toraja, Ethiopia, dll." className="h-9" {...register("origin")} />
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Origin / Asal</Label>
+        <Input placeholder="Gayo, Toraja, Ethiopia, dll." className={cn("h-9", glassInput)} {...register("origin")} />
       </div>
 
       {/* ── Roast Level (ROASTED_BEAN only) ── */}
       {selectedType === "ROASTED_BEAN" && (
         <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-zinc-700">Tingkat Roast</Label>
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Tingkat Roast</Label>
           <Controller
             control={control}
             name="roastLevel"
             render={({ field }) => (
               <Select value={field.value ?? ""} onValueChange={(v) => field.onChange(v || null)}>
-                <SelectTrigger className="h-9 w-full text-sm">
+                <SelectTrigger className={cn("h-9 w-full text-sm", glassInput)}>
                   <SelectValue placeholder="Pilih tingkat roast..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -221,23 +230,46 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
 
       {/* ── Deskripsi ── */}
       <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-zinc-700">Deskripsi (opsional)</Label>
-        <Input placeholder="Tasting notes, karakteristik, dll." className="h-9" {...register("description")} />
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Deskripsi (opsional)</Label>
+        <Input placeholder="Tasting notes, karakteristik, dll." className={cn("h-9", glassInput)} {...register("description")} />
       </div>
+
+      {/* ── Harga Jual (FINISHED_GOODS only) ── */}
+      {selectedType === "FINISHED_GOODS" && (
+        <div className={cn(glassCard, "space-y-4")}>
+          <h3 className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Harga Jual (Tiered Pricing)</h3>
+          
+          <div className="space-y-1.5">
+            <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Harga Retail (Eceran)</Label>
+            <Input type="number" placeholder="0" className={cn("h-9 font-semibold", glassInput)} {...register("price", { valueAsNumber: true })} />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Harga Grosir Silver</Label>
+              <Input type="number" placeholder="0" className={cn("h-9", glassInput)} {...register("priceSilver", { valueAsNumber: true })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Harga Grosir Gold</Label>
+              <Input type="number" placeholder="0" className={cn("h-9", glassInput)} {...register("priceGold", { valueAsNumber: true })} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Status (edit mode only) ── */}
       {isEditMode && (
         <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-zinc-700">Status</Label>
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Status</Label>
           <Controller
             control={control}
             name="isActive"
             render={({ field }) => (
               <div className="flex gap-2">
-                {[{ v: true, label: "Aktif", cls: "bg-emerald-50 border-emerald-300 text-emerald-700" }, { v: false, label: "Nonaktif", cls: "bg-zinc-100 border-zinc-300 text-zinc-500" }].map(({ v, label, cls }) => (
+                {[{ v: true, label: "Aktif", cls: "border-slate-800 bg-slate-800 text-white shadow-md ring-2 ring-slate-800/20 ring-offset-1" }, { v: false, label: "Nonaktif", cls: "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60" }].map(({ v, label, cls }) => (
                   <button key={String(v)} type="button" onClick={() => field.onChange(v)}
-                    className={["flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all",
-                      field.value === v ? cls : "border-zinc-200 bg-white text-zinc-400 hover:border-zinc-300"].join(" ")}>
+                    className={cn("flex-1 rounded-xl border py-2 text-xs font-bold transition-all shadow-sm",
+                      field.value === v ? cls : "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60")}>
                     {label}
                   </button>
                 ))}
@@ -251,24 +283,24 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
           RECIPE SECTION — hanya untuk FINISHED_GOODS
           ================================================================ */}
       {isFG && (
-        <div className="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50/60 p-4">
+        <div className={cn(glassCard, "space-y-5")}>
           {/* Section header */}
           <div className="flex items-center gap-2">
-            <FlaskConical size={14} className="text-violet-600" />
-            <h3 className="text-sm font-semibold text-zinc-700">Resep Produksi</h3>
-            <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium text-zinc-500">opsional</span>
+            <FlaskConical size={16} className="text-violet-500 drop-shadow-sm" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Resep Produksi</h3>
+            <span className="rounded-full bg-white/50 border border-white/60 px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-slate-500 shadow-sm">opsional</span>
           </div>
 
           {/* Packaging + Output grams — 2 col */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-zinc-600">Kemasan Default</Label>
+              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Kemasan Default</Label>
               <Controller
                 control={control}
                 name="recipePackagingId"
                 render={({ field }) => (
                   <Select value={field.value ?? ""} onValueChange={(v) => field.onChange(v || "")}>
-                    <SelectTrigger className="h-9 w-full text-sm bg-white">
+                    <SelectTrigger className={cn("h-9 w-full text-sm", glassInput)}>
                       <SelectValue placeholder="Pilih kemasan..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -281,49 +313,60 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-zinc-600">Output (gram / unit)</Label>
+              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Output (gram / unit)</Label>
               <Input
                 type="number" min="1" step="1" placeholder="250"
-                className="h-9 bg-white text-sm"
+                className={cn("h-9 font-semibold tabular-nums", glassInput)}
                 {...register("recipeOutputGrams", { valueAsNumber: true })}
               />
             </div>
           </div>
 
           {/* Recipe items */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-medium text-zinc-600">Komposisi Bahan (Roasted Bean)</Label>
+              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Komposisi Bahan (Roasted Bean)</Label>
               {fields.length > 0 && recipeOutputGrams > 0 && (
-                <span className={`text-[11px] font-medium ${Math.abs(totalGrams - recipeOutputGrams) < 0.01 ? "text-emerald-600" : "text-amber-600"}`}>
+                <span className={`text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full border ${Math.abs(totalGrams - recipeOutputGrams) < 0.01 ? "bg-emerald-50/50 border-emerald-200 text-emerald-700" : "bg-amber-50/50 border-amber-200 text-amber-700"}`}>
                   Total: {totalGrams}g / {recipeOutputGrams}g
                 </span>
               )}
             </div>
 
             {fields.length === 0 && (
-              <p className="text-[11px] text-zinc-400 py-1">
+              <p className="text-xs text-slate-400 font-medium py-2">
                 Belum ada bahan. Klik "+ Tambah Bahan" untuk menambahkan komposisi.
               </p>
             )}
 
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               {fields.map((field, index) => (
-                <div key={field.id} className="flex items-center gap-2">
+                <div key={field.id} className="relative flex flex-wrap sm:flex-nowrap items-start gap-4 rounded-xl border border-white/60 bg-white/40 backdrop-blur-md p-4 shadow-sm hover:shadow transition-all group">
+                  
+                  {/* Remove (absolute hover) */}
+                  <button
+                    type="button"
+                    onClick={() => remove(index)}
+                    className="absolute -top-3 -right-2 bg-white text-red-500 border border-white/60 rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 shadow-sm z-10"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                  
                   {/* RB selector */}
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-[150px] space-y-1">
+                    <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Roasted Bean</Label>
                     <Controller
                       control={control}
                       name={`recipeItems.${index}.rbProductId`}
                       render={({ field: f }) => (
                         <Select value={f.value ?? ""} onValueChange={(v) => f.onChange(v || "")}>
-                          <SelectTrigger className="h-8 w-full text-xs bg-white">
+                          <SelectTrigger className={cn("h-9 w-full text-xs font-medium", glassInput)}>
                             <SelectValue placeholder="Pilih Roasted Bean..." />
                           </SelectTrigger>
                           <SelectContent>
                             {roastedBeans.map((rb) => (
                               <SelectItem key={rb.id} value={rb.id}>
-                                {rb.name} <span className="text-zinc-400">({rb.code})</span>
+                                {rb.name} <span className="text-slate-400">({rb.code})</span>
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -331,50 +374,47 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
                       )}
                     />
                   </div>
+
                   {/* Grams */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Input
-                      type="number" min="0.1" step="0.1" placeholder="0"
-                      className="h-8 w-20 text-right text-xs bg-white"
-                      {...register(`recipeItems.${index}.gramsPerUnit`, { valueAsNumber: true })}
-                    />
-                    <span className="text-[11px] text-zinc-400 w-4">g</span>
+                  <div className="w-28 shrink-0 space-y-1">
+                    <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Gramasi</Label>
+                    <div className="relative flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          type="number" min="0.1" step="0.1" placeholder="0"
+                          className={cn("h-9 text-right tabular-nums text-sm font-semibold pr-6", glassInput)}
+                          {...register(`recipeItems.${index}.gramsPerUnit`, { valueAsNumber: true })}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">g</span>
+                      </div>
+                      
+                      {/* Ratio preview */}
+                      {recipeOutputGrams > 0 && (
+                        <span className="w-10 shrink-0 text-right text-[11px] font-bold text-slate-400 tabular-nums">
+                          {recipeOutputGrams > 0
+                            ? `${((Number(recipeItems[index]?.gramsPerUnit) || 0) / recipeOutputGrams * 100).toFixed(0)}%`
+                            : ""}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {/* Ratio preview */}
-                  {recipeOutputGrams > 0 && (
-                    <span className="w-10 shrink-0 text-right text-[11px] text-zinc-400 tabular-nums">
-                      {recipeOutputGrams > 0
-                        ? `${((Number(recipeItems[index]?.gramsPerUnit) || 0) / recipeOutputGrams * 100).toFixed(0)}%`
-                        : ""}
-                    </span>
-                  )}
-                  {/* Remove */}
-                  <button
-                    type="button"
-                    onClick={() => remove(index)}
-                    className="shrink-0 rounded p-1 text-zinc-300 hover:bg-red-50 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 size={13} />
-                  </button>
                 </div>
               ))}
             </div>
 
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               onClick={() => append({ rbProductId: "", gramsPerUnit: 0 })}
-              className="h-7 gap-1 text-xs text-zinc-600 border-dashed border-zinc-300"
+              className="flex w-fit items-center gap-1 rounded-lg border border-white/60 bg-white/30 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-white/50 transition-colors shadow-sm"
             >
-              <Plus size={11} /> Tambah Bahan
-            </Button>
+              <Plus size={14} /> Tambah Bahan
+            </button>
           </div>
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-zinc-600">Catatan Resep (opsional)</Label>
-            <Input placeholder="Instruksi, variasi, dll." className="h-8 bg-white text-sm" {...register("recipeNotes")} />
+            <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Catatan Resep (opsional)</Label>
+            <Input placeholder="Instruksi, variasi, dll." className={cn("h-9", glassInput)} {...register("recipeNotes")} />
           </div>
         </div>
       )}

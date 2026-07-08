@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { getSystemUserId } from "@/lib/auth";
 
 // =============================================================================
 // TYPES — semua Decimal dikonversi ke number agar bisa di-serialize ke client
@@ -27,6 +28,15 @@ export type PackagingStockRow = {
   stockUnit: number;
 };
 
+export type FGStockRow = {
+  id: string;
+  code: string;
+  name: string;
+  type: "FINISHED_GOODS";
+  stockUnit: number;
+  latestHppPerUnit: number | null;
+};
+
 export type SupplierOption = {
   id: string;
   code: string;
@@ -43,6 +53,7 @@ export type InventoryPageData = {
   gbStocks: ProductStockRow[];
   rbStocks: ProductStockRow[];
   pkgStocks: PackagingStockRow[];
+  fgStocks: FGStockRow[];
   suppliers: SupplierOption[];
   gbProducts: GBProductOption[];
 };
@@ -77,21 +88,6 @@ export type ActionResult =
 // HELPERS
 // =============================================================================
 
-/** Upsert system user untuk dev (sebelum auth diimplementasi). */
-async function getSystemUserId(): Promise<string> {
-  const user = await prisma.user.upsert({
-    where: { email: "system@ros.internal" },
-    create: {
-      name: "System",
-      email: "system@ros.internal",
-      password: "",
-      role: "OWNER",
-    },
-    update: {},
-    select: { id: true },
-  });
-  return user.id;
-}
 
 /** Generate kode Purchase: PUR-YYYYMM-NNN */
 async function generatePurchaseCode(): Promise<string> {
@@ -198,17 +194,55 @@ async function fetchPackagingStocks(): Promise<PackagingStockRow[]> {
   });
 }
 
+async function fetchFGStocks(): Promise<FGStockRow[]> {
+  const products = await prisma.product.findMany({
+    where: { type: "FINISHED_GOODS", isActive: true },
+    include: {
+      ledgerEntries: {
+        select: { entryType: true, quantityUnit: true },
+      },
+      productionBatches: {
+        where: { status: "COMPLETED" },
+        orderBy: { producedAt: "desc" },
+        take: 1,
+        select: { hppPerUnit: true },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return products.map((p) => {
+    const stockUnit = p.ledgerEntries.reduce((sum, e) => {
+      const qty = Number(e.quantityUnit ?? 0);
+      return e.entryType === "IN" ? sum + qty : sum - qty;
+    }, 0);
+
+    const latestHppPerUnit = p.productionBatches[0] 
+      ? Number(p.productionBatches[0].hppPerUnit) 
+      : null;
+
+    return {
+      id: p.id,
+      code: p.code,
+      name: p.name,
+      type: "FINISHED_GOODS",
+      stockUnit,
+      latestHppPerUnit,
+    };
+  });
+}
+
 // =============================================================================
 // PUBLIC SERVER ACTIONS
 // =============================================================================
 
-/** Ambil semua data yang dibutuhkan halaman Inventory. */
 export async function getInventoryPageData(): Promise<InventoryPageData> {
-  const [gbStocks, rbStocks, pkgStocks, suppliers, gbProducts] =
+  const [gbStocks, rbStocks, pkgStocks, fgStocks, suppliers, gbProducts] =
     await Promise.all([
       fetchProductStocks("GREEN_BEAN"),
       fetchProductStocks("ROASTED_BEAN"),
       fetchPackagingStocks(),
+      fetchFGStocks(),
       prisma.supplier.findMany({
         where: { isActive: true },
         select: { id: true, code: true, name: true },
@@ -221,7 +255,7 @@ export async function getInventoryPageData(): Promise<InventoryPageData> {
       }),
     ]);
 
-  return { gbStocks, rbStocks, pkgStocks, suppliers, gbProducts };
+  return { gbStocks, rbStocks, pkgStocks, fgStocks, suppliers, gbProducts };
 }
 
 // Tambah packaging options ke page data helper
@@ -416,5 +450,63 @@ export async function createPackaging(data: {
       success: false as const, 
       error: "Gagal menyimpan kemasan. Pastikan kode kemasan unik dan belum digunakan." 
     };
+  }
+}
+// =============================================================================
+// STOCK OPNAME (ADJUSTMENT)
+// =============================================================================
+
+export async function adjustStock(input: {
+  targetId: string;
+  isPackaging: boolean;
+  type: "IN" | "OUT";
+  quantity: number;
+  notes: string;
+}) {
+  try {
+    const userId = await getSystemUserId();
+    
+    // Validasi input
+    if (input.quantity <= 0) {
+      throw new Error("Kuantitas penyesuaian harus lebih dari 0");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      let qtyKg: number | null = null;
+      let qtyUnit: number | null = null;
+      let refType: "ADJUSTMENT_IN" | "ADJUSTMENT_OUT" = input.type === "IN" ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT";
+
+      if (input.isPackaging) {
+        qtyUnit = input.quantity;
+      } else {
+        const prod = await tx.product.findUnique({ where: { id: input.targetId } });
+        if (!prod) throw new Error("Produk tidak ditemukan");
+        if (prod.type === "FINISHED_GOODS") {
+          qtyUnit = input.quantity;
+        } else {
+          qtyKg = input.quantity;
+        }
+      }
+
+      await tx.inventoryLedger.create({
+        data: {
+          productId:   input.isPackaging ? null : input.targetId,
+          packagingId: input.isPackaging ? input.targetId : null,
+          entryType:   input.type,
+          refType,
+          refId:       "OPNAME-" + Date.now(),
+          quantityKg:  qtyKg,
+          quantityUnit: qtyUnit,
+          notes:       input.notes || "Penyesuaian stok fisik (Opname)",
+          createdById: userId,
+        }
+      });
+    });
+
+    revalidatePath("/inventory");
+    return { success: true };
+  } catch (err) {
+    console.error("[adjustStock]", err);
+    return { success: false, error: err instanceof Error ? err.message : "Terjadi kesalahan." };
   }
 }

@@ -17,6 +17,7 @@ export type SupplierRow = {
 export type CustomerRow = {
   id: string; code: string; name: string; phone: string | null;
   email: string | null; address: string | null; isActive: boolean;
+  tier: "RETAIL" | "WHOLESALE_SILVER" | "WHOLESALE_GOLD";
   createdAt: string; invoiceCount: number;
 };
 
@@ -42,9 +43,12 @@ export type ProductRecipe = {
 
 export type ProductRow = {
   id: string; code: string; name: string;
-  type: "GREEN_BEAN" | "ROASTED_BEAN" | "FINISHED_GOODS";
+  type: "GREEN_BEAN" | "ROASTED_BEAN" | "FINISHED_GOODS" | "PACKAGING";
   origin: string | null; roastLevel: string | null; description: string | null;
   isActive: boolean; createdAt: string;
+  price: number;
+  priceSilver: number;
+  priceGold: number;
   recipe: ProductRecipe | null;
 };
 
@@ -66,27 +70,64 @@ export async function getMasterData(): Promise<MasterPageData> {
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { purchases: true } } },
     }),
+
     prisma.customer.findMany({
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { invoices: true } } },
     }),
-    prisma.product.findMany({
-      orderBy: [{ type: "asc" }, { name: "asc" }],
-      include: {
-        recipes: {
-          where:   { isActive: true },
-          include: { items: true },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-        },
+
+    // ✅ QUERY PRODUCT YANG SUDAH DIPERBAIKI
+ prisma.product.findMany({
+  orderBy: [{ type: "asc" }, { name: "asc" }],
+  select: {
+    id: true,
+    code: true,
+    name: true,
+    type: true,
+    origin: true,
+    roastLevel: true,
+    description: true,
+    isActive: true,
+    createdAt: true,
+    price: true,
+    priceSilver: true,
+    priceGold: true,
+    recipes: {
+      where: { isActive: true },
+      select: {
+        id: true,
+        packagingId: true,
+        outputGrams: true,
+        notes: true,
+        items: {
+          select: {
+            id: true,
+            productId: true,
+            gramsPerUnit: true,
+            ratioPercent: true,
+          }
+        }
       },
-    }),
+      orderBy: { createdAt: "desc" },
+      take: 1,
+    },
+  },
+}),
+
     prisma.packaging.findMany({
       orderBy: { name: "asc" },
     }),
+
     prisma.user.findMany({
       orderBy: { createdAt: "desc" },
-      select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+      select: { 
+        id: true, 
+        name: true, 
+        email: true, 
+        role: true, 
+        isActive: true, 
+        createdAt: true 
+      },
     }),
   ]);
 
@@ -96,28 +137,39 @@ export async function getMasterData(): Promise<MasterPageData> {
       address: s.address, region: s.region, isActive: s.isActive,
       createdAt: s.createdAt.toISOString(), purchaseCount: s._count.purchases,
     })),
+
     customers: customers.map((c) => ({
       id: c.id, code: c.code, name: c.name, phone: c.phone,
       email: c.email, address: c.address, isActive: c.isActive,
-      createdAt: c.createdAt.toISOString(), invoiceCount: c._count.invoices,
+      tier: c.tier as CustomerRow["tier"],
+      createdAt: c.createdAt.toISOString(),
+      invoiceCount: c._count.invoices,
     })),
+
     products: products.map((p) => {
       const r = p.recipes[0] ?? null;
       return {
-        id: p.id, code: p.code, name: p.name,
+        id: p.id,
+        code: p.code,
+        name: p.name,
         type: p.type as ProductRow["type"],
-        origin: p.origin, roastLevel: p.roastLevel,
-        description: p.description, isActive: p.isActive,
+        origin: p.origin,
+        roastLevel: p.roastLevel,
+        description: p.description,
+        isActive: p.isActive,
+        price: p.price ? Number(p.price) : 0,
+        priceSilver: p.priceSilver ? Number(p.priceSilver) : 0,
+        priceGold: p.priceGold ? Number(p.priceGold) : 0,
         createdAt: p.createdAt.toISOString(),
         recipe: r
           ? {
-              id:          r.id,
+              id: r.id,
               packagingId: r.packagingId,
               outputGrams: Number(r.outputGrams),
-              notes:       r.notes,
+              notes: r.notes,
               items: r.items.map((i) => ({
-                id:           i.id,
-                rbProductId:  i.productId,
+                id: i.id,
+                rbProductId: i.productId,
                 gramsPerUnit: Number(i.gramsPerUnit),
                 ratioPercent: Number(i.ratioPercent),
               })),
@@ -125,12 +177,16 @@ export async function getMasterData(): Promise<MasterPageData> {
           : null,
       };
     }),
+
     packagings: packagings.map((pkg) => ({
-      id: pkg.id, code: pkg.code, name: pkg.name,
+      id: pkg.id, 
+      code: pkg.code, 
+      name: pkg.name,
       weightGrams: Number(pkg.weightGrams),
       costPerUnit: Number(pkg.costPerUnit),
-      isActive:    pkg.isActive,
+      isActive: pkg.isActive,
     })),
+
     users: users.map((user) => ({
       id: user.id,
       name: user.name,
@@ -141,6 +197,8 @@ export async function getMasterData(): Promise<MasterPageData> {
     })),
   };
 }
+
+// ... (bagian bawah file tetap sama, tidak ada perubahan)
 
 // =============================================================================
 // SHARED
@@ -204,6 +262,7 @@ export async function updateSupplier(input: UpdateSupplierInput): Promise<Action
 
 export type CreateCustomerInput = {
   name: string; phone?: string; email?: string; address?: string;
+  tier?: "RETAIL" | "WHOLESALE_SILVER" | "WHOLESALE_GOLD";
 };
 
 export async function createCustomer(input: CreateCustomerInput): Promise<ActionResult> {
@@ -213,7 +272,8 @@ export async function createCustomer(input: CreateCustomerInput): Promise<Action
     const code  = `CST-${String(count + 1).padStart(3, "0")}`;
     await prisma.customer.create({
       data: { code, name: input.name.trim(), phone: input.phone?.trim() || null,
-              email: input.email?.trim() || null, address: input.address?.trim() || null },
+              email: input.email?.trim() || null, address: input.address?.trim() || null,
+              tier: input.tier || "RETAIL" },
     });
     revalidatePath("/master-data"); revalidatePath("/penjualan");
     return { success: true, code };
@@ -236,6 +296,7 @@ export async function updateCustomer(input: UpdateCustomerInput): Promise<Action
       where: { id: input.id },
       data: { name: input.name.trim(), phone: input.phone?.trim() || null,
               email: input.email?.trim() || null, address: input.address?.trim() || null,
+              tier: input.tier || "RETAIL",
               isActive: input.isActive },
     });
     revalidatePath("/master-data"); revalidatePath("/penjualan");
@@ -366,6 +427,9 @@ export type CreateProductInput = {
   origin?:      string;
   roastLevel?:  "LIGHT" | "MEDIUM" | "MEDIUM_DARK" | "DARK" | null;
   description?: string;
+  price?:       number; // Harga jual retail
+  priceSilver?: number; // Harga jual Wholesale Silver
+  priceGold?:   number; // Harga jual Wholesale Gold
   recipe?:      RecipeInput;
 };
 
@@ -401,6 +465,9 @@ export async function createProduct(input: CreateProductInput): Promise<ActionRe
           origin:      input.origin?.trim()      || null,
           roastLevel:  input.type === "ROASTED_BEAN" ? (input.roastLevel ?? null) : null,
           description: input.description?.trim() || null,
+          price:       input.type === "FINISHED_GOODS" ? (input.price ?? 0) : null,
+          priceSilver: input.type === "FINISHED_GOODS" ? (input.priceSilver ?? 0) : null,
+          priceGold:   input.type === "FINISHED_GOODS" ? (input.priceGold ?? 0) : null,
         },
       });
 
@@ -454,6 +521,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<ActionRe
     if (!existing) return { success: false, error: "Produk tidak ditemukan." };
 
     await prisma.$transaction(async (tx) => {
+      // ✅ DITAMBAHKAN: Data price dikirim untuk update
       await tx.product.update({
         where: { id: input.id },
         data: {
@@ -462,6 +530,9 @@ export async function updateProduct(input: UpdateProductInput): Promise<ActionRe
           roastLevel:  existing.type === "ROASTED_BEAN" ? (input.roastLevel ?? null) : null,
           description: input.description?.trim() || null,
           isActive:    input.isActive,
+          price:       existing.type === "FINISHED_GOODS" && input.price !== undefined ? input.price : undefined,
+          priceSilver: existing.type === "FINISHED_GOODS" && input.priceSilver !== undefined ? input.priceSilver : undefined,
+          priceGold:   existing.type === "FINISHED_GOODS" && input.priceGold !== undefined ? input.priceGold : undefined,
         },
       });
 

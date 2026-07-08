@@ -13,12 +13,16 @@ export type CustomerOption = {
   code: string;
   name: string;
   phone: string | null;
+  tier: "RETAIL" | "WHOLESALE_SILVER" | "WHOLESALE_GOLD";
 };
 
 export type FGStockOption = {
   id: string;
   code: string;
   name: string;
+  price: number;
+  priceSilver: number;
+  priceGold: number;
   stockUnit: number;
   lastHppPerUnit: number | null;
 };
@@ -115,12 +119,12 @@ export async function getSalesPageData(): Promise<SalesPageData> {
     prisma.customer.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
-      select: { id: true, code: true, name: true, phone: true },
+      select: { id: true, code: true, name: true, phone: true, tier: true },
     }),
     prisma.product.findMany({
       where: { type: "FINISHED_GOODS", isActive: true },
       orderBy: { name: "asc" },
-      select: { id: true, code: true, name: true },
+      select: { id: true, code: true, name: true, price: true, priceSilver: true, priceGold: true },
     }),
   ]);
 
@@ -139,6 +143,9 @@ export async function getSalesPageData(): Promise<SalesPageData> {
         id: p.id,
         code: p.code,
         name: p.name,
+        price: Number(p.price) || 0,
+        priceSilver: Number(p.priceSilver) || 0,
+        priceGold: Number(p.priceGold) || 0,
         stockUnit,
         lastHppPerUnit: lastBatch ? Number(lastBatch.hppPerUnit) : null,
       };
@@ -162,7 +169,7 @@ export async function getSalesPageData(): Promise<SalesPageData> {
     };
   });
 
-  return { invoices, customers, fgOptions };
+  return { invoices, customers: customers as CustomerOption[], fgOptions };
 }
 
 // =============================================================================

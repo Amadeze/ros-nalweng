@@ -6,6 +6,7 @@ import { z } from "zod";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +45,9 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+const glassInput = "bg-white/40 border-white/60 backdrop-blur-md transition-all focus:bg-white/60 focus:border-white/80";
+const glassCard = "rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl p-4 shadow-sm";
+
 // =============================================================================
 // Field helpers
 // =============================================================================
@@ -80,31 +84,27 @@ function HppSummary({
   const pkg = packagingOptions.find((p) => p.id === packagingId);
 
   // Simplified HPP preview (tidak bisa hitung HPP RB yang akurat di client karena butuh DB;
-  // tampilkan total komponen saja sebagai konfirmasi bahan)
   return (
-    <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-3 space-y-2">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
+    <div className={cn(glassCard, "p-4 space-y-3 mt-4")}>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
         Ringkasan Produksi
       </p>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        <span className="text-zinc-500">Unit diproduksi</span>
-        <span className="font-semibold text-zinc-900 text-right">{formatUnit(unitsProduced)}</span>
-        <span className="text-zinc-500">Total RB digunakan</span>
-        <span className="font-semibold text-zinc-900 text-right">{formatKg(totalRbGrams / 1000)}</span>
-        <span className="text-zinc-500">Rata-rata RB/unit</span>
-        <span className="font-semibold text-zinc-900 text-right">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm font-medium">
+        <span className="text-slate-600">Unit diproduksi</span>
+        <span className="font-semibold text-slate-900 text-right">{formatUnit(unitsProduced)}</span>
+        <span className="text-slate-600">Total RB digunakan</span>
+        <span className="font-semibold text-slate-900 text-right">{formatKg(totalRbGrams / 1000)}</span>
+        <span className="text-slate-600">Rata-rata RB/unit</span>
+        <span className="font-semibold text-slate-900 text-right">
           {unitsProduced > 0
             ? `${(totalRbGrams / unitsProduced).toFixed(1)} g`
             : "—"}
         </span>
         {pkg && (
           <>
-            <span className="text-zinc-500">Kemasan</span>
-            <span className="font-semibold text-zinc-900 text-right">{pkg.name}</span>
-            <span className="text-zinc-500">Stok kemasan tersedia</span>
-            <span className={`font-semibold text-right ${pkg.stockUnit < unitsProduced ? "text-red-600" : "text-zinc-900"}`}>
-              {formatUnit(pkg.stockUnit)}
-              {pkg.stockUnit < unitsProduced && " ⚠"}
+            <span className="text-slate-600">Kemasan digunakan</span>
+            <span className="font-semibold text-slate-900 text-right text-xs mt-0.5">
+              1 unit {pkg.name} / unit FG
             </span>
           </>
         )}
@@ -254,12 +254,11 @@ export function ProductionForm({
   const selectedFG = fgOptions.find((f) => f.id === outputProductId);
 
   return (
-    <form id={id} onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-
-      {/* ── Produk Jadi ── */}
+    <form id={id} onSubmit={handleSubmit(onSubmit)} className="space-y-5 relative">
+      {/* ── Pilih FG ── */}
       <FieldGroup>
-        <Label className="text-xs font-medium text-zinc-700">
-          Produk Jadi (SKU) <span className="text-red-500">*</span>
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+          Produk Akhir (Finished Goods) <span className="text-red-500">*</span>
         </Label>
         <Controller
           control={control}
@@ -269,7 +268,7 @@ export function ProductionForm({
               value={field.value}
               onValueChange={(val: string | null) => field.onChange(val ?? "")}
             >
-              <SelectTrigger className="w-full h-9">
+              <SelectTrigger className={cn("w-full h-9", glassInput)}>
                 <SelectValue placeholder="Pilih SKU Finished Goods..." />
               </SelectTrigger>
               <SelectContent>
@@ -280,7 +279,7 @@ export function ProductionForm({
                     <SelectItem key={fg.id} value={fg.id}>
                       {fg.name}
                       {fg.recipe && (
-                        <span className="ml-1 text-zinc-400">✓ resep</span>
+                        <span className="ml-1 text-slate-400">✓ resep</span>
                       )}
                     </SelectItem>
                   ))
@@ -304,7 +303,7 @@ export function ProductionForm({
 
       {/* ── Jumlah Unit ── */}
       <FieldGroup>
-        <Label className="text-xs font-medium text-zinc-700">
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
           Jumlah Unit Diproduksi <span className="text-red-500">*</span>
         </Label>
         <Input
@@ -312,26 +311,26 @@ export function ProductionForm({
           step="1"
           min="1"
           placeholder="1"
-          className="h-9 tabular-nums"
+          className={cn("h-9 tabular-nums font-semibold", glassInput)}
           {...register("unitsProduced", { valueAsNumber: true })}
         />
         <FieldError message={errors.unitsProduced?.message} />
       </FieldGroup>
 
-      <Separator className="bg-zinc-100" />
+      <Separator className="bg-white/50" />
 
       {/* ── Komponen Roasted Bean ── */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <Label className="text-xs font-medium text-zinc-700">
+        <div className="flex items-center justify-between mb-3">
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
             Komponen Roasted Bean <span className="text-red-500">*</span>
           </Label>
           <button
             type="button"
             onClick={() => append({ productId: "", productName: "", actualGrams: 0 })}
-            className="flex items-center gap-1 rounded-md border border-zinc-200 px-2 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+            className="flex items-center gap-1 rounded-lg border border-white/60 bg-white/30 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-white/50 transition-colors shadow-sm"
           >
-            <Plus size={11} /> Tambah
+            <Plus size={14} /> Tambah
           </button>
         </div>
 
@@ -349,10 +348,23 @@ export function ProductionForm({
             return (
               <div
                 key={field.id}
-                className="flex items-start gap-2 rounded-lg border border-zinc-100 bg-zinc-50 p-3"
+                className="relative flex flex-wrap sm:flex-nowrap items-start gap-4 rounded-xl border border-white/60 bg-white/40 backdrop-blur-md p-4 shadow-sm hover:shadow transition-all group"
               >
+                {/* Delete button (absolute top right) */}
+                {fields.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => remove(index)}
+                    className="absolute -top-3 -right-2 bg-white text-red-500 border border-white/60 rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 shadow-sm z-10"
+                    title="Hapus Komponen"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+
                 {/* Pilih RB */}
-                <div className="flex-1 space-y-1">
+                <div className="flex-1 min-w-[200px] space-y-1">
+                  <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Roasted Bean</Label>
                   <Controller
                     control={control}
                     name={`rbComponents.${index}.productId`}
@@ -366,7 +378,7 @@ export function ProductionForm({
                           setValue(`rbComponents.${index}.productName`, rb?.name ?? "");
                         }}
                       >
-                        <SelectTrigger className="h-8 bg-white text-xs">
+                        <SelectTrigger className={cn("h-9 text-xs font-medium", glassInput)}>
                           <SelectValue placeholder="Pilih Roasted Bean..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -378,7 +390,7 @@ export function ProductionForm({
                                 {r.name}
                                 {r.roastLevel ? ` · ${r.roastLevel.replace("_", " ")}` : ""}
                                 {" "}
-                                <span className="text-zinc-400">({formatKg(r.stockKg)})</span>
+                                <span className="text-slate-400 font-normal">({formatKg(r.stockKg)})</span>
                               </SelectItem>
                             ))
                           )}
@@ -387,7 +399,7 @@ export function ProductionForm({
                     )}
                   />
                   {selectedRB && (
-                    <p className={`text-[10px] ${isOverStock ? "text-red-500" : "text-zinc-400"}`}>
+                    <p className={`text-[10px] font-medium pt-1 ${isOverStock ? "text-red-500" : "text-slate-500"}`}>
                       Stok: {formatKg(selectedRB.stockKg)}
                       {isOverStock && " — ⚠ melebihi stok"}
                     </p>
@@ -395,39 +407,31 @@ export function ProductionForm({
                 </div>
 
                 {/* Gram input */}
-                <div className="w-28 space-y-1">
-                  <Input
-                    type="number"
-                    step="1"
-                    min="0"
-                    placeholder="gram"
-                    className="h-8 bg-white text-right tabular-nums text-sm"
-                    {...register(`rbComponents.${index}.actualGrams`, { valueAsNumber: true })}
-                  />
-                  <p className="text-[10px] text-zinc-400 text-right">gram</p>
+                <div className="w-32 shrink-0 space-y-1">
+                  <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Gramasi</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step="1"
+                      min="0"
+                      placeholder="0"
+                      className={cn("h-9 text-right tabular-nums text-sm font-semibold pr-10", glassInput)}
+                      {...register(`rbComponents.${index}.actualGrams`, { valueAsNumber: true })}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">g</span>
+                  </div>
                 </div>
-
-                {/* Hapus baris */}
-                {fields.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => remove(index)}
-                    className="mt-1 rounded-md p-1.5 text-zinc-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      <Separator className="bg-zinc-100" />
+      <Separator className="bg-white/50" />
 
       {/* ── Kemasan ── */}
       <FieldGroup>
-        <Label className="text-xs font-medium text-zinc-700">
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
           Kemasan <span className="text-red-500">*</span>
         </Label>
         <Controller
@@ -438,7 +442,7 @@ export function ProductionForm({
               value={field.value}
               onValueChange={(val: string | null) => field.onChange(val ?? "")}
             >
-              <SelectTrigger className="w-full h-9">
+              <SelectTrigger className={cn("w-full h-9 font-medium", glassInput)}>
                 <SelectValue placeholder="Pilih kemasan..." />
               </SelectTrigger>
               <SelectContent>
@@ -449,7 +453,7 @@ export function ProductionForm({
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
                       {" "}
-                      <span className="text-zinc-400">
+                      <span className="text-slate-400 font-normal">
                         ({formatUnit(p.stockUnit)} · {formatRupiah(p.costPerUnit)}/pcs)
                       </span>
                     </SelectItem>
@@ -473,11 +477,11 @@ export function ProductionForm({
 
       {/* ── Catatan ── */}
       <FieldGroup>
-        <Label className="text-xs font-medium text-zinc-700">Catatan (opsional)</Label>
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Catatan (opsional)</Label>
         <Textarea
           placeholder="Batch notes, variasi blend, dll."
-          rows={2}
-          className="resize-none text-sm"
+          rows={3}
+          className={cn("resize-none text-sm", glassInput)}
           {...register("notes")}
         />
       </FieldGroup>

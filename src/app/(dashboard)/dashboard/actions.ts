@@ -23,6 +23,17 @@ export type LowStockItem = {
   threshold: number;
 };
 
+export type RevenueTrend = {
+  date: string;
+  revenue: number;
+};
+
+export type TopProduct = {
+  id: string;
+  name: string;
+  sold: number;
+};
+
 export type ActivityItem = {
   id:          string;
   type:        "PURCHASE" | "ROASTING" | "PRODUCTION" | "SALE";
@@ -34,10 +45,12 @@ export type ActivityItem = {
 };
 
 export type DashboardData = {
-  kpi:       DashboardKpi;
-  lowStock:  LowStockItem[];
-  activity:  ActivityItem[];
-  asOf:      string; // ISO — untuk "last refreshed" label
+  kpi:          DashboardKpi;
+  revenueTrend: RevenueTrend[];
+  topProducts:  TopProduct[];
+  lowStock:     LowStockItem[];
+  activity:     ActivityItem[];
+  asOf:         string; // ISO
 };
 
 // ── Thresholds untuk peringatan stok tipis ──
@@ -57,6 +70,9 @@ export async function getDashboardData(): Promise<DashboardData> {
   const now          = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const endOfToday   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  
+  const sevenDaysAgo = new Date(startOfToday);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
 
   // ── All queries fire in parallel ──
   const [
@@ -72,6 +88,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     recentRoastings,
     recentProductions,
     recentInvoices,
+    revenueTrendRaw,
+    topProductsRaw,
   ] = await Promise.all([
 
     // 1. Revenue hari ini (nota PAID yang diterbitkan hari ini)
@@ -184,6 +202,27 @@ export async function getDashboardData(): Promise<DashboardData> {
         _count:     { select: { items: true } },
       },
     }),
+
+    // 10. Revenue Trend (Last 7 Days)
+    prisma.$queryRaw<{ date: Date; revenue: number }[]>`
+      SELECT DATE_TRUNC('day', "issuedAt") as "date", SUM("grandTotal")::float as "revenue"
+      FROM "invoices"
+      WHERE "status" = 'PAID' AND "issuedAt" >= ${sevenDaysAgo}
+      GROUP BY DATE_TRUNC('day', "issuedAt")
+      ORDER BY "date" ASC
+    `,
+
+    // 11. Top 5 Products
+    prisma.$queryRaw<{ id: string; name: string; sold: number }[]>`
+      SELECT p.id, p."name", SUM(ii."quantity")::int as "sold"
+      FROM "invoice_items" ii
+      JOIN "products" p ON ii."productId" = p.id
+      JOIN "invoices" i ON ii."invoiceId" = i.id
+      WHERE i."status" IN ('PAID', 'PARTIAL', 'ISSUED')
+      GROUP BY p.id, p."name"
+      ORDER BY "sold" DESC
+      LIMIT 5
+    `,
   ]);
 
   // ── KPI calculations ──
@@ -232,6 +271,31 @@ export async function getDashboardData(): Promise<DashboardData> {
       });
     }
   }
+
+  // ── Transform Charts Data ──
+  const revenueTrendMap = new Map(revenueTrendRaw.map(r => [
+    new Date(r.date).toISOString().split('T')[0],
+    r.revenue
+  ]));
+
+  const revenueTrend: RevenueTrend[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(sevenDaysAgo);
+    d.setDate(d.getDate() + i);
+    const isoDate = d.toISOString().split('T')[0];
+    const label = new Intl.DateTimeFormat("id-ID", { day: '2-digit', month: 'short' }).format(d);
+    
+    revenueTrend.push({
+      date: label,
+      revenue: revenueTrendMap.get(isoDate) ?? 0,
+    });
+  }
+
+  const topProducts: TopProduct[] = topProductsRaw.map(p => ({
+    id: p.id,
+    name: p.name,
+    sold: Number(p.sold),
+  }));
 
   // ── Build activity feed ──
   const STATUS_TX: Record<string, string> = {
@@ -295,6 +359,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       piutangCount,
       lowStockCount: lowStock.length,
     },
+    revenueTrend,
+    topProducts,
     lowStock,
     activity: activities,
     asOf: now.toISOString(),

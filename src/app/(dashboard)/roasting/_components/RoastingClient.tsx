@@ -27,7 +27,7 @@ export function RoastingClient({ batches, gbOptions, rbOptions }: RoastingClient
         actionButton={
           <Button
             size="sm"
-            className="gap-1.5 bg-zinc-900 text-white hover:bg-zinc-700"
+            className="gap-1.5 bg-slate-800 text-white hover:bg-slate-700 shadow-md rounded-xl font-bold"
             onClick={() => setDrawerOpen(true)}
           >
             <Flame size={14} />
@@ -52,7 +52,7 @@ export function RoastingClient({ batches, gbOptions, rbOptions }: RoastingClient
             form="roasting-form"
             size="sm"
             disabled={isSubmitting || gbOptions.length === 0}
-            className="gap-1.5 bg-zinc-900 text-white hover:bg-zinc-700 disabled:opacity-60"
+            className="gap-1.5 bg-slate-800 text-white hover:bg-slate-700 shadow-md rounded-xl font-bold disabled:opacity-60"
           >
             {isSubmitting && <Loader2 size={13} className="animate-spin" />}
             {isSubmitting ? "Menyimpan..." : "Simpan Batch"}

@@ -7,6 +7,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { formatRupiah, formatKg, formatUnit, formatDate } from "@/lib/format";
 import type { DashboardData, ActivityItem, LowStockItem } from "../actions";
+import { RevenueChart } from "./RevenueChart";
+import { TopProductsChart } from "./TopProductsChart";
 
 // =============================================================================
 // Helpers
@@ -357,6 +359,16 @@ export function DashboardShell({ data }: { data: DashboardData }) {
 
         </div>
 
+        {/* ── Charts ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-5">
+          <div className="lg:col-span-8">
+            <RevenueChart data={data.revenueTrend} />
+          </div>
+          <div className="lg:col-span-4">
+            <TopProductsChart data={data.topProducts} />
+          </div>
+        </div>
+
         {/* ── Activity Feed ── */}
         <div className="overflow-hidden rounded-[1.5rem] md:rounded-3xl border border-white/60 bg-white/40 shadow-lg shadow-slate-200/30 backdrop-blur-xl flex flex-col">
           
@@ -386,25 +398,31 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             </div>
           </div>
 
-          {/* Wrapper responsif agar tabel bisa digeser di HP */}
-          <div className="overflow-x-auto">
-            {/* Lebar minimal dipaksa agar tabel tidak menyusut dan hancur di layar kecil */}
-            <div className="min-w-175">
-              
-              {/* Column headers */}
-              <div className="flex items-center gap-4 border-b border-white/30 bg-white/20 px-4 md:px-5 py-2.5">
-                <span className="w-7 shrink-0" />
-                <span className="w-28 md:w-32 shrink-0 text-[10px] font-bold uppercase tracking-widest text-slate-500">Kode</span>
-                <span className="flex-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Keterangan</span>
-                <span className="w-24 md:w-28 shrink-0 text-right text-[10px] font-bold uppercase tracking-widest text-slate-500">Nilai</span>
-                <span className="w-20 shrink-0 text-right text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</span>
-                <span className="w-16 shrink-0 text-right text-[10px] font-bold uppercase tracking-widest text-slate-500">Waktu</span>
-              </div>
-
-              {/* Feed Data */}
-              <ActivityFeed items={activity} />
-              
+          {/* Responsive column layout — no horizontal scroll */}
+          <div>
+            {/* Column headers */}
+            <div className="flex items-center gap-4 border-b border-white/30 bg-white/20 px-4 md:px-5 py-2.5">
+              <span className="w-7 shrink-0" />
+              <span className="w-28 md:w-32 shrink-0 text-[10px] font-bold uppercase tracking-widest text-slate-500">Kode</span>
+              <span className="flex-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">Keterangan</span>
+              <span className="w-24 md:w-28 shrink-0 text-right text-[10px] font-bold uppercase tracking-widest text-slate-500">Nilai</span>
+              <span className="w-20 shrink-0 text-right text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden sm:block">Status</span>
+              <span className="w-16 shrink-0 text-right text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden md:block">Waktu</span>
             </div>
+
+            {/* Feed Data */}
+            <ActivityFeed items={activity} />
+          </div>
+
+          {/* Footer — Lihat Semua */}
+          <div className="border-t border-white/30 bg-white/10 px-4 md:px-5 py-3 flex justify-end">
+            <Link
+              href="/penjualan"
+              className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1"
+            >
+              Lihat semua
+              <ArrowRight size={11} />
+            </Link>
           </div>
 
         </div>

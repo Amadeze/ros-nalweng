@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import {
   TrendingUp, TrendingDown, AlertTriangle, Clock, Minus,
 } from "lucide-react";
@@ -34,8 +35,8 @@ function KpiCard({ label, value, sub, accent = "default", icon }: KpiCardProps) 
   }[accent];
 
   return (
-    <div className="flex items-start gap-4 rounded-xl border border-zinc-200 bg-white p-4">
-      <div className="mt-0.5 shrink-0 rounded-lg bg-zinc-100 p-2 text-zinc-500">{icon}</div>
+    <div className="flex items-start gap-4 rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl shadow-lg shadow-slate-200/30 p-4">
+      <div className="mt-0.5 shrink-0 rounded-xl bg-white/50 border border-white/60 p-2 text-slate-500 shadow-sm">{icon}</div>
       <div className="min-w-0">
         <p className="text-xs font-medium text-zinc-500">{label}</p>
         <p className={`mt-0.5 font-mono text-xl font-black tabular-nums ${accentCls}`}>{value}</p>
@@ -107,7 +108,11 @@ export function KeuanganClient({ data, expenses }: KeuanganClientProps) {
           <KpiCard
             label="Lewat Jatuh Tempo"
             value={`${kpi.overdueCount} nota`}
-            sub={kpi.overdueCount > 0 ? "Segera tagih" : "Semua tepat waktu"}
+            sub={
+              kpi.overdueCount > 0
+                ? `${formatRupiah(kpi.overdueTotal)} belum terbayar`
+                : "Semua tepat waktu"
+            }
             accent={kpi.overdueCount > 0 ? "red" : "default"}
             icon={<AlertTriangle size={16} />}
           />
@@ -132,7 +137,7 @@ export function KeuanganClient({ data, expenses }: KeuanganClientProps) {
         </div>
 
         {/* ── Tabs ── */}
-        <div className="mb-4 flex gap-1 rounded-xl border border-zinc-200 bg-zinc-50 p-1 w-fit">
+        <div className="mb-4 grid grid-cols-2 gap-2 bg-white/20 p-2 rounded-2xl backdrop-blur-md border border-white/50 w-fit">
           {([
             { id: "piutang",      label: `Piutang (${piutangRows.length})` },
             { id: "pengeluaran",  label: `Pengeluaran (${expenses.length})` },
@@ -140,11 +145,12 @@ export function KeuanganClient({ data, expenses }: KeuanganClientProps) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`rounded-lg px-4 py-1.5 text-xs font-medium transition-all ${
+              className={cn(
+                "rounded-xl px-5 py-2 text-xs font-bold transition-all duration-300 shadow-sm",
                 activeTab === tab.id
-                  ? "bg-white shadow-sm text-zinc-900"
-                  : "text-zinc-500 hover:text-zinc-700"
-              }`}
+                  ? "bg-slate-900 text-white shadow-md scale-[1.02]"
+                  : "bg-white/40 text-slate-600 border border-white/60 hover:bg-white/60 hover:text-slate-800"
+              )}
             >
               {tab.label}
             </button>

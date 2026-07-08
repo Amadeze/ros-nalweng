@@ -51,20 +51,19 @@ function NavItem({
     <Link
       href={href}
       className={cn(
-        "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
+        "group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-300",
         active
-          ? "bg-white/10 text-white shadow-sm"
-          : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+          ? "bg-white/80 text-slate-900 shadow-md ring-1 ring-white/50 translate-x-1"
+          : "text-slate-600 hover:bg-white/40 hover:text-slate-900 hover:translate-x-1"
       )}
     >
-      <Icon
-        size={18}
-        className={cn(
-          "shrink-0 transition-colors",
-          active ? "text-white" : "text-slate-500 group-hover:text-slate-300"
-        )}
-      />
-      <span className="truncate">{label}</span>
+      <div className={cn(
+        "flex items-center justify-center rounded-xl p-1.5 transition-all duration-300",
+        active ? "bg-slate-900 text-white shadow-md" : "bg-white/50 text-slate-500 group-hover:bg-white/80 group-hover:text-slate-800 group-hover:shadow-sm"
+      )}>
+        <Icon size={18} />
+      </div>
+      <span className="truncate tracking-wide">{label}</span>
     </Link>
   );
 }
@@ -73,61 +72,74 @@ function NavItem({
 // Sidebar
 // ─────────────────────────────────────────────
 
-export function Sidebar() {
+export function Sidebar({ userRole }: { userRole: string }) {
   const pathname = usePathname();
 
+  // Role-based access control for sidebar menus
+  const filteredNavItems = NAV_ITEMS.filter((item) => {
+    if (userRole === "OWNER" || userRole === "MANAGER") return true;
+    if (userRole === "OPERATOR") {
+      return ["/dashboard", "/inventory", "/roasting", "/produksi"].includes(item.href);
+    }
+    if (userRole === "CASHIER") {
+      return ["/dashboard", "/penjualan", "/master-data"].includes(item.href);
+    }
+    return false;
+  });
+
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col rounded-[2rem] bg-[#0f2b38] text-slate-300 shadow-2xl">
+    <aside className="flex h-full w-64 shrink-0 flex-col rounded-[2rem] bg-white/30 backdrop-blur-2xl border border-white/60 text-slate-800 shadow-2xl md:bg-transparent md:backdrop-blur-none md:border-transparent md:shadow-none">
       {/* Brand */}
-      <div className="flex h-16 items-center gap-2.5 px-5 pt-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
-          <Coffee size={16} className="text-white" />
+      <div className="flex h-20 items-center gap-3.5 px-6 pt-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-900/20 ring-1 ring-slate-800/50">
+          <Coffee size={20} strokeWidth={2.5} />
         </div>
-        <div className="leading-tight">
-          <p className="text-[13px] font-semibold text-white tracking-tight">
+        <div className="leading-tight flex flex-col justify-center">
+          <p className="text-[15px] font-black text-slate-900 tracking-tight">
             Nalweng
           </p>
-          <p className="text-[11px] text-slate-500 tracking-wide uppercase">
+          <p className="text-[9px] text-slate-500 tracking-[0.2em] uppercase font-bold mt-0.5">
             Roastery OS
           </p>
         </div>
       </div>
 
-      <div className="mx-4 h-px bg-white/10" />
+      <div className="mx-6 h-px bg-white/40 my-2" />
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+      <nav className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
+        <p className="mb-3 px-2 text-[10px] font-black uppercase tracking-widest text-slate-500/80">
           Menu Utama
         </p>
-        <ul className="space-y-0.5">
-          {NAV_ITEMS.map((item) => (
-            <li key={item.href}>
-              <NavItem
-                href={item.href}
-                icon={item.icon}
-                label={item.label}
-                active={pathname.startsWith(item.href)}
-              />
-            </li>
+        <div className="flex flex-col gap-1.5">
+          {filteredNavItems.map((item) => (
+            <NavItem
+              key={item.href}
+              href={item.href}
+              icon={item.icon}
+              label={item.label}
+              active={pathname.startsWith(item.href)}
+            />
           ))}
-        </ul>
+        </div>
       </nav>
 
-      <div className="mx-4 h-px bg-white/10" />
+      <div className="mx-6 h-px bg-white/40" />
 
       {/* Footer — logout */}
-      <div className="px-3 py-4">
+      <div className="px-4 py-5">
         <form action={logoutAction}>
           <button
             type="submit"
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 transition-all hover:bg-white/5 hover:text-slate-200"
+            className="group flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-600 transition-all duration-300 hover:bg-white/40 hover:text-slate-900 hover:shadow-sm"
           >
-            <LogOut size={18} className="shrink-0 text-slate-500" />
-            <span>Keluar</span>
+            <div className="flex items-center justify-center rounded-xl bg-white/50 p-1.5 text-slate-400 transition-all duration-300 group-hover:bg-rose-100 group-hover:text-rose-600 group-hover:shadow-sm">
+              <LogOut size={18} />
+            </div>
+            <span className="tracking-wide">Keluar</span>
           </button>
         </form>
-        <p className="mt-2 px-3 text-[11px] text-slate-600">ROS · v1.0.0</p>
+        <p className="mt-4 text-center text-[10px] font-bold tracking-wider text-slate-400/80 uppercase">ROS · v1.0.0</p>
       </div>
     </aside>
   );

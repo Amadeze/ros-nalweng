@@ -32,9 +32,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  const role = session.user.role;
+
+  // Role-based Access Control (RBAC)
+  if (role === "OPERATOR") {
+    const allowed = ["/dashboard", "/inventory", "/roasting", "/produksi"];
+    if (!allowed.some(p => pathname.startsWith(p))) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+  }
+
+  if (role === "CASHIER") {
+    const allowed = ["/dashboard", "/penjualan", "/master-data"];
+    if (!allowed.some(p => pathname.startsWith(p))) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+  }
+
   return res;
 }
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
+

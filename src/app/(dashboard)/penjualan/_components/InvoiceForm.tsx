@@ -5,9 +5,10 @@ import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Plus, Trash2, CreditCard, Banknote, QrCode, Clock } from "lucide-react";
+import { Plus, Trash2, CreditCard, Banknote, QrCode, Clock, Check, ChevronsUpDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 import { formatRupiah } from "@/lib/format";
 import { createInvoice, type CustomerOption, type FGStockOption } from "../actions";
@@ -96,28 +99,30 @@ function PaymentMethodGroup({ value, onChange }: { value: string; onChange: (val
 
 function TotalsSummary({ subtotal, invoiceDiscount, tax, grandTotal }: any) {
   return (
-    <div className={glassCard}>
-      <div className="space-y-1.5 text-sm">
-        <div className="flex justify-between text-slate-600">
+    <div className={cn(glassCard, "p-5")}>
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between text-slate-600 font-medium">
           <span>Subtotal</span>
           <span className="font-mono">{formatRupiah(subtotal)}</span>
         </div>
         {invoiceDiscount > 0 && (
-          <div className="flex justify-between text-red-600">
+          <div className="flex justify-between text-red-500 font-medium">
             <span>Diskon Nota</span>
             <span className="font-mono">- {formatRupiah(invoiceDiscount)}</span>
           </div>
         )}
         {tax > 0 && (
-          <div className="flex justify-between text-slate-600">
-            <span>Pajak</span>
+          <div className="flex justify-between text-slate-600 font-medium">
+            <span>Pajak Tambahan</span>
             <span className="font-mono">{formatRupiah(tax)}</span>
           </div>
         )}
-        <Separator className="bg-white/50" />
-        <div className="flex justify-between text-base font-bold text-slate-800">
-          <span>Grand Total</span>
-          <span className="font-mono">{formatRupiah(grandTotal)}</span>
+      </div>
+      
+      <div className="mt-5 pt-4 border-t border-white/40">
+        <div className="flex justify-between items-end text-slate-800">
+          <span className="text-sm font-bold tracking-wide uppercase">Grand Total</span>
+          <span className="font-mono text-2xl font-black drop-shadow-sm">{formatRupiah(grandTotal)}</span>
         </div>
       </div>
     </div>
@@ -125,21 +130,25 @@ function TotalsSummary({ subtotal, invoiceDiscount, tax, grandTotal }: any) {
 }
 
 // =============================================================================
-// Main Component
+// Form Component
 // =============================================================================
+interface InvoiceFormProps {
+  id: string;
+  customers: CustomerOption[];
+  fgOptions: FGStockOption[];
+  onSuccess: (invoiceId: string) => void;
+  onPendingChange: (pending: boolean) => void;
+  onAddCustomer?: () => void;
+}
+
 export function InvoiceForm({
   id,
   customers,
   fgOptions,
   onSuccess,
   onPendingChange,
-}: {
-  id: string;
-  customers: CustomerOption[];
-  fgOptions: FGStockOption[];
-  onSuccess: (invoiceId: string) => void;
-  onPendingChange: (pending: boolean) => void;
-}) {
+  onAddCustomer,
+}: InvoiceFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const today = new Date().toISOString().split("T")[0];
 
@@ -167,12 +176,13 @@ export function InvoiceForm({
 
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
 
-  const [watchedItems, invoiceDiscount, tax, status, paymentMethod] = watch([
+  const [watchedItems, invoiceDiscount, tax, status, paymentMethod, selectedCustomerId] = watch([
     "items",
     "invoiceDiscount",
     "tax",
     "status",
     "paymentMethod",
+    "customerId",
   ]);
 
   const subtotal = (watchedItems ?? []).reduce((acc, item) => {
@@ -230,27 +240,76 @@ export function InvoiceForm({
     <form id={id} onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Customer */}
       <div className="space-y-1.5">
-        <Label className="text-xs font-semibold text-slate-700">
-          Customer <span className="text-red-500">*</span>
-        </Label>
+        <div className="flex justify-between items-center mb-1">
+          <Label className="text-xs font-semibold text-slate-700">
+            Customer <span className="text-red-500">*</span>
+          </Label>
+          {onAddCustomer && (
+            <button
+              type="button"
+              onClick={onAddCustomer}
+              className="flex items-center gap-1 text-[10px] text-cyan-600 hover:text-cyan-700 font-medium bg-cyan-50/80 px-2 py-0.5 rounded-md transition-colors border border-cyan-100"
+            >
+              <Plus size={12} /> Pelanggan Baru
+            </button>
+          )}
+        </div>
         <Controller
           control={control}
           name="customerId"
-          render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger className={glassInput}>
-                <SelectValue placeholder="Pilih customer..." />
-              </SelectTrigger>
-              <SelectContent className="bg-white/90 backdrop-blur-xl">
-                {customers.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                    {c.phone && <span className="text-slate-400"> · {c.phone}</span>}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          render={({ field }) => {
+            const selectedCustomer = customers.find((c) => c.id === field.value);
+            return (
+              <Popover>
+                <PopoverTrigger
+                  role="combobox"
+                  className={cn(
+                    "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+                    glassInput,
+                    !field.value && "text-slate-500"
+                  )}
+                >
+                  {selectedCustomer ? (
+                    <span>
+                      {selectedCustomer.name}
+                      {selectedCustomer.phone && <span className="text-slate-400 ml-1">· {selectedCustomer.phone}</span>}
+                    </span>
+                  ) : (
+                    "Cari dan pilih customer..."
+                  )}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-white/95 backdrop-blur-xl border-white/60">
+                  <Command>
+                    <CommandInput placeholder="Ketik nama atau nomor telepon..." />
+                    <CommandList>
+                      <CommandEmpty>Pelanggan tidak ditemukan.</CommandEmpty>
+                      <CommandGroup>
+                        {customers.map((c) => (
+                          <CommandItem
+                            value={`${c.name} ${c.phone || ""}`}
+                            key={c.id}
+                            onSelect={() => {
+                              field.onChange(c.id);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                c.id === field.value ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {c.name}
+                            {c.phone && <span className="text-slate-400 ml-1">· {c.phone}</span>}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            );
+          }}
         />
         <FieldError message={errors.customerId?.message} />
       </div>
@@ -258,17 +317,17 @@ export function InvoiceForm({
       <Separator className="bg-white/50" />
 
       {/* Items */}
-      <div>
-        <div className="flex justify-between items-center mb-3">
+      <div className="space-y-3">
+        <div className="flex justify-between items-center mb-1">
           <Label className="text-xs font-semibold text-slate-700">
             Item Penjualan <span className="text-red-500">*</span>
           </Label>
           <button
             type="button"
             onClick={() => append({ productId: "", quantity: 1, unitPrice: 0, discount: 0 })}
-            className="flex items-center gap-1 rounded-lg border border-white/60 bg-white/30 px-3 py-1 text-xs hover:bg-white/50 transition-colors"
+            className="flex items-center gap-1 rounded-lg border border-white/60 bg-white/30 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-white/50 transition-colors shadow-sm"
           >
-            <Plus size={14} /> Tambah Baris
+            <Plus size={14} /> Tambah Item
           </button>
         </div>
 
@@ -276,14 +335,7 @@ export function InvoiceForm({
           <FieldError message={errors.items.message} />
         )}
 
-        {/* Header */}
-        <div className="mb-2 grid grid-cols-[1fr_60px_90px_75px_90px_28px] gap-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-          {["Produk", "Qty", "Harga", "Disc", "Subtotal", ""].map((h) => (
-            <div key={h}>{h}</div>
-          ))}
-        </div>
-
-        <div className="space-y-3">
+        <div className="space-y-4">
           {fields.map((field, index) => {
             const item = watchedItems?.[index];
             const price = Number(item?.unitPrice) || 0;
@@ -295,176 +347,247 @@ export function InvoiceForm({
             const isOverStock = selectedProduct ? qty > selectedProduct.stockUnit : false;
 
             return (
-              <div key={field.id} className="grid grid-cols-[1fr_60px_90px_75px_90px_28px] gap-2 items-start">
-                <Controller
-                  control={control}
-                  name={`items.${index}.productId`}
-                  render={({ field: f }) => (
-                    <Select
-                      value={f.value}
-                      onValueChange={(val) => {
-                        f.onChange(val);
-                        const prod = fgOptions.find((p) => p.id === val);
-                        if (prod?.lastHppPerUnit) {
-                          setValue(`items.${index}.unitPrice`, Math.round(prod.lastHppPerUnit));
-                        }
-                      }}
-                    >
-                      <SelectTrigger className={glassInput}>
-                        <SelectValue placeholder="Pilih produk..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white/90 backdrop-blur-xl">
-                        {fgOptions.map((fg) => (
-                          <SelectItem key={fg.id} value={fg.id}>
-                            {fg.name} <span className="text-slate-400">({fg.stockUnit})</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-
-                <Input
-                  type="number"
-                  className={cn(glassInput, "text-center")}
-                  {...register(`items.${index}.quantity`, { valueAsNumber: true })}
-                />
-                <Input
-                  type="number"
-                  className={cn(glassInput, "text-right")}
-                  {...register(`items.${index}.unitPrice`, { valueAsNumber: true })}
-                />
-                <Input
-                  type="number"
-                  className={cn(glassInput, "text-right")}
-                  {...register(`items.${index}.discount`, { valueAsNumber: true })}
-                />
-
-                <div className="flex h-10 items-center justify-end font-mono text-sm font-semibold text-slate-800">
-                  {formatRupiah(rowSubtotal)}
-                </div>
-
+              <div key={field.id} className="relative rounded-xl border border-white/60 bg-white/40 backdrop-blur-md p-4 shadow-sm hover:shadow transition-all group">
+                
+                {/* Delete button (absolute top right) */}
                 {fields.length > 1 && (
                   <button
                     type="button"
                     onClick={() => remove(index)}
-                    className="text-red-400 hover:text-red-600 transition-colors mt-1"
+                    className="absolute -top-3 -right-2 bg-white text-red-500 border border-white/60 rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 shadow-sm"
+                    title="Hapus Item"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={14} />
                   </button>
                 )}
+
+                {/* Row 1: Product Selection */}
+                <div className="mb-4">
+                  <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Produk</Label>
+                  <Controller
+                    control={control}
+                    name={`items.${index}.productId`}
+                    render={({ field: f }) => (
+                      <Popover>
+                        <PopoverTrigger
+                          role="combobox"
+                          className={cn(
+                            "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-white/50 px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 transition-colors hover:bg-white/80",
+                            !f.value && "text-slate-500"
+                          )}
+                        >
+                          {f.value ? (
+                            <span className="truncate text-left font-medium text-slate-800">
+                              {fgOptions.find((p) => p.id === f.value)?.name}
+                            </span>
+                          ) : (
+                            "Pilih produk..."
+                          )}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-white/95 backdrop-blur-xl border-white/60">
+                          <Command>
+                            <CommandInput placeholder="Cari produk..." />
+                            <CommandList>
+                              <CommandEmpty>Produk tidak ditemukan.</CommandEmpty>
+                              <CommandGroup>
+                                {fgOptions.map((fg) => (
+                                  <CommandItem
+                                    key={fg.id}
+                                    value={`${fg.name} ${fg.stockUnit}`}
+                                    onSelect={() => {
+                                      f.onChange(fg.id);
+                                      
+                                      const prod = fgOptions.find((p) => p.id === fg.id);
+                                      if (prod) {
+                                        const cust = customers.find(c => c.id === selectedCustomerId);
+                                        const tier = cust?.tier || "RETAIL";
+                                        
+                                        let assignedPrice = 0;
+                                        if (tier === "WHOLESALE_GOLD" && prod.priceGold > 0) assignedPrice = prod.priceGold;
+                                        else if (tier === "WHOLESALE_SILVER" && prod.priceSilver > 0) assignedPrice = prod.priceSilver;
+                                        else assignedPrice = prod.price;
+
+                                        if (assignedPrice > 0) {
+                                          setValue(`items.${index}.unitPrice`, Math.round(assignedPrice));
+                                        } else if (prod.lastHppPerUnit) {
+                                          setValue(`items.${index}.unitPrice`, Math.round(prod.lastHppPerUnit));
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4 shrink-0",
+                                        fg.id === f.value ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <span className="truncate">{fg.name}</span>
+                                    <span className="ml-1 text-slate-400 shrink-0">({fg.stockUnit})</span>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  />
+                </div>
+
+                {/* Row 2: Details */}
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="w-20">
+                    <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Qty</Label>
+                    <Input
+                      type="number"
+                      className={cn(glassInput, "text-center h-9 font-medium")}
+                      {...register(`items.${index}.quantity`, { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[100px]">
+                    <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Harga (Rp)</Label>
+                    <Input
+                      type="number"
+                      className={cn(glassInput, "text-right h-9 font-medium")}
+                      {...register(`items.${index}.unitPrice`, { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[100px]">
+                    <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Disc (Rp)</Label>
+                    <Input
+                      type="number"
+                      className={cn(glassInput, "text-right h-9 font-medium text-red-600")}
+                      {...register(`items.${index}.discount`, { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="flex-[1.2] min-w-[120px]">
+                    <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider text-right">Subtotal</Label>
+                    <div className="h-9 flex items-center justify-end font-mono text-sm font-bold text-slate-800 bg-white/50 rounded-md px-3 border border-white/40 shadow-inner">
+                      {formatRupiah(rowSubtotal)}
+                    </div>
+                  </div>
+                </div>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Invoice Discount & Tax */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label className="text-xs font-medium text-slate-700">Diskon Nota (Rp)</Label>
-          <Input
-            type="number"
-            className={glassInput}
-            {...register("invoiceDiscount", { valueAsNumber: true })}
-          />
-        </div>
-        <div>
-          <Label className="text-xs font-medium text-slate-700">Pajak (Rp)</Label>
-          <Input
-            type="number"
-            className={glassInput}
-            {...register("tax", { valueAsNumber: true })}
-          />
-        </div>
-      </div>
+      <div className="mt-8 pt-6 border-t border-white/40 grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* Left Column: Settings & Notes */}
+        <div className="space-y-5">
+          {/* Status */}
+          <div>
+            <Label className="text-[10px] uppercase font-bold text-slate-500 mb-2 block tracking-wider">
+              Status Pembayaran <span className="text-red-500">*</span>
+            </Label>
+            <Controller
+              control={control}
+              name="status"
+              render={({ field }) => (
+                <div className="flex gap-3">
+                  {(["PAID", "ISSUED"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => {
+                        field.onChange(s);
+                        if (s === "PAID") setValue("dueDate", "");
+                        if (s === "ISSUED") setValue("paymentMethod", undefined);
+                      }}
+                      className={cn(
+                        "flex-1 py-3 rounded-xl border font-bold transition-all shadow-sm",
+                        field.value === s
+                          ? s === "PAID"
+                            ? "border-emerald-400 bg-emerald-50/90 text-emerald-700 ring-2 ring-emerald-500/20 ring-offset-1"
+                            : "border-amber-400 bg-amber-50/90 text-amber-700 ring-2 ring-amber-500/20 ring-offset-1"
+                          : "border-white/60 bg-white/40 hover:bg-white/60 text-slate-500"
+                      )}
+                    >
+                      {s === "PAID" ? "✓ LUNAS" : "⏱ TEMPO"}
+                    </button>
+                  ))}
+                </div>
+              )}
+            />
+          </div>
 
-      <TotalsSummary
-        subtotal={subtotal}
-        invoiceDiscount={invoiceDiscount || 0}
-        tax={tax || 0}
-        grandTotal={grandTotal}
-      />
-
-      {/* Status */}
-      <div>
-        <Label className="text-xs font-medium text-slate-700 mb-2 block">
-          Status Pembayaran <span className="text-red-500">*</span>
-        </Label>
-        <Controller
-          control={control}
-          name="status"
-          render={({ field }) => (
-            <div className="flex gap-3">
-              {(["PAID", "ISSUED"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => {
-                    field.onChange(s);
-                    if (s === "PAID") setValue("dueDate", "");
-                    if (s === "ISSUED") setValue("paymentMethod", undefined);
-                  }}
-                  className={cn(
-                    "flex-1 py-3 rounded-xl border font-semibold transition-all",
-                    field.value === s
-                      ? s === "PAID"
-                        ? "border-emerald-400 bg-emerald-50/80 text-emerald-700"
-                        : "border-amber-400 bg-amber-50/80 text-amber-700"
-                      : "border-white/60 bg-white/30 hover:bg-white/50"
-                  )}
-                >
-                  {s === "PAID" ? "✓ Lunas" : "⏱ Tempo"}
-                </button>
-              ))}
+          {/* Payment Method */}
+          {status === "PAID" && (
+            <div>
+              <Label className="text-[10px] uppercase font-bold text-slate-500 mb-2 block tracking-wider">
+                Metode Pembayaran <span className="text-red-500">*</span>
+              </Label>
+              <Controller
+                control={control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <PaymentMethodGroup
+                    value={field.value ?? "CASH"}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
             </div>
           )}
-        />
-      </div>
 
-      {/* Payment Method */}
-      {status === "PAID" && (
-        <div>
-          <Label className="text-xs font-medium text-slate-700 mb-2 block">
-            Metode Pembayaran <span className="text-red-500">*</span>
-          </Label>
-          <Controller
-            control={control}
-            name="paymentMethod"
-            render={({ field }) => (
-              <PaymentMethodGroup
-                value={field.value ?? "CASH"}
-                onChange={field.onChange}
+          {/* Due Date */}
+          {status === "ISSUED" && (
+            <div>
+              <Label className="text-[10px] uppercase font-bold text-slate-500 mb-2 block tracking-wider">
+                Jatuh Tempo <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                type="date"
+                min={today}
+                className={glassInput}
+                {...register("dueDate")}
               />
-            )}
+            </div>
+          )}
+
+          {/* Notes */}
+          <div>
+            <Label className="text-[10px] uppercase font-bold text-slate-500 mb-2 block tracking-wider">Catatan</Label>
+            <Textarea
+              placeholder="Catatan pengiriman, kesepakatan khusus, dll..."
+              className={cn(glassInput, "resize-none")}
+              rows={2}
+              {...register("notes")}
+            />
+          </div>
+        </div>
+
+        {/* Right Column: Totals Summary */}
+        <div className="space-y-4">
+          <div className={cn(glassCard, "p-4 space-y-4")}>
+            <div className="flex items-center justify-between gap-4">
+              <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Diskon Nota (Rp)</Label>
+              <Input
+                type="number"
+                className={cn(glassInput, "w-32 text-right font-medium text-red-600")}
+                {...register("invoiceDiscount", { valueAsNumber: true })}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Pajak Tambahan (Rp)</Label>
+              <Input
+                type="number"
+                className={cn(glassInput, "w-32 text-right font-medium")}
+                {...register("tax", { valueAsNumber: true })}
+              />
+            </div>
+          </div>
+          
+          <TotalsSummary
+            subtotal={subtotal}
+            invoiceDiscount={invoiceDiscount || 0}
+            tax={tax || 0}
+            grandTotal={grandTotal}
           />
         </div>
-      )}
-
-      {/* Due Date */}
-      {status === "ISSUED" && (
-        <div>
-          <Label className="text-xs font-medium text-slate-700">
-            Tanggal Jatuh Tempo <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            type="date"
-            min={today}
-            className={glassInput}
-            {...register("dueDate")}
-          />
-        </div>
-      )}
-
-      {/* Notes */}
-      <div>
-        <Label className="text-xs font-medium text-slate-700">Catatan (opsional)</Label>
-        <Textarea
-          placeholder="Catatan pengiriman, kesepakatan khusus, dll..."
-          className={glassInput}
-          rows={3}
-          {...register("notes")}
-        />
       </div>
 
       <button type="submit" className="hidden" disabled={isSubmitting} />

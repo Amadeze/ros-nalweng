@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { computeKgStock } from "@/lib/stock";
+import { getSystemUserId } from "@/lib/auth";
 
 // =============================================================================
 // TYPES
@@ -63,20 +64,6 @@ export type RoastingActionResult =
 // HELPERS
 // =============================================================================
 
-async function getSystemUserId(): Promise<string> {
-  const user = await prisma.user.upsert({
-    where: { email: "system@ros.internal" },
-    create: {
-      name: "System",
-      email: "system@ros.internal",
-      password: "",
-      role: "OWNER",
-    },
-    update: {},
-    select: { id: true },
-  });
-  return user.id;
-}
 
 async function generateBatchCode(): Promise<string> {
   const now = new Date();

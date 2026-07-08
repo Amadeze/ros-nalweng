@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 import { Plus, Building2, Users, Package, CheckCircle2, XCircle, Pencil, UserCog } from "lucide-react";
 import { StandardPageLayout } from "@/components/StandardPageLayout";
 import { StandardDrawer } from "@/components/StandardDrawer";
@@ -33,16 +34,19 @@ const PROD_TYPE_LABEL: Record<ProductRow["type"], string> = {
   GREEN_BEAN:     "GB",
   ROASTED_BEAN:   "RB",
   FINISHED_GOODS: "FG",
+  PACKAGING:      "PKG",
 };
 const PROD_TYPE_COLOR: Record<ProductRow["type"], string> = {
   GREEN_BEAN:     "bg-lime-100 text-lime-700",
   ROASTED_BEAN:   "bg-amber-100 text-amber-700",
   FINISHED_GOODS: "bg-violet-100 text-violet-700",
+  PACKAGING:      "bg-orange-100 text-orange-700",
 };
 const PROD_TYPE_FULL: Record<ProductRow["type"], string> = {
   GREEN_BEAN:     "Green Bean",
   ROASTED_BEAN:   "Roasted Bean",
   FINISHED_GOODS: "Finished Goods",
+  PACKAGING:      "Packaging",
 };
 
 // =============================================================================
@@ -51,17 +55,22 @@ const PROD_TYPE_FULL: Record<ProductRow["type"], string> = {
 
 function EmptyState({ label }: { label: string }) {
   return (
-    <div className="flex flex-col items-center gap-2 py-16 text-center">
-      <p className="text-sm font-medium text-zinc-400">Belum ada {label}</p>
-      <p className="text-xs text-zinc-300">Klik tombol &quot;Tambah&quot; di kanan atas untuk menambahkan.</p>
+    <div className="flex flex-col items-center gap-3 py-20 text-center rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl shadow-lg shadow-slate-200/30">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/50 text-slate-400 shadow-sm border border-white/60">
+        <Package size={24} />
+      </div>
+      <div>
+        <p className="text-sm font-bold text-slate-600">Belum ada {label}</p>
+        <p className="mt-1 text-[11px] font-medium text-slate-500 uppercase tracking-wider">Klik "Tambah" untuk membuat</p>
+      </div>
     </div>
   );
 }
 
 function ActiveBadge({ active }: { active: boolean }) {
   return active
-    ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700"><CheckCircle2 size={9} />Aktif</span>
-    : <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500"><XCircle size={9} />Nonaktif</span>;
+    ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 shadow-sm border border-emerald-100"><CheckCircle2 size={9} strokeWidth={3} />Aktif</span>
+    : <span className="inline-flex items-center gap-1 rounded-full bg-slate-900/10 px-2 py-0.5 text-[10px] font-bold text-slate-500 shadow-sm border border-slate-200"><XCircle size={9} strokeWidth={3} />Nonaktif</span>;
 }
 
 function EditButton({ onClick }: { onClick: () => void }) {
@@ -69,9 +78,9 @@ function EditButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-500 transition-colors hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-700"
+      className="inline-flex items-center gap-1 rounded-lg border border-white/60 bg-white/50 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600 transition-all hover:border-white hover:bg-white hover:text-slate-900 hover:shadow-md hover:scale-105"
     >
-      <Pencil size={10} /> Edit
+      <Pencil size={10} strokeWidth={3} /> Edit
     </button>
   );
 }
@@ -98,34 +107,34 @@ function RoleBadge({ role }: { role: UserRow["role"] }) {
 function SupplierTable({ rows, onEdit }: { rows: SupplierRow[]; onEdit: (r: SupplierRow) => void }) {
   if (rows.length === 0) return <EmptyState label="supplier" />;
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-100">
+    <div className="overflow-hidden rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl shadow-lg shadow-slate-200/30">
       <table className="w-full text-sm">
-        <thead className="border-b border-zinc-100 bg-zinc-50/80">
+        <thead className="border-b border-white/50 bg-white/40 backdrop-blur-md">
           <tr>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Kode</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Nama</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400 hidden md:table-cell">No. Telp</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400 hidden lg:table-cell">Wilayah</th>
-            <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Beli</th>
-            <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Status</th>
-            <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Aksi</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Kode</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Nama</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden md:table-cell">No. Telp</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden lg:table-cell">Wilayah</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">Beli</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">Aksi</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-50 bg-white">
+        <tbody className="divide-y divide-white/30">
           {rows.map((row) => (
-            <tr key={row.id} className="hover:bg-zinc-50/60 transition-colors">
-              <td className="px-4 py-3 font-mono text-xs font-semibold text-zinc-600">{row.code}</td>
+            <tr key={row.id} className="hover:bg-white/40 transition-colors">
+              <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{row.code}</td>
               <td className="px-4 py-3">
-                <p className="font-medium text-zinc-800">{row.name}</p>
-                {row.address && <p className="text-[11px] text-zinc-400 truncate max-w-[180px]">{row.address}</p>}
+                <p className="font-medium text-slate-800">{row.name}</p>
+                {row.address && <p className="text-[11px] text-slate-500 truncate max-w-[180px]">{row.address}</p>}
               </td>
-              <td className="px-4 py-3 text-xs text-zinc-500 hidden md:table-cell">{row.phone ?? "—"}</td>
+              <td className="px-4 py-3 text-xs text-slate-500 hidden md:table-cell">{row.phone ?? "—"}</td>
               <td className="px-4 py-3 hidden lg:table-cell">
                 {row.region
-                  ? <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[10px] font-medium text-teal-700">{row.region}</span>
-                  : <span className="text-xs text-zinc-300">—</span>}
+                  ? <span className="rounded-full bg-slate-900/10 px-2 py-0.5 text-[10px] font-medium text-slate-700">{row.region}</span>
+                  : <span className="text-xs text-slate-400">—</span>}
               </td>
-              <td className="px-4 py-3 text-center font-mono text-xs font-semibold text-zinc-700">{row.purchaseCount}×</td>
+              <td className="px-4 py-3 text-center font-mono text-xs font-semibold text-slate-700">{row.purchaseCount}×</td>
               <td className="px-4 py-3 text-center"><ActiveBadge active={row.isActive} /></td>
               <td className="px-4 py-3 text-center"><EditButton onClick={() => onEdit(row)} /></td>
             </tr>
@@ -143,30 +152,30 @@ function SupplierTable({ rows, onEdit }: { rows: SupplierRow[]; onEdit: (r: Supp
 function CustomerTable({ rows, onEdit }: { rows: CustomerRow[]; onEdit: (r: CustomerRow) => void }) {
   if (rows.length === 0) return <EmptyState label="pelanggan" />;
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-100">
+    <div className="overflow-hidden rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl shadow-lg shadow-slate-200/30">
       <table className="w-full text-sm">
-        <thead className="border-b border-zinc-100 bg-zinc-50/80">
+        <thead className="border-b border-white/50 bg-white/40 backdrop-blur-md">
           <tr>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Kode</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Nama</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400 hidden md:table-cell">No. Telp</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400 hidden lg:table-cell">Email</th>
-            <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Nota</th>
-            <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Status</th>
-            <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Aksi</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Kode</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Nama</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden md:table-cell">No. Telp</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden lg:table-cell">Email</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">Nota</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">Aksi</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-50 bg-white">
+        <tbody className="divide-y divide-white/30">
           {rows.map((row) => (
-            <tr key={row.id} className="hover:bg-zinc-50/60 transition-colors">
-              <td className="px-4 py-3 font-mono text-xs font-semibold text-zinc-600">{row.code}</td>
+            <tr key={row.id} className="hover:bg-white/40 transition-colors">
+              <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{row.code}</td>
               <td className="px-4 py-3">
-                <p className="font-medium text-zinc-800">{row.name}</p>
-                {row.address && <p className="text-[11px] text-zinc-400 truncate max-w-[180px]">{row.address}</p>}
+                <p className="font-medium text-slate-800">{row.name}</p>
+                {row.address && <p className="text-[11px] text-slate-500 truncate max-w-[180px]">{row.address}</p>}
               </td>
-              <td className="px-4 py-3 text-xs text-zinc-500 hidden md:table-cell">{row.phone ?? "—"}</td>
-              <td className="px-4 py-3 text-xs text-zinc-500 hidden lg:table-cell">{row.email ?? "—"}</td>
-              <td className="px-4 py-3 text-center font-mono text-xs font-semibold text-zinc-700">{row.invoiceCount}×</td>
+              <td className="px-4 py-3 text-xs text-slate-500 hidden md:table-cell">{row.phone ?? "—"}</td>
+              <td className="px-4 py-3 text-xs text-slate-500 hidden lg:table-cell">{row.email ?? "—"}</td>
+              <td className="px-4 py-3 text-center font-mono text-xs font-semibold text-slate-700">{row.invoiceCount}×</td>
               <td className="px-4 py-3 text-center"><ActiveBadge active={row.isActive} /></td>
               <td className="px-4 py-3 text-center"><EditButton onClick={() => onEdit(row)} /></td>
             </tr>
@@ -184,25 +193,25 @@ function CustomerTable({ rows, onEdit }: { rows: CustomerRow[]; onEdit: (r: Cust
 function ProductTable({ rows, onEdit }: { rows: ProductRow[]; onEdit: (r: ProductRow) => void }) {
   if (rows.length === 0) return <EmptyState label="produk" />;
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-100">
+    <div className="overflow-hidden rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl shadow-lg shadow-slate-200/30">
       <table className="w-full text-sm">
-        <thead className="border-b border-zinc-100 bg-zinc-50/80">
+        <thead className="border-b border-white/50 bg-white/40 backdrop-blur-md">
           <tr>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Kode</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Nama</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Tipe</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400 hidden md:table-cell">Origin</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400 hidden lg:table-cell">Resep</th>
-            <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Status</th>
-            <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Aksi</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Kode</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Nama</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Tipe</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden md:table-cell">Origin</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden lg:table-cell">Resep</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">Aksi</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-50 bg-white">
+        <tbody className="divide-y divide-white/30">
           {rows.map((row) => (
-            <tr key={row.id} className="hover:bg-zinc-50/60 transition-colors">
-              <td className="px-4 py-3 font-mono text-xs font-semibold text-zinc-600">{row.code}</td>
+            <tr key={row.id} className="hover:bg-white/40 transition-colors">
+              <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{row.code}</td>
               <td className="px-4 py-3">
-                <p className="font-medium text-zinc-800">{row.name}</p>
+                <p className="font-medium text-slate-800">{row.name}</p>
                 {row.description && <p className="text-[11px] text-zinc-400 truncate max-w-[200px]">{row.description}</p>}
               </td>
               <td className="px-4 py-3">
@@ -211,7 +220,7 @@ function ProductTable({ rows, onEdit }: { rows: ProductRow[]; onEdit: (r: Produc
                 </span>
                 <span className="ml-1.5 text-xs text-zinc-500 hidden sm:inline">{PROD_TYPE_FULL[row.type]}</span>
               </td>
-              <td className="px-4 py-3 text-xs text-zinc-500 hidden md:table-cell">{row.origin ?? "—"}</td>
+              <td className="px-4 py-3 text-xs text-slate-500 hidden md:table-cell">{row.origin ?? "—"}</td>
               <td className="px-4 py-3 hidden lg:table-cell">
                 {row.type === "FINISHED_GOODS"
                   ? row.recipe
@@ -236,26 +245,22 @@ function ProductTable({ rows, onEdit }: { rows: ProductRow[]; onEdit: (r: Produc
 function UserTable({ rows, onEdit }: { rows: UserRow[]; onEdit: (r: UserRow) => void }) {
   if (rows.length === 0) return <EmptyState label="pengguna" />;
   return (
-    <div className="overflow-hidden rounded-xl border border-zinc-100">
+    <div className="overflow-hidden rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl shadow-lg shadow-slate-200/30">
       <table className="w-full text-sm">
-        <thead className="border-b border-zinc-100 bg-zinc-50/80">
+        <thead className="border-b border-white/50 bg-white/40 backdrop-blur-md">
           <tr>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Nama</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400 hidden md:table-cell">Email</th>
-            <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Role</th>
-            <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Status</th>
-            <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Aksi</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Nama</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500 hidden md:table-cell">Email</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Role</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">Aksi</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-50 bg-white">
+        <tbody className="divide-y divide-white/30">
           {rows.map((row) => (
-            <tr
-              key={row.id}
-              onClick={() => onEdit(row)}
-              className="cursor-pointer transition-colors hover:bg-zinc-50/60"
-            >
+            <tr key={row.id} className="hover:bg-white/40 transition-colors">
               <td className="px-4 py-3">
-                <p className="font-medium text-zinc-800">{row.name}</p>
+                <p className="font-medium text-slate-800">{row.name}</p>
                 <p className="text-[11px] text-zinc-400 md:hidden">{row.email}</p>
               </td>
               <td className="px-4 py-3 text-xs text-zinc-500 hidden md:table-cell">{row.email}</td>
@@ -356,19 +361,30 @@ export function MasterDataClient({ data }: { data: MasterPageData }) {
         }
       >
         {/* ── Tab pills ── */}
-        <div className="mb-5 flex gap-1.5 rounded-xl border border-zinc-100 bg-zinc-50/80 p-1 w-fit">
+        <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-2 bg-white/20 p-2 rounded-2xl backdrop-blur-md border border-white/50">
           {TABS.map((tab) => {
             const Icon   = tab.icon;
             const active = tab.id === activeTab;
             const count  = tab.count(data);
             return (
-              <button key={tab.id} onClick={() => handleTabChange(tab.id)}
-                className={["flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all",
-                  active ? "bg-white text-zinc-900 shadow-sm border border-zinc-200" : "text-zinc-500 hover:text-zinc-700 hover:bg-white/60"].join(" ")}>
-                <Icon size={14} />
-                {tab.label}
-                <span className={["rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
-                  active ? "bg-zinc-100 text-zinc-600" : "bg-zinc-200/70 text-zinc-400"].join(" ")}>
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={cn(
+                  "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl py-2 px-2 text-[10px] sm:text-xs font-bold transition-all duration-300 shadow-sm text-center",
+                  active
+                    ? "bg-slate-900 text-white shadow-md ring-2 ring-slate-800/20 scale-[1.02]"
+                    : "bg-white/40 text-slate-600 border border-white/60 hover:bg-white/60 hover:text-slate-800 hover:scale-[1.02]"
+                )}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Icon size={14} />
+                  <span className="leading-tight">{tab.label}</span>
+                </div>
+                <span className={cn(
+                  "rounded-full px-2 py-0.5 text-[9px] font-black tracking-wider",
+                  active ? "bg-white/20 text-white" : "bg-slate-900/10 text-slate-500"
+                )}>
                   {count}
                 </span>
               </button>

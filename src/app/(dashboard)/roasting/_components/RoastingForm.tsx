@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,6 +70,9 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
+const glassInput = "bg-white/40 border-white/60 backdrop-blur-md transition-all focus:bg-white/60 focus:border-white/80";
+const glassCard = "rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl p-4 shadow-sm";
+
 // =============================================================================
 // Field helpers
 // =============================================================================
@@ -90,8 +94,8 @@ function ShrinkageDisplay({ input, output }: { input: number; output: number }) 
   const valid = input > 0 && output > 0 && output < input;
   if (!valid) {
     return (
-      <div className="flex h-16 items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-zinc-50">
-        <p className="text-xs text-zinc-400">Isi berat masuk & keluar untuk melihat kalkulasi</p>
+      <div className={cn(glassCard, "flex h-16 items-center justify-center border-dashed border-white/80")}>
+        <p className="text-xs text-slate-500 font-medium tracking-wide">Isi berat masuk & keluar untuk melihat kalkulasi</p>
       </div>
     );
   }
@@ -100,20 +104,20 @@ function ShrinkageDisplay({ input, output }: { input: number; output: number }) 
   const lossPercent = (lossKg / input) * 100;
   const badgeColor =
     lossPercent > 25
-      ? "bg-red-50 border-red-200 text-red-700"
+      ? "bg-red-50/90 border-red-200 text-red-700 shadow-sm"
       : lossPercent > 18
-        ? "bg-amber-50 border-amber-200 text-amber-700"
-        : "bg-emerald-50 border-emerald-200 text-emerald-700";
+        ? "bg-amber-50/90 border-amber-200 text-amber-700 shadow-sm"
+        : "bg-emerald-50/90 border-emerald-200 text-emerald-700 shadow-sm";
 
   return (
-    <div className={`flex items-center justify-between rounded-lg border px-4 py-3 ${badgeColor}`}>
+    <div className={`flex items-center justify-between rounded-[1.25rem] border backdrop-blur-md px-5 py-4 ${badgeColor}`}>
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-widest opacity-70">Shrinkage</p>
-        <p className="text-2xl font-bold tabular-nums">{lossPercent.toFixed(2)}%</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">Shrinkage</p>
+        <p className="text-3xl font-black tabular-nums tracking-tight">{lossPercent.toFixed(2)}%</p>
       </div>
       <div className="text-right">
-        <p className="text-[10px] font-semibold uppercase tracking-widest opacity-70">Susut</p>
-        <p className="text-base font-semibold tabular-nums">{formatKg(lossKg)}</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">Susut</p>
+        <p className="text-lg font-bold tabular-nums">{formatKg(lossKg)}</p>
       </div>
     </div>
   );
@@ -215,10 +219,10 @@ export function RoastingForm({
   };
 
   return (
-    <form id={id} onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form id={id} onSubmit={handleSubmit(onSubmit)} className="space-y-5 relative">
       {/* ── Pilih Green Bean ── */}
       <FieldGroup>
-        <Label className="text-xs font-medium text-zinc-700">
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
           Green Bean <span className="text-red-500">*</span>
         </Label>
         <Controller
@@ -229,7 +233,7 @@ export function RoastingForm({
               value={field.value}
               onValueChange={(val: string | null) => field.onChange(val ?? "")}
             >
-              <SelectTrigger className="w-full h-9">
+              <SelectTrigger className={cn("w-full h-9", glassInput)}>
                 <SelectValue placeholder="Pilih Green Bean..." />
               </SelectTrigger>
               <SelectContent>
@@ -243,7 +247,7 @@ export function RoastingForm({
                       {g.name}
                       {g.origin ? ` — ${g.origin}` : ""}
                       {" "}
-                      <span className="text-zinc-400">({formatKg(g.stockKg)})</span>
+                      <span className="text-slate-400 font-normal">({formatKg(g.stockKg)})</span>
                     </SelectItem>
                   ))
                 )}
@@ -252,8 +256,8 @@ export function RoastingForm({
           )}
         />
         {selectedGB && (
-          <p className="text-xs text-zinc-400">
-            Stok tersedia: <span className="font-semibold text-zinc-700">{formatKg(selectedGB.stockKg)}</span>
+          <p className="text-[10px] font-medium text-slate-500 pt-1">
+            Stok tersedia: <span className="font-bold text-slate-800">{formatKg(selectedGB.stockKg)}</span>
           </p>
         )}
         <FieldError message={errors.inputProductId?.message} />
@@ -261,7 +265,7 @@ export function RoastingForm({
 
       {/* ── Berat Masuk ── */}
       <FieldGroup>
-        <Label className="text-xs font-medium text-zinc-700">
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
           Berat Masuk / Green Bean (kg) <span className="text-red-500">*</span>
         </Label>
         <Input
@@ -269,22 +273,22 @@ export function RoastingForm({
           step="0.001"
           min="0"
           placeholder="0.000"
-          className="h-9 tabular-nums"
+          className={cn("h-9 tabular-nums font-semibold", glassInput)}
           {...register("inputWeightKg", { valueAsNumber: true })}
         />
         {selectedGB && Number(inputWeightKg) > selectedGB.stockKg && (
-          <p className="text-xs text-red-500">
+          <p className="text-[10px] font-medium text-red-500">
             Melebihi stok tersedia ({formatKg(selectedGB.stockKg)})
           </p>
         )}
         <FieldError message={errors.inputWeightKg?.message} />
       </FieldGroup>
 
-      <Separator className="bg-zinc-100" />
+      <Separator className="bg-white/50" />
 
       {/* ── Output RB mode toggle ── */}
       <div>
-        <Label className="text-xs font-medium text-zinc-700 mb-2 block">
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-2 block">
           Roasted Bean Output <span className="text-red-500">*</span>
         </Label>
         <Controller
@@ -297,11 +301,12 @@ export function RoastingForm({
                   key={mode}
                   type="button"
                   onClick={() => field.onChange(mode)}
-                  className={`flex-1 rounded-md border py-1.5 text-xs font-medium transition-colors ${
+                  className={cn(
+                    "flex-1 rounded-xl border py-2 text-xs font-bold transition-all shadow-sm",
                     field.value === mode
-                      ? "border-zinc-900 bg-zinc-900 text-white"
-                      : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
-                  }`}
+                      ? "border-slate-800 bg-slate-800 text-white shadow-md ring-2 ring-slate-800/20 ring-offset-1"
+                      : "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60"
+                  )}
                 >
                   {mode === "existing" ? "Produk Existing" : "+ Produk Baru"}
                 </button>
@@ -314,7 +319,7 @@ export function RoastingForm({
       {/* ── Select existing RB ── */}
       {outputMode === "existing" && (
         <FieldGroup>
-          <Label className="text-xs font-medium text-zinc-700">Pilih Roasted Bean</Label>
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Pilih Roasted Bean</Label>
           <Controller
             control={control}
             name="outputProductId"
@@ -323,7 +328,7 @@ export function RoastingForm({
                 value={field.value}
                 onValueChange={(val: string | null) => field.onChange(val ?? "")}
               >
-                <SelectTrigger className="w-full h-9">
+                <SelectTrigger className={cn("w-full h-9", glassInput)}>
                   <SelectValue placeholder="Pilih produk RB..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -347,31 +352,31 @@ export function RoastingForm({
 
       {/* ── New RB product ── */}
       {outputMode === "new" && (
-        <div className="space-y-3 rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+        <div className={cn(glassCard, "space-y-4")}>
           <FieldGroup>
-            <Label className="text-xs font-medium text-zinc-700">
+            <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
               Nama Roasted Bean <span className="text-red-500">*</span>
             </Label>
             <Input
               placeholder="e.g. Gayo Natural Medium"
-              className="h-9 bg-white"
+              className={cn("h-9 font-medium", glassInput)}
               {...register("outputProductName")}
             />
             <FieldError message={errors.outputProductName?.message} />
           </FieldGroup>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <FieldGroup>
-              <Label className="text-xs font-medium text-zinc-700">Origin</Label>
+              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Origin</Label>
               <Input
                 placeholder="e.g. Aceh Gayo"
-                className="h-9 bg-white"
+                className={cn("h-9", glassInput)}
                 {...register("outputProductOrigin")}
               />
             </FieldGroup>
 
             <FieldGroup>
-              <Label className="text-xs font-medium text-zinc-700">Roast Level</Label>
+              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Roast Level</Label>
               <Controller
                 control={control}
                 name="outputRoastLevel"
@@ -380,7 +385,7 @@ export function RoastingForm({
                     value={field.value}
                     onValueChange={(val: string | null) => field.onChange(val ?? "")}
                   >
-                    <SelectTrigger className="w-full h-9 bg-white">
+                    <SelectTrigger className={cn("w-full h-9", glassInput)}>
                       <SelectValue placeholder="Pilih level..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -398,12 +403,12 @@ export function RoastingForm({
         </div>
       )}
 
-      <Separator className="bg-zinc-100" />
+      <Separator className="bg-white/50" />
 
       {/* ── Berat Keluar ── */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         <FieldGroup>
-          <Label className="text-xs font-medium text-zinc-700">
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
             Berat Keluar / Matang (kg) <span className="text-red-500">*</span>
           </Label>
           <Input
@@ -411,20 +416,20 @@ export function RoastingForm({
             step="0.001"
             min="0"
             placeholder="0.000"
-            className="h-9 tabular-nums"
+            className={cn("h-9 tabular-nums font-semibold", glassInput)}
             {...register("outputWeightKg", { valueAsNumber: true })}
           />
           <FieldError message={errors.outputWeightKg?.message} />
         </FieldGroup>
 
         <FieldGroup>
-          <Label className="text-xs font-medium text-zinc-700">Durasi (menit)</Label>
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Durasi (menit)</Label>
           <Input
             type="number"
             step="1"
             min="0"
             placeholder="0"
-            className="h-9 tabular-nums"
+            className={cn("h-9 tabular-nums", glassInput)}
             {...register("roastDurationMin", { valueAsNumber: true })}
           />
         </FieldGroup>
@@ -438,11 +443,11 @@ export function RoastingForm({
 
       {/* ── Catatan ── */}
       <FieldGroup>
-        <Label className="text-xs font-medium text-zinc-700">Catatan (opsional)</Label>
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Catatan (opsional)</Label>
         <Textarea
           placeholder="Kondisi roasting, profil, dll."
-          rows={2}
-          className="resize-none text-sm"
+          rows={3}
+          className={cn("resize-none text-sm", glassInput)}
           {...register("notes")}
         />
       </FieldGroup>

@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { PnLReportClient } from "./_components/PnLReportClient";
 import { getPnLReport } from "../keuangan/actions";
 
@@ -17,8 +16,6 @@ export default async function LaporanPage({ searchParams }: Props) {
   const report = await getPnLReport(month, year);
 
   return (
-    <Suspense fallback={null}>
-      <PnLReportClient report={report} />
-    </Suspense>
+    <PnLReportClient report={report} />
   );
 }

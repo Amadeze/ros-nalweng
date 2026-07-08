@@ -6,6 +6,7 @@ import { z } from "zod";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,6 +65,9 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
+const glassInput = "bg-white/40 border-white/60 backdrop-blur-md transition-all focus:bg-white/60 focus:border-white/80";
+const glassCard = "rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl p-4 shadow-sm";
+
 // =============================================================================
 // Field wrapper helpers
 // =============================================================================
@@ -88,11 +92,11 @@ function ReadonlyField({
 }) {
   return (
     <FieldGroup>
-      <Label className="text-xs font-medium text-zinc-600">{label}</Label>
-      <div className="flex h-8 items-center rounded-lg border border-zinc-200 bg-zinc-50 px-3">
-        <span className="text-sm font-semibold text-zinc-900">{value}</span>
+      <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">{label}</Label>
+      <div className={cn("flex h-9 items-center px-3 cursor-not-allowed opacity-80", glassInput)}>
+        <span className="text-sm font-semibold text-slate-800">{value}</span>
       </div>
-      {hint && <p className="text-xs text-zinc-400">{hint}</p>}
+      {hint && <p className="text-[10px] font-medium text-slate-400">{hint}</p>}
     </FieldGroup>
   );
 }
@@ -198,60 +202,52 @@ export function PurchaseForm({
   };
 
   return (
-    <form id={id} onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form id={id} onSubmit={handleSubmit(onSubmit)} className="space-y-5 relative">
       {/* ── Supplier ── */}
       <FieldGroup>
-        <Label className="text-xs font-medium text-zinc-700">
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
           Supplier <span className="text-red-500">*</span>
         </Label>
-        <Controller
-          control={control}
-          name="supplierId"
-          render={({ field }) => (
-            <Select
-              value={field.value}
-              onValueChange={(val: string | null) => field.onChange(val ?? "")}
-            >
-              <SelectTrigger className="w-full h-9">
-                <SelectValue placeholder="Pilih supplier..." />
-              </SelectTrigger>
-              <SelectContent>
-                {suppliers.length === 0 ? (
-                  <SelectItem value="_empty" disabled>
-                    Belum ada supplier
-                  </SelectItem>
-                ) : (
-                  suppliers.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+        <select
+          className={cn(
+            "w-full h-9 rounded-lg border px-3 text-sm transition-all appearance-none outline-none",
+            glassInput,
+            errors.supplierId ? "border-red-500 ring-2 ring-red-500/20" : ""
           )}
-        />
+          {...register("supplierId")}
+        >
+          <option value="" disabled>Pilih supplier...</option>
+          {suppliers.length === 0 ? (
+            <option value="_empty" disabled>Belum ada supplier</option>
+          ) : (
+            suppliers.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))
+          )}
+        </select>
         <FieldError message={errors.supplierId?.message} />
       </FieldGroup>
 
       {/* ── Tanggal ── */}
       <FieldGroup>
-        <Label className="text-xs font-medium text-zinc-700">
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
           Tanggal Terima <span className="text-red-500">*</span>
         </Label>
         <Input
           type="date"
-          className="h-9"
+          className={cn("h-9", glassInput)}
           {...register("receivedAt")}
         />
         <FieldError message={errors.receivedAt?.message} />
       </FieldGroup>
 
-      <Separator className="bg-zinc-100" />
+      <Separator className="bg-white/50" />
 
       {/* ── Mode produk ── */}
       <div>
-        <Label className="text-xs font-medium text-zinc-700 mb-2 block">
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-2 block">
           Green Bean <span className="text-red-500">*</span>
         </Label>
         <Controller
@@ -264,11 +260,12 @@ export function PurchaseForm({
                   key={mode}
                   type="button"
                   onClick={() => field.onChange(mode)}
-                  className={`flex-1 rounded-md border py-1.5 text-xs font-medium transition-colors ${
+                  className={cn(
+                    "flex-1 rounded-xl border py-2 text-xs font-bold transition-all shadow-sm",
                     field.value === mode
-                      ? "border-zinc-900 bg-zinc-900 text-white"
-                      : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50"
-                  }`}
+                      ? "border-slate-800 bg-slate-800 text-white shadow-md ring-2 ring-slate-800/20 ring-offset-1"
+                      : "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60"
+                  )}
                 >
                   {mode === "existing" ? "Produk Existing" : "+ Produk Baru"}
                 </button>
@@ -281,70 +278,61 @@ export function PurchaseForm({
       {/* ── Pilih existing ── */}
       {productMode === "existing" && (
         <FieldGroup>
-          <Label className="text-xs font-medium text-zinc-700">Pilih Green Bean</Label>
-          <Controller
-            control={control}
-            name="productId"
-            render={({ field }) => (
-              <Select
-                value={field.value}
-                onValueChange={(val: string | null) => field.onChange(val ?? "")}
-              >
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue placeholder="Pilih produk..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {gbProducts.length === 0 ? (
-                    <SelectItem value="_empty" disabled>
-                      Belum ada produk GB
-                    </SelectItem>
-                  ) : (
-                    gbProducts.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                        {p.origin ? ` — ${p.origin}` : ""}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Pilih Green Bean</Label>
+          <select
+            className={cn(
+              "w-full h-9 rounded-lg border px-3 text-sm transition-all appearance-none outline-none",
+              glassInput,
+              errors.productId ? "border-red-500 ring-2 ring-red-500/20" : ""
             )}
-          />
+            {...register("productId")}
+          >
+            <option value="" disabled>Pilih produk...</option>
+            {gbProducts.length === 0 ? (
+              <option value="_empty" disabled>Belum ada produk GB</option>
+            ) : (
+              gbProducts.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} {p.origin ? ` — ${p.origin}` : ""}
+                </option>
+              ))
+            )}
+          </select>
           <FieldError message={errors.productId?.message} />
         </FieldGroup>
       )}
 
       {/* ── Produk baru ── */}
       {productMode === "new" && (
-        <div className="space-y-3 rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+        <div className={cn(glassCard, "space-y-4")}>
           <FieldGroup>
-            <Label className="text-xs font-medium text-zinc-700">
+            <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
               Nama Green Bean <span className="text-red-500">*</span>
             </Label>
             <Input
               placeholder="e.g. Gayo Natural, Ethiopia Yirgacheffe"
-              className="h-9 bg-white"
+              className={cn("h-9 font-medium", glassInput)}
               {...register("productName")}
             />
             <FieldError message={errors.productName?.message} />
           </FieldGroup>
           <FieldGroup>
-            <Label className="text-xs font-medium text-zinc-700">Asal / Origin</Label>
+            <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Asal / Origin</Label>
             <Input
               placeholder="e.g. Aceh, Ethiopia, Flores"
-              className="h-9 bg-white"
+              className={cn("h-9", glassInput)}
               {...register("productOrigin")}
             />
           </FieldGroup>
         </div>
       )}
 
-      <Separator className="bg-zinc-100" />
+      <Separator className="bg-white/50" />
 
       {/* ── Berat & Harga ── */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         <FieldGroup>
-          <Label className="text-xs font-medium text-zinc-700">
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
             Berat (kg) <span className="text-red-500">*</span>
           </Label>
           <Input
@@ -352,14 +340,14 @@ export function PurchaseForm({
             step="0.001"
             min="0"
             placeholder="0.000"
-            className="h-9 tabular-nums"
+            className={cn("h-9 tabular-nums font-semibold", glassInput)}
             {...register("weightKg", { valueAsNumber: true })}
           />
           <FieldError message={errors.weightKg?.message} />
         </FieldGroup>
 
         <FieldGroup>
-          <Label className="text-xs font-medium text-zinc-700">
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
             Harga Beli /kg <span className="text-red-500">*</span>
           </Label>
           <Input
@@ -367,7 +355,7 @@ export function PurchaseForm({
             step="1"
             min="0"
             placeholder="0"
-            className="h-9 tabular-nums"
+            className={cn("h-9 tabular-nums font-semibold", glassInput)}
             {...register("pricePerKg", { valueAsNumber: true })}
           />
           <FieldError message={errors.pricePerKg?.message} />
@@ -376,20 +364,20 @@ export function PurchaseForm({
 
       {/* ── Ongkir ── */}
       <FieldGroup>
-        <Label className="text-xs font-medium text-zinc-700">Ongkos Kirim (total)</Label>
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Ongkos Kirim (total)</Label>
         <Input
           type="number"
           step="1"
           min="0"
           placeholder="0"
-          className="h-9 tabular-nums"
+          className={cn("h-9 tabular-nums", glassInput)}
           {...register("shippingCost", { valueAsNumber: true })}
         />
         <FieldError message={errors.shippingCost?.message} />
       </FieldGroup>
 
       {/* ── HPP auto-computed ── */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         <ReadonlyField
           label="Total Biaya"
           value={totalCost > 0 ? formatRupiah(totalCost) : "—"}
@@ -401,15 +389,15 @@ export function PurchaseForm({
         />
       </div>
 
-      <Separator className="bg-zinc-100" />
+      <Separator className="bg-white/50" />
 
       {/* ── Catatan ── */}
       <FieldGroup>
-        <Label className="text-xs font-medium text-zinc-700">Catatan (opsional)</Label>
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Catatan (opsional)</Label>
         <Textarea
           placeholder="Kualitas, kondisi saat tiba, dll."
           rows={3}
-          className="resize-none text-sm"
+          className={cn("resize-none text-sm", glassInput)}
           {...register("notes")}
         />
       </FieldGroup>
