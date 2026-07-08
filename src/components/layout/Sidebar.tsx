@@ -53,13 +53,13 @@ function NavItem({
       className={cn(
         "group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-300",
         active
-          ? "bg-white/80 text-slate-900 shadow-md ring-1 ring-white/50 translate-x-1"
+          ? "bg-gradient-to-r from-indigo-500 to-cyan-400 text-white shadow-lg shadow-indigo-500/30 translate-x-1"
           : "text-slate-600 hover:bg-white/40 hover:text-slate-900 hover:translate-x-1"
       )}
     >
       <div className={cn(
         "flex items-center justify-center rounded-xl p-1.5 transition-all duration-300",
-        active ? "bg-slate-900 text-white shadow-md" : "bg-white/50 text-slate-500 group-hover:bg-white/80 group-hover:text-slate-800 group-hover:shadow-sm"
+        active ? "text-white" : "bg-white/50 text-slate-500 group-hover:bg-white/80 group-hover:text-slate-800 group-hover:shadow-sm"
       )}>
         <Icon size={18} />
       </div>
@@ -90,18 +90,8 @@ export function Sidebar({ userRole }: { userRole: string }) {
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col rounded-[2rem] bg-white/30 backdrop-blur-2xl border border-white/60 text-slate-800 shadow-2xl md:bg-transparent md:backdrop-blur-none md:border-transparent md:shadow-none">
       {/* Brand */}
-      <div className="flex h-20 items-center gap-3.5 px-6 pt-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-900/20 ring-1 ring-slate-800/50">
-          <Coffee size={20} strokeWidth={2.5} />
-        </div>
-        <div className="leading-tight flex flex-col justify-center">
-          <p className="text-[15px] font-black text-slate-900 tracking-tight">
-            Nalweng
-          </p>
-          <p className="text-[9px] text-slate-500 tracking-[0.2em] uppercase font-bold mt-0.5">
-            Roastery OS
-          </p>
-        </div>
+      <div className="flex h-20 items-center px-6 pt-4 mb-2">
+        <img src="/logo.png" alt="Nalweng Logo" className="h-10 w-auto object-contain" />
       </div>
 
       <div className="mx-6 h-px bg-white/40 my-2" />
