@@ -18,8 +18,8 @@ export function StandardPageLayout({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* ── Header ── */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/40 bg-white/20 px-4 md:px-6 backdrop-blur-md">
-        <div className="min-w-0">
+      <header className="flex flex-col md:flex-row shrink-0 items-start md:items-center justify-between gap-3 border-b border-white/40 bg-white/20 px-4 py-3 md:h-16 md:px-6 backdrop-blur-md">
+        <div className="min-w-0 w-full md:w-auto flex-shrink-0">
           <h1 className="truncate text-lg font-bold text-slate-800 tracking-tight">
             {title}
           </h1>
@@ -31,7 +31,7 @@ export function StandardPageLayout({
         </div>
 
         {actionButton && (
-          <div className="ml-4 flex shrink-0 items-center gap-2">
+          <div className="w-full md:w-auto flex shrink-0 items-center gap-2 overflow-x-auto custom-scrollbar pb-1 md:pb-0 md:ml-4">
             {actionButton}
           </div>
         )}

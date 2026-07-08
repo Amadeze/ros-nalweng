@@ -18,7 +18,7 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
       {/* Muncul sebagai efek blur di belakang sidebar jika dibuka di HP */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-md md:hidden transition-all"
+          className="fixed inset-0 z-40 bg-white/20 backdrop-blur-sm md:hidden transition-all"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
@@ -47,9 +47,8 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
           >
             <Menu size={20} />
           </button>
-          <div className="flex flex-col">
-            <span className="text-base font-black text-slate-900 tracking-tight">Nalweng</span>
-            <span className="text-[10px] text-slate-600 uppercase tracking-widest font-bold">Roastery OS</span>
+          <div className="flex items-center h-11 ml-1">
+            <img src="/logo.png" alt="Nalweng Logo" className="h-full w-auto object-contain drop-shadow-sm" />
           </div>
         </div>
 

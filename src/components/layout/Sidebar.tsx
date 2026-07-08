@@ -88,10 +88,10 @@ export function Sidebar({ userRole }: { userRole: string }) {
   });
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col rounded-2xl bg-white/30 backdrop-blur-2xl border border-white/60 text-slate-800 shadow-2xl md:bg-transparent md:backdrop-blur-none md:border-transparent md:shadow-none">
+    <aside className="flex h-full w-64 shrink-0 flex-col rounded-2xl bg-white/70 backdrop-blur-3xl border border-white/60 text-slate-800 shadow-2xl md:bg-transparent md:backdrop-blur-none md:border-transparent md:shadow-none">
       {/* Brand */}
-      <div className="flex h-24 items-center px-4 pt-6 mb-2 transition-transform duration-500 hover:scale-105">
-        <img src="/logo.png" alt="Nalweng Logo" className="w-full h-auto max-w-[170px] object-contain" />
+      <div className="flex h-32 items-center justify-center px-2 pt-6 mb-4 transition-transform duration-500 hover:scale-105">
+        <img src="/logo.png" alt="Nalweng Logo" className="w-full h-auto max-w-[220px] object-contain drop-shadow-sm" />
       </div>
 
       <div className="mx-6 h-px bg-white/40 my-2" />
