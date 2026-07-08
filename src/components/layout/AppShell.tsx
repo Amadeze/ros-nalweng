@@ -24,7 +24,7 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
       )}
 
       {/* ── CONTAINER UTAMA (KACA BESAR UNTUK DESKTOP) ── */}
-      <div className="flex h-full w-full overflow-hidden flex-col md:flex-row md:rounded-[2.5rem] md:border md:border-white/60 md:bg-white/30 md:shadow-2xl md:backdrop-blur-3xl md:ring-1 md:ring-white/50">
+      <div className="flex h-full w-full overflow-hidden flex-col md:flex-row md:rounded-3xl md:border md:border-white/60 md:bg-white/30 md:shadow-2xl md:backdrop-blur-3xl md:ring-1 md:ring-white/50 transition-all duration-500 hover:shadow-slate-300/50">
 
       {/* ── SIDEBAR CONTAINER ── */}
       {/* Di HP: Muncul dari kiri (slide). Di Desktop: Selalu tampil di kiri */}

@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -144,14 +144,14 @@
 
   body {
     @apply text-slate-800 min-h-screen font-sans antialiased;
-    /* Aurora mesh background */
+    /* Elegant mature mesh background */
     background: linear-gradient(
       120deg,
-      #e0c3fc 0%,
-      #8ec5fc 25%,
-      #c2e9fb 50%,
-      #e0c3fc 75%,
-      #8ec5fc 100%
+      #f1f5f9 0%,
+      #e0e7ff 25%,
+      #e0f2fe 50%,
+      #ede9fe 75%,
+      #f1f5f9 100%
     );
     background-size: 400% 400%;
     animation: gradient-xy 25s ease infinite;

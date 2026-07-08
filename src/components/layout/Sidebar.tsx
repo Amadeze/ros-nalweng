@@ -53,8 +53,8 @@ function NavItem({
       className={cn(
         "group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all duration-300",
         active
-          ? "bg-gradient-to-r from-indigo-500 to-cyan-400 text-white shadow-lg shadow-indigo-500/30 translate-x-1"
-          : "text-slate-600 hover:bg-white/40 hover:text-slate-900 hover:translate-x-1"
+          ? "bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg shadow-slate-900/30 translate-x-1 scale-[1.02]"
+          : "text-slate-600 hover:bg-white/40 hover:text-slate-900 hover:translate-x-1 hover:scale-[1.02] active:scale-95"
       )}
     >
       <div className={cn(
@@ -88,10 +88,10 @@ export function Sidebar({ userRole }: { userRole: string }) {
   });
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col rounded-[2rem] bg-white/30 backdrop-blur-2xl border border-white/60 text-slate-800 shadow-2xl md:bg-transparent md:backdrop-blur-none md:border-transparent md:shadow-none">
+    <aside className="flex h-full w-64 shrink-0 flex-col rounded-2xl bg-white/30 backdrop-blur-2xl border border-white/60 text-slate-800 shadow-2xl md:bg-transparent md:backdrop-blur-none md:border-transparent md:shadow-none">
       {/* Brand */}
-      <div className="flex h-20 items-center px-6 pt-4 mb-2">
-        <img src="/logo.png" alt="Nalweng Logo" className="h-10 w-auto object-contain" />
+      <div className="flex h-24 items-center px-6 pt-6 mb-2 transition-transform duration-500 hover:scale-105">
+        <img src="/logo.png" alt="Nalweng Logo" className="h-16 w-auto object-contain" />
       </div>
 
       <div className="mx-6 h-px bg-white/40 my-2" />
@@ -121,7 +121,7 @@ export function Sidebar({ userRole }: { userRole: string }) {
         <form action={logoutAction}>
           <button
             type="submit"
-            className="group flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-600 transition-all duration-300 hover:bg-white/40 hover:text-slate-900 hover:shadow-sm"
+            className="group flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-600 transition-all duration-300 hover:bg-white/40 hover:text-slate-900 hover:shadow-sm hover:scale-[1.02] active:scale-95"
           >
             <div className="flex items-center justify-center rounded-xl bg-white/50 p-1.5 text-slate-400 transition-all duration-300 group-hover:bg-rose-100 group-hover:text-rose-600 group-hover:shadow-sm">
               <LogOut size={18} />
