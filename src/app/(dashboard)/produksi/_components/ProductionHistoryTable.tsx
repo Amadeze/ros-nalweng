@@ -55,7 +55,7 @@ export function ProductionHistoryTable({ batches }: ProductionHistoryTableProps)
     return batches.filter((b) => {
       const matchSearch =
         b.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        b.inputProductName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (b.recipeUsed && b.recipeUsed.toLowerCase().includes(searchTerm.toLowerCase())) ||
         b.outputProductName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchStatus = statusFilter === "ALL" || b.status === statusFilter;
       return matchSearch && matchStatus;
@@ -110,16 +110,16 @@ export function ProductionHistoryTable({ batches }: ProductionHistoryTableProps)
                   {b.code}
                 </TableCell>
                 <TableCell>
-                  <p className="text-sm font-medium text-zinc-900">{b.inputProductName}</p>
+                  <p className="text-sm font-medium text-zinc-900">{b.recipeUsed ?? "Tanpa Resep"}</p>
                 </TableCell>
                 <TableCell  className="text-right font-mono text-sm text-zinc-700">
-                  {b.inputQuantity} <span className="text-xs text-zinc-400">kg</span>
+                  {b.totalRbUsedKg} <span className="text-xs text-zinc-400">kg</span>
                 </TableCell>
                 <TableCell>
                   <p className="text-sm font-medium text-zinc-900">{b.outputProductName}</p>
                 </TableCell>
                 <TableCell  className="text-right font-mono text-sm font-semibold text-emerald-700">
-                  {b.outputQuantity} <span className="text-xs text-emerald-600/60">pcs</span>
+                  {b.unitsProduced} <span className="text-xs text-emerald-600/60">pcs</span>
                 </TableCell>
                 <TableCell className="text-sm text-zinc-500">
                   {formatDate(b.producedAt)}
@@ -160,12 +160,12 @@ export function ProductionHistoryTable({ batches }: ProductionHistoryTableProps)
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="font-mono text-xs font-semibold text-slate-600">{b.code}</span>
                   <span className="text-xs text-slate-400">•</span>
-                  <span className="text-[10px] uppercase font-bold text-slate-500">{b.inputProductName}</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-500">{b.recipeUsed ?? "Bebas"}</span>
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-mono text-sm font-black text-emerald-600">{b.outputUnits} Unit</p>
-                <p className="font-mono text-[10px] font-bold text-slate-500 mt-0.5">Bahan: {formatKg(b.inputWeightKg)}</p>
+                <p className="font-mono text-sm font-black text-emerald-600">{b.unitsProduced} Unit</p>
+                <p className="font-mono text-[10px] font-bold text-slate-500 mt-0.5">Bahan: {formatKg(b.totalRbUsedKg)}</p>
               </div>
             </div>
             
