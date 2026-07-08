@@ -221,7 +221,7 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess }: Pack
           DIALOG QUICK ADD KEMASAN
           ========================================================================== */}
       <Dialog open={isQuickAddOpen} onOpenChange={setIsQuickAddOpen}>
-        <DialogContent className="sm:max-w-100 border-white/60 bg-white/40 backdrop-blur-2xl shadow-2xl">
+        <DialogContent className="sm:max-w-100 border-white/60 bg-white/30 backdrop-blur-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-slate-800">
               <Package size={18} className="text-emerald-600" />

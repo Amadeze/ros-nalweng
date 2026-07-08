@@ -47,7 +47,7 @@ export function StandardDrawer({
         className={[
           SIZE_MAP[size],
           "flex flex-col gap-0 p-0 overflow-hidden",
-          "rounded-[2rem] border border-white/60 bg-white/70 backdrop-blur-3xl shadow-2xl shadow-slate-300/50",
+          "rounded-[2rem] border border-white/60 bg-white/30 backdrop-blur-3xl shadow-2xl shadow-slate-300/40",
         ].join(" ")}
       >
         {/* ── Modal Header ── */}

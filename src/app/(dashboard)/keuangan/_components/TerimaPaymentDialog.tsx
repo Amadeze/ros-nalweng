@@ -155,12 +155,12 @@ export function TerimaPaymentDialog({
         </DialogHeader>
 
         {/* Invoice balance summary */}
-        <div className="grid grid-cols-3 divide-x divide-zinc-100 border-b border-zinc-100 bg-zinc-50">
+        <div className="grid grid-cols-3 divide-x divide-white/20 border-b border-white/20 bg-white/20 backdrop-blur-sm">
           <div className="px-4 py-3 text-center">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">
               Total Nota
             </p>
-            <p className="mt-0.5 font-mono text-sm font-bold text-zinc-700">
+            <p className="mt-0.5 font-mono text-sm font-bold text-slate-800">
               {formatRupiah(invoice.grandTotal)}
             </p>
           </div>
@@ -207,7 +207,7 @@ export function TerimaPaymentDialog({
                 step="1"
                 min="1"
                 placeholder={String(balance)}
-                className="h-10 pl-8 text-right tabular-nums font-semibold text-sm"
+                className="h-10 pl-8 text-right tabular-nums font-semibold text-sm bg-white/40 border-white/60 focus:bg-white/60 backdrop-blur-md"
                 {...register("amount", { valueAsNumber: true })}
               />
             </div>
@@ -229,7 +229,7 @@ export function TerimaPaymentDialog({
             <Label className="text-xs font-medium text-zinc-700">
               Tanggal Diterima <span className="text-red-500">*</span>
             </Label>
-            <Input type="date" max={today} className="h-9" {...register("paidAt")} />
+            <Input type="date" max={today} className="h-9 bg-white/40 border-white/60 focus:bg-white/60 backdrop-blur-md" {...register("paidAt")} />
             {errors.paidAt && <p className="text-xs text-red-500">{errors.paidAt.message}</p>}
           </div>
 
