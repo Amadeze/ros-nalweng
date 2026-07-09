@@ -169,7 +169,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
                       </Button>
                     )}
                     <Link
-                      href={`/invoice/${inv.id}/print`}
+                      href={`/nota/${inv.id}?print=true`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 h-7 rounded-lg border border-white/60 bg-white/40 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-800 transition-all shadow-sm"
@@ -234,7 +234,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
                     Bayar
                   </Button>
                 )}
-                <Link href={`/invoice/${inv.id}/print`} className="inline-flex items-center justify-center h-7 px-2.5 rounded-lg border border-slate-300 text-[11px] font-bold uppercase text-slate-600 hover:bg-slate-900 hover:text-white bg-white/40 shadow-sm">
+                <Link href={`/nota/${inv.id}?print=true`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center h-7 px-2.5 rounded-lg border border-slate-300 text-[11px] font-bold uppercase text-slate-600 hover:bg-slate-900 hover:text-white bg-white/40 shadow-sm">
                   Print
                 </Link>
                 {inv.status !== "VOID" && inv.status !== "PAID" && (

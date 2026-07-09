@@ -8,6 +8,14 @@ import { StandardDrawer } from "@/components/StandardDrawer";
 import { InvoiceTable } from "./InvoiceTable";
 import { InvoiceForm } from "./InvoiceForm";
 import { CustomerForm } from "../../master-data/_components/CustomerForm";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import type { CustomerOption, FGStockOption, InvoiceRow } from "../actions";
 
 interface SalesClientProps {
@@ -97,6 +105,30 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
           }}
         />
       </StandardDrawer>
+
+      <Dialog open={!!lastInvoiceId} onOpenChange={(open) => { if (!open) setLastInvoiceId(null); }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Nota Berhasil Terbit!</DialogTitle>
+            <DialogDescription>
+              Nota penjualan telah berhasil disimpan ke database. Anda dapat mencetak nota sekarang.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4 items-center justify-center">
+            <ReceiptText size={48} className="text-emerald-500 mb-2 opacity-80" />
+            <p className="text-sm font-medium text-slate-700 text-center">
+              Apakah Anda ingin mencetak nota ini sekarang?
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLastInvoiceId(null)}>Nanti Saja</Button>
+            <Button className="bg-blue-600 text-white" onClick={() => {
+              window.open(`/nota/${lastInvoiceId}?print=true`, '_blank');
+              setLastInvoiceId(null);
+            }}>Cetak Nota</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
