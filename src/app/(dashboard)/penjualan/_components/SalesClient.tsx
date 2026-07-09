@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { ReceiptText, Loader2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { ReceiptText, Loader2, DollarSign, FileText, CheckCircle2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatRupiah } from "@/lib/format";
 import { StandardPageLayout } from "@/components/StandardPageLayout";
 import { StandardDrawer } from "@/components/StandardDrawer";
 import { InvoiceTable } from "./InvoiceTable";
@@ -43,25 +44,55 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
   // For Create Customer modal
   const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
 
-  const paidCount = invoices.filter((i) => i.status === "PAID").length;
-  const unpaidCount = invoices.filter((i) => i.status === "ISSUED" || i.status === "PARTIAL").length;
+  const kpi = useMemo(() => {
+    const valid = invoices.filter(i => i.status !== "VOID");
+    const totalInvoices = valid.length;
+    const paidCount = valid.filter(i => i.status === "PAID").length;
+    const unpaidCount = valid.filter(i => i.status === "ISSUED" || i.status === "PARTIAL").length;
+    const totalRevenue = valid.reduce((sum, i) => sum + i.grandTotal, 0);
+
+    return { totalInvoices, paidCount, unpaidCount, totalRevenue };
+  }, [invoices]);
 
   return (
     <>
       <StandardPageLayout
         title="Penjualan"
-        description={`${paidCount} nota lunas · ${unpaidCount} nota tempo`}
+        description={`${kpi.paidCount} nota lunas Â· ${kpi.unpaidCount} nota tempo`}
         actionButton={
           <Button
-            size="sm"
-            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 shadow-md rounded-xl font-bold"
+            size="default"
+            className="gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg rounded-xl font-semibold px-5 transition-all group"
             onClick={() => setDrawerOpen(true)}
           >
-            <ReceiptText size={14} />
+            <ReceiptText size={16} className="group-hover:scale-110 transition-transform" />
             Nota Baru
           </Button>
         }
       >
+        <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="col-span-2 lg:col-span-1 rounded-2xl border border-white/60 bg-gradient-to-br from-emerald-50 to-teal-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><DollarSign size={48} className="text-emerald-600" /></div>
+            <p className="text-xs font-medium text-emerald-600 relative z-10">Total Volume Penjualan</p>
+            <p className="mt-1 font-mono text-xl lg:text-2xl font-black tabular-nums text-emerald-700 relative z-10">{formatRupiah(kpi.totalRevenue)}</p>
+          </div>
+          <div className="col-span-2 lg:col-span-1 rounded-2xl border border-white/60 bg-gradient-to-br from-indigo-50 to-blue-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><CheckCircle2 size={48} className="text-indigo-600" /></div>
+            <p className="text-xs font-medium text-indigo-600 relative z-10">Nota Lunas</p>
+            <p className="mt-1 font-mono text-xl lg:text-2xl font-black tabular-nums text-indigo-700 relative z-10">{kpi.paidCount} <span className="text-sm">faktur</span></p>
+          </div>
+          <div className="col-span-2 lg:col-span-1 rounded-2xl border border-white/60 bg-gradient-to-br from-amber-50 to-orange-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><Clock size={48} className="text-amber-600" /></div>
+            <p className="text-xs font-medium text-amber-600 relative z-10">Nota Tempo (Belum Lunas)</p>
+            <p className="mt-1 font-mono text-xl lg:text-2xl font-black tabular-nums text-amber-700 relative z-10">{kpi.unpaidCount} <span className="text-sm">faktur</span></p>
+          </div>
+          <div className="col-span-2 lg:col-span-1 rounded-2xl border border-white/60 bg-gradient-to-br from-slate-50 to-zinc-100 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><FileText size={48} className="text-slate-500" /></div>
+            <p className="text-xs font-medium text-slate-600 relative z-10">Total Diterbitkan</p>
+            <p className="mt-1 font-mono text-xl lg:text-2xl font-black tabular-nums text-slate-700 relative z-10">{kpi.totalInvoices} <span className="text-sm">faktur</span></p>
+          </div>
+        </div>
+
         <InvoiceTable invoices={invoices} />
       </StandardPageLayout>
 

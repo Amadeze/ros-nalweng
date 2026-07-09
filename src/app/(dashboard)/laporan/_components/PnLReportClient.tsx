@@ -1,12 +1,14 @@
-﻿"use client";
+"use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { StandardPageLayout } from "@/components/StandardPageLayout";
 import { formatRupiah } from "@/lib/format";
 import type { PnLReport } from "../../keuangan/actions";
-import { TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, FileText } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, FileText, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Helpers
@@ -22,11 +24,41 @@ const CATEGORY_LABELS: Record<string, string> = {
   UTILITAS:    "Utilitas",
   OPERASIONAL: "Operasional",
   LAINNYA:     "Lain-lain",
+  FINISHED_GOODS: "Produk Jadi",
+  ROASTED_BEAN: "Biji Kopi Sangrai",
+  GREEN_BEAN: "Biji Kopi Mentah",
+  PACKAGING:   "Kemasan",
 };
 
 function pct(part: number, total: number): string {
   if (total === 0) return "â€“";
   return `${((part / total) * 100).toFixed(1)}%`;
+}
+
+function exportToCSV(report: PnLReport) {
+  const { month, year } = report;
+  const rows = [
+    ["Laporan Laba Rugi", `Nalweng Roastery - ${MONTHS[month-1]} ${year}`],
+    [],
+    ["Kategori", "Jumlah (IDR)"],
+    ["Total Pendapatan", report.revenue],
+    ["HPP (COGS)", report.cogs],
+    ["Laba Kotor", report.grossProfit],
+    ["Total OPEX", report.opex],
+    ["Laba Bersih", report.netProfit],
+    [],
+    ["Rincian OPEX", "Jumlah (IDR)"],
+    ...report.opexBreakdown.map(o => [CATEGORY_LABELS[o.category] || o.category, o.amount])
+  ];
+
+  const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `Laba_Rugi_${MONTHS[month-1]}_${year}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -156,7 +188,7 @@ function MonthNavigator({ month, year }: { month: number; year: number }) {
 interface KpiCardProps {
   label: string;
   value: number;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   variant: "emerald" | "rose" | "blue" | "violet";
   icon: React.ReactNode;
 }
@@ -193,52 +225,123 @@ function KpiCard({ label, value, subtitle, variant, icon }: KpiCardProps) {
 
 interface PnLReportClientProps {
   report: PnLReport;
+  hideLayout?: boolean;
 }
 
-export function PnLReportClient({ report }: PnLReportClientProps) {
-  const { month, year, revenue, cogs, grossProfit, opex, netProfit, opexBreakdown } = report;
+export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
+  const { month, year, revenue, cogs, grossProfit, opex, netProfit, opexBreakdown, revenueBreakdown, cogsBreakdown, salesVolumeUnits, topProducts, topCustomers } = report;
 
   const grossMargin = pct(grossProfit, revenue);
   const netMargin   = pct(netProfit, revenue);
   const cogsRatio   = pct(cogs, revenue);
   const opexRatio   = pct(opex, revenue);
 
-  return (
-    <StandardPageLayout
-      title="Laporan Laba Rugi"
-      description={`Profit & Loss Statement Â· ${MONTHS[month - 1]} ${year}`}
-      actionButton={<div className="flex items-center gap-2"><MonthNavigator month={month} year={year} /><Button onClick={() => window.print()} variant="outline" className="h-8 gap-1.5 border-white/60 bg-white/40 shadow-sm print:hidden"><FileText size={14} /> Cetak PDF</Button></div>}
-    >
+  const getMomText = (current: number, prev: number | undefined) => {
+    if (prev === undefined || prev === 0) return null;
+    const growth = ((current - prev) / Math.abs(prev)) * 100;
+    const isPositive = growth > 0;
+    const color = isPositive ? "text-emerald-500" : "text-rose-500";
+    const icon = isPositive ? "↑" : "↓";
+    return <span className={cn("font-bold ml-1", color)}>{icon} {Math.abs(growth).toFixed(1)}% vs bln lalu</span>;
+  };
+
+  const chartColors = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#64748b"];
+  
+  const content = (
+    <>
       {/* â”€â”€ KPI Summary Row â”€â”€ */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
         <KpiCard
           label="Total Pendapatan"
           value={revenue}
-          subtitle="Revenue dari nota terjual"
+          subtitle={<>Revenue {getMomText(revenue, report.previousMonthRevenue)}</>}
           variant="blue"
           icon={<TrendingUp size={16} />}
         />
+        <div className="rounded-2xl border border-white/60 bg-gradient-to-br from-amber-50 to-orange-50 p-4 shadow-sm backdrop-blur-sm flex flex-col justify-center">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="p-1.5 rounded-lg bg-white/60 text-amber-600 shadow-sm"><TrendingUp size={16} /></span>
+            <h3 className="text-sm font-semibold text-slate-600">Volume Terjual</h3>
+          </div>
+          <p className="text-2xl font-black text-amber-700 tracking-tight">{salesVolumeUnits.toLocaleString("id-ID")} <span className="text-sm font-normal">Pcs</span></p>
+        </div>
         <KpiCard
           label="Laba Kotor"
           value={grossProfit}
-          subtitle={`Gross Margin: ${grossMargin}`}
+          subtitle={<>Margin: {grossMargin} {getMomText(grossProfit, report.previousMonthGrossProfit)}</>}
           variant="emerald"
           icon={<TrendingUp size={16} />}
         />
         <KpiCard
           label="Total Beban (OPEX)"
           value={opex}
-          subtitle={`${opexRatio} dari revenue`}
+          subtitle={<>{opexRatio} revenue {getMomText(opex, report.previousMonthOpex)}</>}
           variant="rose"
           icon={<TrendingDown size={16} />}
         />
         <KpiCard
           label="Laba Bersih"
           value={netProfit}
-          subtitle={`Net Margin: ${netMargin}`}
+          subtitle={<>Margin: {netMargin} {getMomText(netProfit, report.previousMonthNetProfit)}</>}
           variant={netProfit >= 0 ? "violet" : "rose"}
           icon={netProfit >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
         />
+      </div>
+
+      {/* â”€â”€ Charts Row â”€â”€ */}
+      <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4 print:hidden">
+        <div className="rounded-2xl border border-white/60 bg-white/40 backdrop-blur-md p-4 shadow-sm flex flex-col h-[280px]">
+          <h3 className="text-xs font-bold text-slate-700 mb-4 uppercase tracking-wider">Distribusi OPEX</h3>
+          <div className="flex-1 min-h-0">
+            {opexBreakdown.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={opexBreakdown}
+                    dataKey="amount"
+                    nameKey="category"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={2}
+                  >
+                    {opexBreakdown.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip formatter={(value: any) => formatRupiah(Number(value))} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} formatter={(value) => CATEGORY_LABELS[value] || value} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-sm text-slate-400">Belum ada OPEX</div>
+            )}
+          </div>
+        </div>
+        
+        <div className="rounded-2xl border border-white/60 bg-white/40 backdrop-blur-md p-4 shadow-sm flex flex-col h-[280px]">
+          <h3 className="text-xs font-bold text-slate-700 mb-4 uppercase tracking-wider">Bulan Lalu vs Bulan Ini</h3>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={[
+                  { name: "Bulan Lalu", Revenue: report.previousMonthRevenue || 0, Expenses: (report.previousMonthCogs || 0) + (report.previousMonthOpex || 0) },
+                  { name: "Bulan Ini", Revenue: revenue, Expenses: cogs + opex }
+                ]}
+                margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={(val) => `Rp${val / 1000000}M`} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={50} />
+                <RechartsTooltip formatter={(value: any) => formatRupiah(Number(value))} cursor={{ fill: 'transparent' }} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+                <Bar dataKey="Revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                <Bar dataKey="Expenses" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
 
       {/* â”€â”€ P&L Statement â”€â”€ */}
@@ -266,12 +369,19 @@ export function PnLReportClient({ report }: PnLReportClientProps) {
 
         {/* â”€â”€ PENDAPATAN â”€â”€ */}
         <SectionHeader label="I. Pendapatan (Revenue)" />
-        <LineRow
-          label="Penjualan Produk Jadi"
-          value={revenue}
-          indent={1}
-          percentage={pct(revenue, revenue)}
-        />
+        {revenueBreakdown && revenueBreakdown.length > 0 ? (
+          revenueBreakdown.map(item => (
+            <LineRow
+              key={item.category}
+              label={`Penjualan ${CATEGORY_LABELS[item.category] ?? item.category}`}
+              value={item.amount}
+              indent={1}
+              percentage={pct(item.amount, revenue)}
+            />
+          ))
+        ) : (
+          <LineRow label="Penjualan Produk" value={revenue} indent={1} percentage={pct(revenue, revenue)} />
+        )}
         <LineRow
           label="Total Pendapatan"
           value={revenue}
@@ -282,12 +392,19 @@ export function PnLReportClient({ report }: PnLReportClientProps) {
 
         {/* â”€â”€ HPP / COGS â”€â”€ */}
         <SectionHeader label="II. Harga Pokok Penjualan (HPP / COGS)" />
-        <LineRow
-          label="HPP Produk Terjual (snapshot saat produksi)"
-          value={cogs}
-          indent={1}
-          percentage={cogsRatio}
-        />
+        {cogsBreakdown && cogsBreakdown.length > 0 ? (
+          cogsBreakdown.map(item => (
+            <LineRow
+              key={item.category}
+              label={`HPP ${CATEGORY_LABELS[item.category] ?? item.category}`}
+              value={item.amount}
+              indent={1}
+              percentage={pct(item.amount, revenue)}
+            />
+          ))
+        ) : (
+          <LineRow label="HPP Produk Terjual" value={cogs} indent={1} percentage={cogsRatio} />
+        )}
         <LineRow
           label="Total HPP"
           value={cogs}
@@ -400,6 +517,77 @@ export function PnLReportClient({ report }: PnLReportClientProps) {
         </div>
       )}
 
+      {/* â”€â”€ Wawasan Bisnis â”€â”€ */}
+      <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4 print:hidden">
+        {/* Top Products */}
+        <div className="rounded-3xl border border-white/60 bg-gradient-to-br from-white/80 to-blue-50/50 backdrop-blur-md shadow-sm overflow-hidden flex flex-col min-h-[250px]">
+          <div className="border-b border-zinc-100/50 px-5 py-3 bg-white/40 flex items-center gap-2">
+            <span className="text-blue-500">🏆</span>
+            <h3 className="text-sm font-semibold text-slate-700">Top 5 Produk Terlaris</h3>
+          </div>
+          <div className="p-0 overflow-x-auto">
+             <Table>
+                <TableHeader>
+                   <TableRow className="border-white/40 hover:bg-transparent">
+                      <TableHead className="font-bold text-slate-500">Produk</TableHead>
+                      <TableHead className="text-right font-bold text-slate-500">Terjual</TableHead>
+                      <TableHead className="text-right font-bold text-slate-500">Revenue</TableHead>
+                   </TableRow>
+                </TableHeader>
+                <TableBody>
+                   {topProducts && topProducts.length > 0 ? (
+                     topProducts.map((p, idx) => (
+                       <TableRow key={idx} className="border-white/40 hover:bg-white/60 transition-colors">
+                          <TableCell className="font-medium text-slate-700">{p.name}</TableCell>
+                          <TableCell className="text-right font-mono text-sm text-slate-600">{p.quantity} <span className="text-[10px] text-slate-400">pcs</span></TableCell>
+                          <TableCell className="text-right font-mono text-sm font-semibold text-blue-700">{formatRupiah(p.revenue)}</TableCell>
+                       </TableRow>
+                     ))
+                   ) : (
+                     <TableRow>
+                        <TableCell colSpan={3} className="text-center py-6 text-sm text-slate-400">Belum ada data penjualan produk</TableCell>
+                     </TableRow>
+                   )}
+                </TableBody>
+             </Table>
+          </div>
+        </div>
+        
+        {/* Top Customers */}
+        <div className="rounded-3xl border border-white/60 bg-gradient-to-br from-white/80 to-amber-50/50 backdrop-blur-md shadow-sm overflow-hidden flex flex-col min-h-[250px]">
+          <div className="border-b border-zinc-100/50 px-5 py-3 bg-white/40 flex items-center gap-2">
+            <span className="text-amber-500">👑</span>
+            <h3 className="text-sm font-semibold text-slate-700">Top 5 Pelanggan Setia</h3>
+          </div>
+          <div className="p-0 overflow-x-auto">
+             <Table>
+                <TableHeader>
+                   <TableRow className="border-white/40 hover:bg-transparent">
+                      <TableHead className="font-bold text-slate-500">Pelanggan</TableHead>
+                      <TableHead className="text-center font-bold text-slate-500">Faktur</TableHead>
+                      <TableHead className="text-right font-bold text-slate-500">Total Belanja</TableHead>
+                   </TableRow>
+                </TableHeader>
+                <TableBody>
+                   {topCustomers && topCustomers.length > 0 ? (
+                     topCustomers.map((c, idx) => (
+                       <TableRow key={idx} className="border-white/40 hover:bg-white/60 transition-colors">
+                          <TableCell className="font-medium text-slate-700">{c.name}</TableCell>
+                          <TableCell className="text-center font-mono text-sm text-slate-600">{c.count} <span className="text-[10px] text-slate-400">x</span></TableCell>
+                          <TableCell className="text-right font-mono text-sm font-semibold text-amber-700">{formatRupiah(c.revenue)}</TableCell>
+                       </TableRow>
+                     ))
+                   ) : (
+                     <TableRow>
+                        <TableCell colSpan={3} className="text-center py-6 text-sm text-slate-400">Belum ada data pelanggan grosir/terdaftar</TableCell>
+                     </TableRow>
+                   )}
+                </TableBody>
+             </Table>
+          </div>
+        </div>
+      </div>
+
       {/* â”€â”€ Net Profit Summary â”€â”€ */}
       <div className={cn(
         "mt-4 rounded-3xl border p-5 flex items-center justify-between",
@@ -438,6 +626,28 @@ export function PnLReportClient({ report }: PnLReportClientProps) {
           </p>
         </div>
       </div>
+    </>
+  );
+
+  if (hideLayout) return content;
+
+  return (
+    <StandardPageLayout
+      title="Laporan Laba Rugi"
+      description={`Profit & Loss Statement Â· ${MONTHS[month - 1]} ${year}`}
+      actionButton={
+        <div className="flex items-center gap-2">
+          <MonthNavigator month={month} year={year} />
+          <Button onClick={() => exportToCSV(report)} variant="outline" className="h-8 gap-1.5 border-white/60 bg-white/40 shadow-sm print:hidden">
+            <Download size={14} /> Export CSV
+          </Button>
+          <Button onClick={() => window.print()} variant="outline" className="h-8 gap-1.5 border-white/60 bg-white/40 shadow-sm print:hidden">
+            <FileText size={14} /> Cetak PDF
+          </Button>
+        </div>
+      }
+    >
+      {content}
     </StandardPageLayout>
   );
 }

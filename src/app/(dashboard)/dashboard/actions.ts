@@ -34,6 +34,12 @@ export type TopProduct = {
   sold: number;
 };
 
+export type TopCustomer = {
+  id: string;
+  name: string;
+  totalSpent: number;
+};
+
 export type ActivityItem = {
   id:          string;
   type:        "PURCHASE" | "ROASTING" | "PRODUCTION" | "SALE";
@@ -48,6 +54,7 @@ export type DashboardData = {
   kpi:          DashboardKpi;
   revenueTrend: RevenueTrend[];
   topProducts:  TopProduct[];
+  topCustomers: TopCustomer[];
   lowStock:     LowStockItem[];
   activity:     ActivityItem[];
   asOf:         string; // ISO
@@ -90,6 +97,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     recentInvoices,
     revenueTrendRaw,
     topProductsRaw,
+    topCustomersRaw,
   ] = await Promise.all([
 
     // 1. Revenue hari ini (nota PAID yang diterbitkan hari ini)
@@ -221,6 +229,17 @@ export async function getDashboardData(): Promise<DashboardData> {
       WHERE i."status" IN ('PAID', 'PARTIAL', 'ISSUED')
       GROUP BY p.id, p."name"
       ORDER BY "sold" DESC
+      LIMIT 5
+    `,
+
+    // 12. Top 5 Customers
+    prisma.$queryRaw<{ id: string; name: string; totalSpent: number }[]>`
+      SELECT c.id, c."name", SUM(i."grandTotal")::float as "totalSpent"
+      FROM "invoices" i
+      JOIN "customers" c ON i."customerId" = c.id
+      WHERE i."status" IN ('PAID', 'PARTIAL')
+      GROUP BY c.id, c."name"
+      ORDER BY "totalSpent" DESC
       LIMIT 5
     `,
   ]);
@@ -360,7 +379,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       lowStockCount: lowStock.length,
     },
     revenueTrend,
-    topProducts,
+    topProducts: topProductsRaw,
+    topCustomers: topCustomersRaw,
     lowStock,
     activity: activities,
     asOf: now.toISOString(),

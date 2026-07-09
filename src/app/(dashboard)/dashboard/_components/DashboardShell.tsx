@@ -2,13 +2,14 @@ import Link from "next/link";
 import {
   Banknote, Clock, AlertTriangle, TrendingUp,
   Package, Flame, Factory, ReceiptText, Inbox,
-  ArrowRight,
+  ArrowRight, PlusCircle, ShoppingCart, Beaker
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatRupiah, formatKg, formatUnit, formatDate } from "@/lib/format";
 import type { DashboardData, ActivityItem, LowStockItem } from "../actions";
 import { RevenueChart } from "./RevenueChart";
 import { TopProductsChart } from "./TopProductsChart";
+import { TopCustomersChart } from "./TopCustomersChart";
 
 // =============================================================================
 // Helpers
@@ -309,6 +310,26 @@ export function DashboardShell({ data }: { data: DashboardData }) {
       {/* ── Scrollable content ── */}
       <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6">
 
+        {/* ── Quick Actions ── */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/penjualan" className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-900/20 transition-all hover:scale-105 hover:bg-blue-700 hover:shadow-lg">
+            <ReceiptText size={16} />
+            Buat Nota
+          </Link>
+          <Link href="/roasting" className="flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-orange-900/20 transition-all hover:scale-105 hover:bg-orange-700 hover:shadow-lg">
+            <Flame size={16} />
+            Roasting
+          </Link>
+          <Link href="/produksi" className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-900/20 transition-all hover:scale-105 hover:bg-violet-700 hover:shadow-lg">
+            <Factory size={16} />
+            Produksi
+          </Link>
+          <Link href="/inventory" className="flex items-center gap-2 rounded-xl bg-lime-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-lime-900/20 transition-all hover:scale-105 hover:bg-lime-700 hover:shadow-lg">
+            <Package size={16} />
+            Terima Barang
+          </Link>
+        </div>
+
         {/* ── 4 KPI Cards ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
 
@@ -361,11 +382,14 @@ export function DashboardShell({ data }: { data: DashboardData }) {
 
         {/* ── Charts ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-5">
-          <div className="lg:col-span-8">
+          <div className="lg:col-span-6 xl:col-span-6">
             <RevenueChart data={data.revenueTrend} />
           </div>
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-6 xl:col-span-3">
             <TopProductsChart data={data.topProducts} />
+          </div>
+          <div className="lg:col-span-6 xl:col-span-3">
+            <TopCustomersChart data={data.topCustomers} />
           </div>
         </div>
 

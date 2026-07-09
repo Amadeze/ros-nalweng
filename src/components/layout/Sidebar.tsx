@@ -12,6 +12,7 @@ import {
   Coffee,
   Database,
   FileText,
+  Package,
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,7 +29,7 @@ const NAV_ITEMS = [
   { label: "Produksi",    href: "/produksi",     icon: Factory         },
   { label: "Penjualan",   href: "/penjualan",    icon: ShoppingCart    },
   { label: "Keuangan",    href: "/keuangan",     icon: BarChart3       },
-  { label: "Laporan P&L", href: "/laporan",      icon: FileText        },
+  { label: "Laporan Finansial", href: "/laporan", icon: FileText       },
   { label: "Data Master", href: "/master-data",  icon: Database        },
 ] as const;
 

@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
@@ -84,6 +84,16 @@ export type PnLReport = {
   opex: number;
   netProfit: number;
   opexBreakdown: { category: string; amount: number }[];
+  revenueBreakdown: { category: string; amount: number }[];
+  cogsBreakdown: { category: string; amount: number }[];
+  salesVolumeUnits: number;
+  topProducts: { name: string; quantity: number; revenue: number }[];
+  topCustomers: { name: string; count: number; revenue: number }[];
+  previousMonthRevenue?: number;
+  previousMonthCogs?: number;
+  previousMonthGrossProfit?: number;
+  previousMonthOpex?: number;
+  previousMonthNetProfit?: number;
 };
 
 // =============================================================================
@@ -240,26 +250,105 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
 export async function getPnLReport(month: number, year: number): Promise<PnLReport> {
   const startDate = new Date(year, month - 1, 1);
   const endDate   = new Date(year, month, 0, 23, 59, 59, 999);
-  const [invoices, expenses] = await Promise.all([
+
+  let prevMonth = month - 1;
+  let prevYear  = year;
+  if (prevMonth < 1) {
+    prevMonth = 12;
+    prevYear -= 1;
+  }
+  const prevStartDate = new Date(prevYear, prevMonth - 1, 1);
+  const prevEndDate   = new Date(prevYear, prevMonth, 0, 23, 59, 59, 999);
+
+  const [invoices, expenses, prevInvoices, prevExpenses] = await Promise.all([
     prisma.invoice.findMany({
       where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: startDate, lte: endDate } },
-      select: { subtotal: true, discount: true, tax: true, items: { select: { quantity: true, hpp: true } } },
+      select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, hpp: true, unitPrice: true, discount: true, product: { select: { type: true, name: true } } } } },
     }),
     prisma.expense.findMany({ where: { date: { gte: startDate, lte: endDate } }, select: { category: true, amount: true } }),
+    prisma.invoice.findMany({
+      where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: prevStartDate, lte: prevEndDate } },
+      select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, hpp: true, unitPrice: true, discount: true, product: { select: { type: true, name: true } } } } },
+    }),
+    prisma.expense.findMany({ where: { date: { gte: prevStartDate, lte: prevEndDate } }, select: { category: true, amount: true } }),
   ]);
+
   const grossSales      = invoices.reduce((s, inv) => s + Number(inv.subtotal), 0);
   const invoiceDiscount = invoices.reduce((s, inv) => s + Number(inv.discount), 0);
   const tax             = invoices.reduce((s, inv) => s + Number(inv.tax), 0);
   const netSales        = grossSales - invoiceDiscount;
   const revenue         = netSales;
-  const cogs            = invoices.reduce((sum, inv) => sum + inv.items.reduce((itemSum, item) => itemSum + Number(item.hpp) * item.quantity, 0), 0);
+  const revenueMap: Record<string, number> = {};
+  const cogsMap: Record<string, number> = {};
+  const productMap: Record<string, { quantity: number; revenue: number }> = {};
+  const customerMap: Record<string, { count: number; revenue: number }> = {};
+  let salesVolumeUnits = 0;
+
+  const cogs = invoices.reduce((sum, inv) => {
+    const invRevenue = Number(inv.subtotal) - Number(inv.discount);
+    if (inv.customer && inv.customer.name && inv.customer.name.trim().toLowerCase() !== "umum") {
+      const cName = inv.customer.name.trim();
+      if (!customerMap[cName]) customerMap[cName] = { count: 0, revenue: 0 };
+      customerMap[cName].count += 1;
+      customerMap[cName].revenue += invRevenue;
+    }
+
+    return sum + inv.items.reduce((itemSum, item) => {
+      const type = item.product?.type || "LAINNYA";
+      const pName = item.product?.name || "Produk Tidak Dikenal";
+      const itemCogs = Number(item.hpp) * item.quantity;
+      cogsMap[type] = (cogsMap[type] ?? 0) + itemCogs;
+
+      const itemRev = (Number(item.unitPrice) - Number(item.discount)) * item.quantity;
+      revenueMap[type] = (revenueMap[type] ?? 0) + itemRev;
+      
+      salesVolumeUnits += item.quantity;
+
+      if (!productMap[pName]) productMap[pName] = { quantity: 0, revenue: 0 };
+      productMap[pName].quantity += item.quantity;
+      productMap[pName].revenue += itemRev;
+
+      return itemSum + itemCogs;
+    }, 0);
+  }, 0);
+
+  const revenueBreakdown = Object.entries(revenueMap).map(([category, amount]) => ({ category, amount }));
+  const cogsBreakdown = Object.entries(cogsMap).map(([category, amount]) => ({ category, amount }));
+  
+  const topProducts = Object.entries(productMap)
+    .map(([name, data]) => ({ name, ...data }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+    
+  const topCustomers = Object.entries(customerMap)
+    .map(([name, data]) => ({ name, ...data }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+
   const grossProfit = revenue - cogs;
   const opex        = expenses.reduce((s, e) => s + Number(e.amount), 0);
   const netProfit   = grossProfit - opex;
   const opexMap: Record<string, number> = {};
   for (const e of expenses) { opexMap[e.category] = (opexMap[e.category] ?? 0) + Number(e.amount); }
   const opexBreakdown = Object.entries(opexMap).map(([category, amount]) => ({ category, amount }));
-  return { month, year, grossSales, invoiceDiscount, tax, netSales, revenue, cogs, grossProfit, opex, netProfit, opexBreakdown };
+
+  const prevGrossSales = prevInvoices.reduce((s, inv) => s + Number(inv.subtotal), 0);
+  const prevDiscount   = prevInvoices.reduce((s, inv) => s + Number(inv.discount), 0);
+  const prevRevenue    = prevGrossSales - prevDiscount;
+  const prevCogs       = prevInvoices.reduce((sum, inv) => sum + inv.items.reduce((itemSum, item) => itemSum + Number(item.hpp) * item.quantity, 0), 0);
+  const prevGrossProfit = prevRevenue - prevCogs;
+  const prevOpex       = prevExpenses.reduce((s, e) => s + Number(e.amount), 0);
+  const prevNetProfit  = prevGrossProfit - prevOpex;
+
+  return { 
+    month, year, grossSales, invoiceDiscount, tax, netSales, revenue, cogs, grossProfit, opex, netProfit, 
+    opexBreakdown, revenueBreakdown, cogsBreakdown, salesVolumeUnits, topProducts, topCustomers,
+    previousMonthRevenue: prevRevenue,
+    previousMonthCogs: prevCogs,
+    previousMonthGrossProfit: prevGrossProfit,
+    previousMonthOpex: prevOpex,
+    previousMonthNetProfit: prevNetProfit,
+  };
 }
 
 // =============================================================================

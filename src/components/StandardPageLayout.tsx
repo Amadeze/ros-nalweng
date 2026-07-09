@@ -18,8 +18,8 @@ export function StandardPageLayout({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* ── Header ── */}
-      <header className="flex flex-col md:flex-row shrink-0 items-start md:items-center justify-between gap-3 border-b border-white/40 bg-white/20 px-4 py-3 md:h-16 md:px-6 backdrop-blur-md">
-        <div className="min-w-0 w-full md:w-auto flex-shrink-0">
+      <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/40 bg-white/20 px-4 md:px-6 backdrop-blur-md">
+        <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-bold text-slate-800 tracking-tight">
             {title}
           </h1>
@@ -31,11 +31,22 @@ export function StandardPageLayout({
         </div>
 
         {actionButton && (
-          <div className="w-full md:w-auto flex shrink-0 items-center gap-2 overflow-x-auto custom-scrollbar pb-1 md:pb-0 md:ml-4">
+          <div className="hidden md:flex shrink-0 items-center gap-2 ml-4">
             {actionButton}
           </div>
         )}
       </header>
+
+      {/* Mobile Floating Action Button (Adaptive) - DIPINDAHKAN KELUAR DARI HEADER */}
+      {actionButton && (
+        <div className="md:hidden fixed bottom-6 right-6 z-[100] animate-in slide-in-from-bottom-10 zoom-in-95 fade-in duration-500">
+          <div className="p-1.5 rounded-full shadow-[0_20px_40px_-15px_rgba(37,99,235,0.5)] ring-1 ring-white/60 bg-white/40 backdrop-blur-2xl">
+            <div className="[&>button]:rounded-full [&>button]:h-14 [&>button]:px-6 [&>button]:shadow-none [&>button]:text-base">
+              {actionButton}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Content area ── */}
       <div className="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">

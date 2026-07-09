@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Menu, X } from "lucide-react"; // Pastikan lucide-react ter-install
+import { usePathname } from "next/navigation";
 
 /**
  * AppShell — root shell untuk semua halaman autentikasi.
@@ -10,6 +11,12 @@ import { Menu, X } from "lucide-react"; // Pastikan lucide-react ter-install
  */
 export function AppShell({ children, userRole }: { children: React.ReactNode, userRole: string }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Tutup sidebar mobile secara otomatis jika rute (URL) berubah
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   return (
     <div className="relative flex h-screen w-full overflow-hidden p-0 md:p-8 lg:p-12">

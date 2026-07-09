@@ -1,21 +1,25 @@
-import { PnLReportClient } from "./_components/PnLReportClient";
+import { SuperDashboardClient } from "./_components/SuperDashboardClient";
 import { getPnLReport } from "../keuangan/actions";
+import { getInventoryValuationReport } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-interface Props {
-  searchParams: Promise<{ month?: string; year?: string }>;
-}
+export default async function LaporanPage({ searchParams }: { searchParams: Promise<{ month?: string; year?: string }> }) {
+  const resolvedParams = await searchParams;
+  const now = new Date();
+  
+  let month = now.getMonth() + 1;
+  let year = now.getFullYear();
 
-export default async function LaporanPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const now    = new Date();
-  const month  = params.month ? parseInt(params.month) : now.getMonth() + 1;
-  const year   = params.year  ? parseInt(params.year)  : now.getFullYear();
+  if (resolvedParams.month && resolvedParams.year) {
+    month = parseInt(resolvedParams.month, 10);
+    year = parseInt(resolvedParams.year, 10);
+  }
 
-  const report = await getPnLReport(month, year);
+  const [pnlReport, inventoryReport] = await Promise.all([
+    getPnLReport(month, year),
+    getInventoryValuationReport()
+  ]);
 
-  return (
-    <PnLReportClient report={report} />
-  );
+  return <SuperDashboardClient pnlReport={pnlReport} inventoryReport={inventoryReport} />;
 }
