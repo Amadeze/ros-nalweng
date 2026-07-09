@@ -13,6 +13,17 @@ import { TerimaPaymentDialog } from "../../keuangan/_components/TerimaPaymentDia
 import { voidInvoice } from "../actions";
 import type { InvoiceRow } from "../actions";
 
+const triggerSilentPrint = (url: string) => {
+  let iframe = document.getElementById("silent-print-iframe") as HTMLIFrameElement;
+  if (!iframe) {
+    iframe = document.createElement("iframe");
+    iframe.id = "silent-print-iframe";
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+  }
+  iframe.src = url;
+};
+
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   DRAFT:   { label: "Draft",    className: "bg-zinc-100 text-zinc-500 border-zinc-200" },
   ISSUED:  { label: "Tempo",    className: "bg-amber-50 text-amber-700 border-amber-200" },
@@ -168,15 +179,13 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
                         Bayar
                       </Button>
                     )}
-                    <Link
-                      href={`/nota/${inv.id}?print=true`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => triggerSilentPrint(`/nota/${inv.id}?print=true`)}
                       className="inline-flex items-center gap-1 h-7 rounded-lg border border-white/60 bg-white/40 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-800 transition-all shadow-sm"
                     >
                       <ExternalLink size={12} />
                       Print
-                    </Link>
+                    </button>
                     {inv.status !== "VOID" && inv.status !== "PAID" && (
                       <Button
                         size="sm"
@@ -234,9 +243,9 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
                     Bayar
                   </Button>
                 )}
-                <Link href={`/nota/${inv.id}?print=true`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center h-7 px-2.5 rounded-lg border border-slate-300 text-[11px] font-bold uppercase text-slate-600 hover:bg-slate-900 hover:text-white bg-white/40 shadow-sm">
+                <button onClick={() => triggerSilentPrint(`/nota/${inv.id}?print=true`)} className="inline-flex items-center justify-center h-7 px-2.5 rounded-lg border border-slate-300 text-[11px] font-bold uppercase text-slate-600 hover:bg-slate-900 hover:text-white bg-white/40 shadow-sm">
                   Print
-                </Link>
+                </button>
                 {inv.status !== "VOID" && inv.status !== "PAID" && (
                   <Button size="sm" variant="ghost" onClick={() => setVoidTarget(inv)} className="h-7 px-2.5 text-[11px] font-bold uppercase text-red-500 hover:bg-red-50 hover:text-red-600">
                     Void

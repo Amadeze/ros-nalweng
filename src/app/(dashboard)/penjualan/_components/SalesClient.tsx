@@ -18,6 +18,17 @@ import {
 } from "@/components/ui/dialog";
 import type { CustomerOption, FGStockOption, InvoiceRow } from "../actions";
 
+const triggerSilentPrint = (url: string) => {
+  let iframe = document.getElementById("silent-print-iframe") as HTMLIFrameElement;
+  if (!iframe) {
+    iframe = document.createElement("iframe");
+    iframe.id = "silent-print-iframe";
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+  }
+  iframe.src = url;
+};
+
 interface SalesClientProps {
   invoices: InvoiceRow[];
   customers: CustomerOption[];
@@ -123,7 +134,7 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
           <DialogFooter>
             <Button variant="outline" onClick={() => setLastInvoiceId(null)}>Nanti Saja</Button>
             <Button className="bg-blue-600 text-white" onClick={() => {
-              window.open(`/nota/${lastInvoiceId}?print=true`, '_blank');
+              triggerSilentPrint(`/nota/${lastInvoiceId}?print=true`);
               setLastInvoiceId(null);
             }}>Cetak Nota</Button>
           </DialogFooter>
