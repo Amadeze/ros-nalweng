@@ -128,29 +128,45 @@ export async function getSalesPageData(): Promise<SalesPageData> {
     }),
   ]);
 
-  // FG stock + HPP snapshot
-  const fgOptions = await Promise.all(
-    fgProducts.map(async (p) => {
-      const [stockUnit, lastBatch] = await Promise.all([
-        computeFGUnitStock(p.id),
-        prisma.productionBatch.findFirst({
-          where: { outputProductId: p.id, status: "COMPLETED" },
-          orderBy: { producedAt: "desc" },
-          select: { hppPerUnit: true },
-        }),
-      ]);
-      return {
-        id: p.id,
-        code: p.code,
-        name: p.name,
-        price: Number(p.price) || 0,
-        priceSilver: Number(p.priceSilver) || 0,
-        priceGold: Number(p.priceGold) || 0,
-        stockUnit,
-        lastHppPerUnit: lastBatch ? Number(lastBatch.hppPerUnit) : null,
-      };
+  // FG stock + HPP snapshot (Optimized O(1) queries instead of N+1)
+  const fgProductIds = fgProducts.map(p => p.id);
+
+  const [allLedgers, latestBatches] = await Promise.all([
+    prisma.inventoryLedger.findMany({
+      where: { productId: { in: fgProductIds }, quantityUnit: { not: null } },
+      select: { productId: true, entryType: true, quantityUnit: true },
+    }),
+    prisma.productionBatch.findMany({
+      where: { outputProductId: { in: fgProductIds }, status: "COMPLETED" },
+      orderBy: { producedAt: "desc" },
+      distinct: ["outputProductId"],
+      select: { outputProductId: true, hppPerUnit: true },
     })
-  );
+  ]);
+
+  const stockMap = new Map<string, number>();
+  allLedgers.forEach(e => {
+    if (!e.productId) return;
+    const current = stockMap.get(e.productId) || 0;
+    const qty = e.quantityUnit || 0;
+    stockMap.set(e.productId, e.entryType === "IN" ? current + qty : current - qty);
+  });
+
+  const hppMap = new Map<string, number>();
+  latestBatches.forEach(b => {
+    hppMap.set(b.outputProductId, Number(b.hppPerUnit));
+  });
+
+  const fgOptions = fgProducts.map((p) => ({
+    id: p.id,
+    code: p.code,
+    name: p.name,
+    price: Number(p.price) || 0,
+    priceSilver: Number(p.priceSilver) || 0,
+    priceGold: Number(p.priceGold) || 0,
+    stockUnit: stockMap.get(p.id) || 0,
+    lastHppPerUnit: hppMap.get(p.id) ?? null,
+  }));
 
   const invoices: InvoiceRow[] = invoicesRaw.map((inv) => {
     const grand = Number(inv.grandTotal);

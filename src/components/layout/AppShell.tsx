@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { Menu, X } from "lucide-react"; // Pastikan lucide-react ter-install
+import { Menu, X } from "lucide-react"; 
 import { usePathname } from "next/navigation";
 
 /**
@@ -19,7 +19,7 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
   }, [pathname]);
 
   return (
-    <div className="relative flex h-screen w-full overflow-hidden p-0 md:p-8 lg:p-12">
+    <div className="relative flex h-[100dvh] w-full overflow-hidden p-0 md:p-8 lg:p-12">
       
       {/* ── OVERLAY MOBILE ── */}
       {/* Muncul sebagai efek blur di belakang sidebar jika dibuka di HP */}
@@ -31,7 +31,7 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
       )}
 
       {/* ── CONTAINER UTAMA (KACA BESAR UNTUK DESKTOP) ── */}
-      <div className="flex h-full w-full overflow-hidden flex-col md:flex-row md:rounded-2xl md:border md:border-white/60 md:bg-white/30 md:shadow-2xl md:backdrop-blur-3xl md:ring-1 md:ring-white/50 transition-all duration-500 hover:shadow-slate-300/50">
+      <div className="flex h-full w-full overflow-hidden flex-col md:flex-row md:rounded-2xl md:border md:border-white/60 md:bg-white/30 md:shadow-2xl md:backdrop-blur-xl md:ring-1 md:ring-white/50 transition-all duration-500 hover:shadow-slate-300/50">
 
       {/* ── SIDEBAR CONTAINER ── */}
       {/* Di HP: Muncul dari kiri (slide). Di Desktop: Selalu tampil di kiri */}
@@ -44,7 +44,7 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
       </div>
 
       {/* ── MAIN CONTENT AREA ── */}
-      <main className="flex flex-1 flex-col overflow-hidden bg-white/30 backdrop-blur-2xl md:bg-transparent md:backdrop-blur-none md:border-none md:shadow-none">
+      <main className="flex flex-1 flex-col overflow-hidden bg-white/30 backdrop-blur-md md:bg-transparent md:backdrop-blur-none md:border-none md:shadow-none">
         
         {/* HEADER KHUSUS MOBILE (Hanya tampil di layar kecil) */}
         <div className="flex shrink-0 items-center gap-3 border-b border-white/40 bg-white/40 px-4 py-4 backdrop-blur-xl md:hidden">
@@ -54,8 +54,8 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
           >
             <Menu size={20} />
           </button>
-          <div className="flex items-center h-11 ml-1">
-            <img src="/logo.png" alt="Nalweng Logo" className="h-full w-auto object-contain drop-shadow-sm" />
+          <div className="flex items-center ml-3">
+            <img src="/logo.png" alt="Nalweng Logo" className="h-10 w-auto object-contain drop-shadow-sm scale-150 origin-left" />
           </div>
         </div>
 

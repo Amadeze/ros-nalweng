@@ -37,11 +37,11 @@ export function StandardPageLayout({
         )}
       </header>
 
-      {/* Mobile Floating Action Button (Adaptive) - DIPINDAHKAN KELUAR DARI HEADER */}
-      {actionButton && (
+      {/* Mobile Floating Action Button (Adaptive) */}
+      {actionButton && !isLoading && (
         <div className="md:hidden fixed bottom-6 right-6 z-[100] animate-in slide-in-from-bottom-10 zoom-in-95 fade-in duration-500">
           <div className="p-1.5 rounded-full shadow-[0_20px_40px_-15px_rgba(37,99,235,0.5)] ring-1 ring-white/60 bg-white/40 backdrop-blur-2xl">
-            <div className="[&>button]:rounded-full [&>button]:h-14 [&>button]:px-6 [&>button]:shadow-none [&>button]:text-base">
+            <div className="[&>button]:rounded-full [&>button]:h-14 [&>button]:px-6 [&>button]:shadow-none [&>button]:text-base [&>button]:font-semibold">
               {actionButton}
             </div>
           </div>
@@ -49,7 +49,7 @@ export function StandardPageLayout({
       )}
 
       {/* ── Content area ── */}
-      <div className="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar">
+      <div className="flex-1 overflow-auto p-4 md:p-6 custom-scrollbar relative">
         {isLoading ? <PageSkeleton /> : children}
       </div>
     </div>
@@ -60,7 +60,7 @@ export function StandardPageLayout({
 // Skeleton loading state — Glassmorphism style
 // ─────────────────────────────────────────────
 
-function PageSkeleton() {
+export function PageSkeleton() {
   return (
     <div className="space-y-3">
       {/* Baris header tabel */}

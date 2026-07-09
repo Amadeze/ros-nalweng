@@ -1,6 +1,6 @@
-import { SuperDashboardClient } from "./_components/SuperDashboardClient";
 import { getPnLReport } from "../keuangan/actions";
 import { getInventoryValuationReport } from "./actions";
+import { SuperDashboardClient } from "./_components/SuperDashboardClient";
 
 export const dynamic = "force-dynamic";
 
