@@ -423,7 +423,7 @@ export function InvoiceForm({
                                       )}
                                     />
                                     <span className="truncate">{fg.name}</span>
-                                    <span className="ml-1 text-slate-400 shrink-0">({fg.stockUnit} {fg.type === "FINISHED_GOODS" ? "pcs" : "kg"})</span>
+                                    <span className="ml-1 text-slate-400 shrink-0">({fg.stockUnit})</span>
                                   </CommandItem>
                                 ))}
                               </CommandGroup>
@@ -437,13 +437,10 @@ export function InvoiceForm({
 
                 {/* Row 2: Details */}
                 <div className="flex flex-wrap items-end gap-3">
-                  <div className="w-24">
-                    <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider truncate">
-                      Qty {fgOptions.find(p => p.id === watchedItems?.[index]?.productId)?.type === "FINISHED_GOODS" ? "(pcs)" : fgOptions.find(p => p.id === watchedItems?.[index]?.productId)?.type ? "(kg)" : ""}
-                    </Label>
+                  <div className="w-20">
+                    <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Qty</Label>
                     <Input
                       type="number"
-                      step="any"
                       className={cn(glassInput, "text-center h-9 font-medium")}
                       {...register(`items.${index}.quantity`, { valueAsNumber: true })}
                     />
