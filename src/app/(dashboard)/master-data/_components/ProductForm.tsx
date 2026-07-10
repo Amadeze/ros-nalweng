@@ -70,6 +70,7 @@ type FormValues = z.infer<typeof schema>;
 interface ProductFormProps {
   id:           string;
   onSuccess:    () => void;
+  onPendingChange?: (isPending: boolean) => void;
   initialData?: ProductRow;
   roastedBeans: Array<{ id: string; name: string; code: string }>;
   packagings:   PackagingRow[];
@@ -79,7 +80,7 @@ interface ProductFormProps {
 // Component
 // =============================================================================
 
-export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagings }: ProductFormProps) {
+export function ProductForm({ id, onSuccess, onPendingChange, initialData, roastedBeans, packagings }: ProductFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditMode = !!initialData;
   const existingRecipe = initialData?.recipe ?? null;
@@ -123,17 +124,20 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
   const isFG             = selectedType === "FINISHED_GOODS";
 
   const onSubmit = async (values: FormValues) => {
+    setIsSubmitting(true);
+    onPendingChange?.(true);
+
     // Validate recipe section if user partially filled it
     const hasItems = (values.recipeItems ?? []).length > 0;
     if (isFG && hasItems) {
       if (!values.recipePackagingId) {
-        toast.error("Pilih kemasan untuk resep terlebih dahulu."); return;
+        toast.error("Pilih kemasan untuk resep terlebih dahulu."); setIsSubmitting(false); onPendingChange?.(false); return;
       }
       if (!values.recipeOutputGrams || values.recipeOutputGrams <= 0) {
-        toast.error("Isi output gram per unit untuk resep."); return;
+        toast.error("Isi output gram per unit untuk resep."); setIsSubmitting(false); onPendingChange?.(false); return;
       }
       const badItem = values.recipeItems!.find((i) => !i.rbProductId || (i.gramsPerUnit ?? 0) <= 0);
-      if (badItem) { toast.error("Setiap bahan resep harus dipilih dan diisi gramnya."); return; }
+      if (badItem) { toast.error("Setiap bahan resep harus dipilih dan diisi gramnya."); setIsSubmitting(false); onPendingChange?.(false); return; }
     }
 
     const recipe = isFG && hasItems && values.recipePackagingId && values.recipeOutputGrams
@@ -148,19 +152,19 @@ export function ProductForm({ id, onSuccess, initialData, roastedBeans, packagin
         }
       : undefined;
 
-    setIsSubmitting(true);
     try {
       const result = isEditMode
         ? await updateProduct({ id: initialData!.id, name: values.name, origin: values.origin, roastLevel: values.roastLevel, description: values.description, price: values.price, priceSilver: values.priceSilver, priceGold: values.priceGold, isActive: values.isActive, recipe })
         : await createProduct({ name: values.name, type: values.type, origin: values.origin, roastLevel: values.roastLevel, description: values.description, price: values.price, priceSilver: values.priceSilver, priceGold: values.priceGold, recipe });
 
       if (!result.success) { toast.error(result.error); return; }
-      toast.success(isEditMode ? `${result.code} berhasil diperbarui` : `Produk ${result.code} berhasil ditambahkan`);
+      toast.success(isEditMode ? `Produk ${result.code} berhasil diperbarui` : `Produk ${result.code} berhasil ditambahkan`);
       onSuccess();
     } catch {
       toast.error("Terjadi kesalahan sistem.");
     } finally {
       setIsSubmitting(false);
+      onPendingChange?.(false);
     }
   };
 

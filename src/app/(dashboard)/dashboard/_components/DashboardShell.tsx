@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   Banknote, Clock, AlertTriangle, TrendingUp,
@@ -10,6 +12,7 @@ import type { DashboardData, ActivityItem, LowStockItem } from "../actions";
 import { RevenueChart } from "./RevenueChart";
 import { TopProductsChart } from "./TopProductsChart";
 import { TopCustomersChart } from "./TopCustomersChart";
+import { motion } from "framer-motion";
 
 // =============================================================================
 // Helpers
@@ -60,7 +63,7 @@ function KpiCard({ label, value, sub, icon, accent = "zinc", href }: KpiCardProp
   };
 
   const content = (
-    <div className="group relative flex flex-col gap-4 rounded-[1.5rem] md:rounded-3xl border border-white/60 bg-white/40 p-5 shadow-lg shadow-slate-200/30 backdrop-blur-xl transition-all hover:bg-white/50 hover:shadow-xl hover:shadow-slate-200/40">
+    <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } }} className="group relative flex flex-col gap-4 rounded-[1.5rem] md:rounded-3xl border border-white/60 bg-white/40 p-5 shadow-lg shadow-slate-200/30 backdrop-blur-xl transition-all hover:bg-white/50 hover:shadow-xl hover:shadow-slate-200/40">
       <div className="flex items-start justify-between">
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide leading-none">
           {label}
@@ -81,7 +84,7 @@ function KpiCard({ label, value, sub, icon, accent = "zinc", href }: KpiCardProp
           className="absolute bottom-5 right-5 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-slate-500"
         />
       )}
-    </div>
+    </motion.div>
   );
 
   return href ? <Link href={href} className="block">{content}</Link> : content;
@@ -331,7 +334,12 @@ export function DashboardShell({ data }: { data: DashboardData }) {
         </div>
 
         {/* ── 4 KPI Cards ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+        <motion.div 
+          initial="hidden" 
+          animate="show" 
+          variants={{ show: { transition: { staggerChildren: 0.1 } } }} 
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5"
+        >
 
           {/* Card 1 — Revenue */}
           <KpiCard
@@ -378,7 +386,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
           {/* Card 4 — Stok Tipis */}
           <LowStockCard items={lowStock} />
 
-        </div>
+        </motion.div>
 
         {/* ── Charts ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-5">

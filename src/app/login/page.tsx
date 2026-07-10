@@ -6,7 +6,9 @@ import { loginAction } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Coffee, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
+import Image from "next/image";
+import logoImg from "../../../public/logo.png";
 
 // 1. PISAHKAN LOGIKA FORM KE KOMPONEN TERSENDIRI
 function LoginForm() {
@@ -40,20 +42,20 @@ function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-zinc-700">Email</Label>
+        <Label className="text-xs font-medium text-white/90">Email</Label>
         <Input
           type="email"
           autoComplete="email"
           placeholder="admin@nalweng.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="h-10 text-sm"
+          className="h-11 text-sm bg-white text-slate-900 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
           required
         />
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-zinc-700">Password</Label>
+        <Label className="text-xs font-medium text-white/90">Password</Label>
         <div className="relative">
           <Input
             type={showPass ? "text" : "password"}
@@ -61,7 +63,7 @@ function LoginForm() {
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="h-10 pr-10 text-sm"
+            className="h-11 pr-10 text-sm bg-white text-slate-900 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
             required
           />
           <button
@@ -84,7 +86,7 @@ function LoginForm() {
       <Button
         type="submit"
         disabled={loading}
-        className="w-full h-10 bg-[#0f2b38] hover:bg-[#1a3f52] text-white font-medium rounded-xl"
+        className="w-full h-11 bg-white/20 hover:bg-white/30 border border-white/20 text-white font-semibold rounded-xl backdrop-blur-md transition-all shadow-lg"
       >
         {loading ? "Masuk..." : "Masuk"}
       </Button>
@@ -95,18 +97,31 @@ function LoginForm() {
 // 2. HALAMAN UTAMA YANG MEMBUNGKUS FORM DENGAN SUSPENSE
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-100 via-blue-50 to-slate-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div 
+      className="min-h-[100dvh] w-full flex items-center justify-center p-4 md:p-8 relative overflow-hidden"
+      style={{
+        background: "linear-gradient(-45deg, #0f2b38, #164e63, #1e3a8a, #0f172a)",
+        backgroundSize: "400% 400%",
+        animation: "gradient-xy 15s ease infinite",
+      }}
+    >
+      {/* Decorative floating orbs */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-500/20 blur-[120px]" />
+        <div className="absolute top-[60%] -right-[10%] w-[40%] h-[60%] rounded-full bg-teal-500/20 blur-[120px]" />
+        <div className="absolute -bottom-[20%] left-[20%] w-[60%] h-[50%] rounded-full bg-indigo-500/20 blur-[100px]" />
+      </div>
+
+      <div className="w-full max-w-sm relative z-10">
         {/* Card */}
-        <div className="rounded-[2rem] border border-white/60 bg-white/80 backdrop-blur-xl shadow-2xl shadow-slate-200/60 p-8">
+        <div className="rounded-3xl border border-white/20 bg-white/10 backdrop-blur-2xl shadow-2xl p-8">
           {/* Brand */}
-          <div className="mb-8 flex flex-col items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0f2b38] shadow-lg">
-              <Coffee size={24} className="text-white" />
+          <div className="mb-10 flex flex-col items-center gap-4">
+            <div className="flex items-center justify-center bg-white/10 p-4 rounded-2xl border border-white/10 shadow-inner">
+              <Image src={logoImg} alt="Nalweng Logo" className="h-16 w-auto object-contain drop-shadow-lg scale-110 brightness-0 invert" priority />
             </div>
             <div className="text-center">
-              <h1 className="text-xl font-bold text-slate-800 tracking-tight">Nalweng Roastery</h1>
-              <p className="text-xs text-slate-400 mt-0.5 uppercase tracking-widest">Operating System</p>
+              <p className="text-xs font-semibold text-white/80 uppercase tracking-widest">Operating System</p>
             </div>
           </div>
 
@@ -119,7 +134,7 @@ export default function LoginPage() {
             <LoginForm />
           </Suspense>
 
-          <p className="mt-6 text-center text-[11px] text-zinc-400">
+          <p className="mt-8 text-center text-[11px] text-white/40">
             ROS · Nalweng Roastery · v1.0
           </p>
         </div>

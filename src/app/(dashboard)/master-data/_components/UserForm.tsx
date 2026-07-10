@@ -39,10 +39,11 @@ type FormValues = z.infer<typeof baseSchema>;
 interface UserFormProps {
   id: string;
   onSuccess: () => void;
+  onPendingChange?: (isPending: boolean) => void;
   initialData?: UserRow;
 }
 
-export function UserForm({ id, onSuccess, initialData }: UserFormProps) {
+export function UserForm({ id, onSuccess, onPendingChange, initialData }: UserFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditMode = !!initialData;
 
@@ -91,6 +92,7 @@ export function UserForm({ id, onSuccess, initialData }: UserFormProps) {
       toast.error("Terjadi kesalahan sistem.");
     } finally {
       setIsSubmitting(false);
+      onPendingChange?.(false);
     }
   };
 

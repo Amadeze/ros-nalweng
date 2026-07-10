@@ -14,7 +14,9 @@ import {
   FileText,
   Package,
   LogOut,
+  Users,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/login/actions";
 
@@ -52,19 +54,29 @@ function NavItem({
     <Link
       href={href}
       className={cn(
-        "group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-300",
+        "group relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors duration-200",
         active
-          ? "bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/30 translate-x-1"
-          : "text-slate-600 hover:bg-white/40 hover:text-slate-900 hover:translate-x-1 hover:scale-[1.02] active:scale-95"
+          ? "text-white"
+          : "text-slate-600 hover:text-slate-900"
       )}
     >
+      {active && (
+        <motion.div
+          layoutId="sidebar-active-indicator"
+          className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 shadow-lg shadow-blue-500/30"
+          transition={{ type: "spring", stiffness: 350, damping: 30 }}
+        />
+      )}
+      
+      {/* Icon Wrapper */}
       <div className={cn(
-        "flex items-center justify-center rounded-xl p-1.5 transition-all duration-300",
-        active ? "text-white" : "bg-white/50 text-slate-500 group-hover:bg-white/80 group-hover:text-slate-800 group-hover:shadow-sm"
+        "relative z-10 flex items-center justify-center rounded-xl p-1.5 transition-colors duration-200",
+        active ? "text-white" : "bg-white/50 text-slate-500 group-hover:bg-white/80 group-hover:text-slate-800"
       )}>
         <Icon size={18} />
       </div>
-      <span className="truncate tracking-wide">{label}</span>
+      
+      <span className="relative z-10 truncate tracking-wide">{label}</span>
     </Link>
   );
 }
@@ -98,21 +110,16 @@ export function Sidebar({ userRole }: { userRole: string }) {
       <div className="mx-6 h-px bg-white/40 my-2" />
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
-        <p className="mb-3 px-2 text-[10px] font-black uppercase tracking-widest text-slate-500/80">
-          Menu Utama
-        </p>
-        <div className="flex flex-col gap-1.5">
-          {filteredNavItems.map((item) => (
-            <NavItem
-              key={item.href}
-              href={item.href}
-              icon={item.icon}
-              label={item.label}
-              active={pathname.startsWith(item.href)}
-            />
-          ))}
-        </div>
+      <nav className="flex-1 space-y-1.5 overflow-y-auto px-4 py-4 custom-scrollbar">
+        {filteredNavItems.map((item) => (
+          <NavItem
+            key={item.href}
+            href={item.href}
+            icon={item.icon}
+            label={item.label}
+            active={pathname.startsWith(item.href)}
+          />
+        ))}
       </nav>
 
       <div className="mx-6 h-px bg-white/40" />

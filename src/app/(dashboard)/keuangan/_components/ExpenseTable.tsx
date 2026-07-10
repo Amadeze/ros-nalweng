@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { formatDate, formatRupiah } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +81,29 @@ export function ExpenseTable({ rows }: ExpenseTableProps) {
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      {/* MOBILE VIEW */}
+      <div className="md:hidden flex flex-col gap-3">
+        {rows.map((row) => (
+          <div key={row.id} className="p-4 rounded-xl border border-white/60 bg-white/30 backdrop-blur-md shadow-sm">
+            <div className="flex justify-between items-start mb-2">
+              <Badge
+                variant="outline"
+                className={`text-[10px] font-bold ${CATEGORY_COLOR[row.category] ?? "bg-zinc-100 text-zinc-500"}`}
+              >
+                {CATEGORY_LABEL[row.category] ?? row.category}
+              </Badge>
+              <span className="text-xs font-semibold text-slate-500">{formatDate(row.date)}</span>
+            </div>
+            <div className="text-sm font-medium text-slate-800 mb-1">
+              {row.description ?? <span className="italic text-zinc-400">Tanpa keterangan</span>}
+            </div>
+            <div className="text-right">
+              <span className="font-mono text-base font-bold text-red-600">{formatRupiah(row.amount)}</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

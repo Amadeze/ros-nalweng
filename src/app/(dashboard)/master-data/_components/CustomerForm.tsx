@@ -27,10 +27,11 @@ type FormValues = z.infer<typeof schema>;
 interface CustomerFormProps {
   id: string;
   onSuccess: () => void;
+  onPendingChange?: (isPending: boolean) => void;
   initialData?: CustomerRow;
 }
 
-export function CustomerForm({ id, onSuccess, initialData }: CustomerFormProps) {
+export function CustomerForm({ id, onSuccess, onPendingChange, initialData }: CustomerFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditMode = !!initialData;
 
@@ -43,6 +44,7 @@ export function CustomerForm({ id, onSuccess, initialData }: CustomerFormProps) 
 
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
+    onPendingChange?.(true);
     try {
       const result = isEditMode
         ? await updateCustomer({ id: initialData!.id, ...values, email: values.email || undefined })
@@ -54,6 +56,7 @@ export function CustomerForm({ id, onSuccess, initialData }: CustomerFormProps) 
       toast.error("Terjadi kesalahan sistem.");
     } finally {
       setIsSubmitting(false);
+      onPendingChange?.(false);
     }
   };
 

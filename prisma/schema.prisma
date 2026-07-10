@@ -550,3 +550,72 @@ model Expense {
   @@index([category])
   @@map("expenses")
 }
+
+// =============================================================================
+// TABLE 15 · Partner (Mitra / Investor)
+// Menyimpan data investor dan persentase saham (0-100%).
+// =============================================================================
+
+model Partner {
+  id          String   @id @default(cuid())
+  name        String
+  equityShare Decimal  @db.Decimal(5, 2) // persentase kepemilikan (misal: 60.00)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  profitDistributions ProfitDistribution[]
+  capitalTransactions CapitalTransaction[]
+
+  @@map("partners")
+}
+
+// =============================================================================
+// TABLE 16 · CapitalTransaction (Mutasi Modal)
+// Mencatat uang masuk (Capital Injection) atau uang keluar (Prive).
+// Mempengaruhi saldo Kas & Bank.
+// =============================================================================
+
+enum CapitalTransactionType {
+  INJECTION   // Modal disetor (Kas naik, Ekuitas naik)
+  WITHDRAWAL  // Prive / Tarik tunai pribadi (Kas turun, Ekuitas turun)
+}
+
+model CapitalTransaction {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g., "CAP-2024-001"
+  partnerId   String?  // Wajib jika penarikan (Prive), bisa opsional untuk kas masuk umum
+  type        CapitalTransactionType
+  amount      Decimal  @db.Decimal(14, 2)
+  notes       String?
+  transactionDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  partner     Partner? @relation(fields: [partnerId], references: [id])
+
+  @@map("capital_transactions")
+}
+
+// =============================================================================
+// TABLE 17 · ProfitDistribution (Bagi Hasil / Dividen)
+// Mencatat pencairan bagi hasil Laba Bersih ke masing-masing Mitra.
+// =============================================================================
+
+model ProfitDistribution {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g., "DIV-2024-01-A"
+  partnerId   String
+  
+  month       Int
+  year        Int
+  netProfit   Decimal  @db.Decimal(14, 2) // snapshot Laba Bersih total di bulan tersebut
+  amount      Decimal  @db.Decimal(14, 2) // = netProfit * partner.equityShare / 100
+  
+  notes       String?
+  distributedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  partner     Partner  @relation(fields: [partnerId], references: [id])
+
+  @@map("profit_distributions")
+}

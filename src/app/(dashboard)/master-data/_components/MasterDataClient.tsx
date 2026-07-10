@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Plus, Building2, Users, Package, CheckCircle2, XCircle, Pencil, UserCog } from "lucide-react";
+import { Plus, Building2, Users, Package, CheckCircle2, XCircle, Pencil, UserCog, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { StandardPageLayout } from "@/components/StandardPageLayout";
 import { StandardDrawer } from "@/components/StandardDrawer";
 import { Button } from "@/components/ui/button";
@@ -13,18 +14,30 @@ import { ProductForm } from "./ProductForm";
 import { UserForm } from "./UserForm";
 import type { MasterPageData, SupplierRow, CustomerRow, ProductRow, UserRow } from "../actions";
 
+interface MasterDataClientProps {
+  data: MasterPageData;
+  userRole: string;
+}
+
 // =============================================================================
 // Tab definition
 // =============================================================================
 
 type Tab = "supplier" | "pelanggan" | "produk" | "pengguna";
 
-const TABS: { id: Tab; label: string; icon: React.ElementType; count: (d: MasterPageData) => number }[] = [
+const ALL_TABS: { id: Tab; label: string; icon: React.ElementType; count: (d: MasterPageData) => number }[] = [
   { id: "supplier",  label: "Supplier",  icon: Building2, count: (d) => d.suppliers.length },
   { id: "pelanggan", label: "Pelanggan", icon: Users,     count: (d) => d.customers.length },
   { id: "produk",    label: "Produk",    icon: Package,   count: (d) => d.products.length  },
   { id: "pengguna",  label: "Pengguna",  icon: UserCog,   count: (d) => d.users.length     },
 ];
+
+function getTabsForRole(role: string) {
+  if (role === "OWNER" || role === "MANAGER") return ALL_TABS;
+  if (role === "CASHIER") return ALL_TABS.filter(t => t.id === "produk" || t.id === "pelanggan");
+  if (role === "OPERATOR") return ALL_TABS.filter(t => t.id === "supplier" || t.id === "pelanggan" || t.id === "produk");
+  return ALL_TABS.filter(t => t.id === "produk"); // fallback
+}
 
 // =============================================================================
 // Product type helpers
@@ -275,17 +288,20 @@ function UserTable({ rows, onEdit }: { rows: UserRow[]; onEdit: (r: UserRow) => 
 // Main Client
 // =============================================================================
 
-export function MasterDataClient({ data }: { data: MasterPageData }) {
+export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab]           = useState<Tab>("supplier");
+  
+  const TABS = useMemo(() => getTabsForRole(userRole), [userRole]);
+  const [activeTab, setActiveTab] = useState<Tab>(TABS[0].id);
   const [drawerOpen, setDrawerOpen]         = useState(false);
+  const [isSubmitting, setIsSubmitting]     = useState(false);
   const [mode, setMode]                     = useState<"create" | "edit">("create");
   const [editSupplier, setEditSupplier]     = useState<SupplierRow | null>(null);
   const [editCustomer, setEditCustomer]     = useState<CustomerRow | null>(null);
   const [editProduct,  setEditProduct]      = useState<ProductRow  | null>(null);
   const [editUser,     setEditUser]         = useState<UserRow     | null>(null);
 
-  const roastedBeans = data.products.filter((p) => p.type === "ROASTED_BEAN");
+  const roastedBeans = useMemo(() => data.products.filter((p) => p.type === "ROASTED_BEAN"), [data.products]);
 
   const handleTabChange = (tab: Tab) => {
     setDrawerOpen(false);
@@ -387,21 +403,32 @@ export function MasterDataClient({ data }: { data: MasterPageData }) {
         </div>
 
         {/* ── Table content ── */}
-        {activeTab === "supplier"  && <SupplierTable rows={data.suppliers} onEdit={openEditSupplier} />}
-        {activeTab === "pelanggan" && <CustomerTable rows={data.customers} onEdit={openEditCustomer} />}
-        {activeTab === "produk"    && <ProductTable  rows={data.products}  onEdit={openEditProduct}  />}
-        {activeTab === "pengguna"  && <UserTable     rows={data.users}     onEdit={openEditUser}     />}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            {activeTab === "supplier"  && <SupplierTable rows={data.suppliers} onEdit={openEditSupplier} />}
+            {activeTab === "pelanggan" && <CustomerTable rows={data.customers} onEdit={openEditCustomer} />}
+            {activeTab === "produk"    && <ProductTable  rows={data.products}  onEdit={openEditProduct}  />}
+            {activeTab === "pengguna"  && <UserTable     rows={data.users}     onEdit={openEditUser}     />}
+          </motion.div>
+        </AnimatePresence>
       </StandardPageLayout>
 
       {/* ── Drawer ── */}
       <StandardDrawer
         open={drawerOpen}
-        onOpenChange={(v) => { setDrawerOpen(v); if (!v) { setMode("create"); setEditSupplier(null); setEditCustomer(null); setEditProduct(null); setEditUser(null); } }}
+        onOpenChange={(v) => { if (!isSubmitting) { setDrawerOpen(v); if (!v) { setMode("create"); setEditSupplier(null); setEditCustomer(null); setEditProduct(null); setEditUser(null); } } }}
         title={drawerTitle}
         size={drawerSize}
         submitButton={
-          <Button type="submit" form={submitFormId} size="sm" className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-md rounded-xl">
-            {mode === "edit" ? "Simpan Perubahan" : "Simpan"}
+          <Button type="submit" form={submitFormId} size="sm" disabled={isSubmitting} className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-md rounded-xl disabled:opacity-60">
+            {isSubmitting && <Loader2 size={13} className="animate-spin" />}
+            {isSubmitting ? "Menyimpan..." : (mode === "edit" ? "Simpan Perubahan" : "Simpan")}
           </Button>
         }
       >
@@ -409,6 +436,7 @@ export function MasterDataClient({ data }: { data: MasterPageData }) {
           <SupplierForm
             id="supplier-form"
             onSuccess={handleSuccess}
+            onPendingChange={setIsSubmitting}
             initialData={mode === "edit" ? editSupplier ?? undefined : undefined}
           />
         )}
@@ -416,6 +444,7 @@ export function MasterDataClient({ data }: { data: MasterPageData }) {
           <CustomerForm
             id="customer-form"
             onSuccess={handleSuccess}
+            onPendingChange={setIsSubmitting}
             initialData={mode === "edit" ? editCustomer ?? undefined : undefined}
           />
         )}
@@ -423,6 +452,7 @@ export function MasterDataClient({ data }: { data: MasterPageData }) {
           <ProductForm
             id="product-form"
             onSuccess={handleSuccess}
+            onPendingChange={setIsSubmitting}
             initialData={mode === "edit" ? editProduct ?? undefined : undefined}
             roastedBeans={roastedBeans}
             packagings={data.packagings}
@@ -432,6 +462,7 @@ export function MasterDataClient({ data }: { data: MasterPageData }) {
           <UserForm
             id="user-form"
             onSuccess={handleSuccess}
+            onPendingChange={setIsSubmitting}
             initialData={mode === "edit" ? editUser ?? undefined : undefined}
           />
         )}

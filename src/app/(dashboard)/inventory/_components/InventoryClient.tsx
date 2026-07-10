@@ -120,15 +120,11 @@ export function InventoryClient({
         size="md"
         submitButton={
           <Button
-            type="button"
+            type="submit"
+            form="pkg-purchase-form"
             size="sm"
             disabled={isSubmitting}
             className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-md rounded-xl disabled:opacity-60"
-            onClick={() => {
-              setIsSubmitting(true);
-              (document.getElementById("pkg-purchase-form") as HTMLFormElement)?.requestSubmit();
-              setTimeout(() => setIsSubmitting(false), 3000);
-            }}
           >
             {isSubmitting && <Loader2 size={13} className="animate-spin" />}
             {isSubmitting ? "Menyimpan..." : "Simpan"}
@@ -138,6 +134,7 @@ export function InventoryClient({
         <PackagingPurchaseForm
           suppliers={suppliers}
           packagings={packagings}
+          onPendingChange={setIsSubmitting}
           onSuccess={() => { setPkgDrawerOpen(false); setIsSubmitting(false); }}
         />
       </StandardDrawer>
@@ -151,15 +148,11 @@ export function InventoryClient({
         size="md"
         submitButton={
           <Button
-            type="button"
+            type="submit"
+            form="adjustment-form"
             size="sm"
             disabled={isSubmitting}
             className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-md rounded-xl disabled:opacity-60"
-            onClick={() => {
-              setIsSubmitting(true);
-              (document.getElementById("adjustment-form") as HTMLFormElement)?.requestSubmit();
-              setTimeout(() => setIsSubmitting(false), 3000);
-            }}
           >
             {isSubmitting && <Loader2 size={13} className="animate-spin" />}
             {isSubmitting ? "Menyimpan..." : "Simpan Opname"}

@@ -49,6 +49,7 @@ interface PackagingPurchaseFormProps {
   suppliers:  SupplierOption[];
   packagings: PackagingOption[];
   onSuccess:  () => void;
+  onPendingChange?: (isPending: boolean) => void;
 }
 
 // Glassmorphism Utilities
@@ -59,7 +60,7 @@ const glassCard = "rounded-[1rem] border border-white/60 bg-white/30 backdrop-bl
 // Main Component
 // =============================================================================
 
-export function PackagingPurchaseForm({ suppliers, packagings, onSuccess }: PackagingPurchaseFormProps) {
+export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPendingChange }: PackagingPurchaseFormProps) {
   const today = new Date().toISOString().split("T")[0];
   const [submitting, setSubmitting] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
@@ -85,6 +86,7 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess }: Pack
   // Submit Pembelian
   const onSubmit = async (data: FormValues) => {
     setSubmitting(true);
+    onPendingChange?.(true);
     try {
       const result = await createPackagingPurchase(data);
       if (!result.success) { toast.error(result.error); return; }
@@ -95,6 +97,7 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess }: Pack
       toast.error("Terjadi kesalahan sistem.");
     } finally {
       setSubmitting(false);
+      onPendingChange?.(false);
     }
   };
 

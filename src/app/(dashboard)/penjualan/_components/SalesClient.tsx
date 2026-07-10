@@ -37,8 +37,9 @@ interface SalesClientProps {
 }
 
 export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps) {
-  const [drawerOpen, setDrawerOpen]     = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCustomerSubmitting, setIsCustomerSubmitting] = useState(false);
   const [lastInvoiceId, setLastInvoiceId] = useState<string | null>(null);
   
   // For Create Customer modal
@@ -130,17 +131,19 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
 
       <StandardDrawer
         open={customerDrawerOpen}
-        onOpenChange={(v) => { if (!isSubmitting) setCustomerDrawerOpen(v); }}
+        onOpenChange={(v) => { if (!isCustomerSubmitting) setCustomerDrawerOpen(v); }}
         title="Tambah Pelanggan Baru"
         size="md"
         submitButton={
-          <Button type="submit" form="new-customer-form" size="sm" className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 shadow-md rounded-xl font-bold">
-            Simpan Pelanggan
+          <Button type="submit" form="new-customer-form" size="sm" disabled={isCustomerSubmitting} className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 shadow-md rounded-xl font-bold disabled:opacity-60">
+            {isCustomerSubmitting && <Loader2 size={13} className="animate-spin" />}
+            {isCustomerSubmitting ? "Menyimpan..." : "Simpan Pelanggan"}
           </Button>
         }
       >
         <CustomerForm
           id="new-customer-form"
+          onPendingChange={setIsCustomerSubmitting}
           onSuccess={() => {
             setCustomerDrawerOpen(false);
             // Revalidation via server action will refresh the customers list

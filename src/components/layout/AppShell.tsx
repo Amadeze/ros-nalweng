@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Menu, X } from "lucide-react"; 
 import { usePathname } from "next/navigation";
+import { PageTransition } from "./PageTransition";
 
 /**
  * AppShell — root shell untuk semua halaman autentikasi.
@@ -61,7 +62,9 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
 
         {/* AREA KONTEN ANAK (DashboardShell, dll masuk ke sini) */}
         <div className="flex-1 overflow-auto custom-scrollbar">
-          {children}
+          <PageTransition>
+            {children}
+          </PageTransition>
         </div>
       </main>
       </div>

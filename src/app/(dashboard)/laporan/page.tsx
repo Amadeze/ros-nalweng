@@ -1,10 +1,14 @@
 import { getPnLReport } from "../keuangan/actions";
-import { getInventoryValuationReport } from "./actions";
+import { getInventoryValuationReport, getBalanceSheetReport } from "./actions";
 import { SuperDashboardClient } from "./_components/SuperDashboardClient";
+import { cookies } from "next/headers";
+import { getIronSession } from "iron-session";
+import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function LaporanPage({ searchParams }: { searchParams: Promise<{ month?: string; year?: string }> }) {
+  const session = await getIronSession<{ user?: SessionUser }>(await cookies(), SESSION_OPTIONS);
   const resolvedParams = await searchParams;
   const now = new Date();
   
@@ -16,10 +20,9 @@ export default async function LaporanPage({ searchParams }: { searchParams: Prom
     year = parseInt(resolvedParams.year, 10);
   }
 
-  const [pnlReport, inventoryReport] = await Promise.all([
-    getPnLReport(month, year),
-    getInventoryValuationReport()
-  ]);
+  const pnlReport = await getPnLReport(month, year);
+  const inventoryReport = await getInventoryValuationReport();
+  const balanceSheetReport = await getBalanceSheetReport(inventoryReport.grandTotalValue);
 
-  return <SuperDashboardClient pnlReport={pnlReport} inventoryReport={inventoryReport} />;
+  return <SuperDashboardClient pnlReport={pnlReport} inventoryReport={inventoryReport} balanceSheetReport={balanceSheetReport} userRole={session.user?.role || "OWNER"} />;
 }
