@@ -27,6 +27,8 @@ export type InventoryValuationReport = {
   grandTotalValue: number;
   totalFinishedGoodsPotentialRevenue: number;
   totalFinishedGoodsMarginHealth: number;
+  totalPotentialRevenue: number;
+  totalMarginHealth: number;
 };
 
 export async function getInventoryValuationReport(): Promise<InventoryValuationReport> {
@@ -75,6 +77,9 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
       }
 
       if (stockKg > 0) {
+        const retailPrice = p.type === "ROASTED_BEAN" ? Number(p.price || 0) : undefined;
+        const potentialRevenue = p.type === "ROASTED_BEAN" ? stockKg * (retailPrice || 0) : undefined;
+
         items.push({
           id: p.id,
           code: p.code,
@@ -84,6 +89,7 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
           unit: "kg",
           unitCost,
           totalValue: stockKg * unitCost,
+          ...(p.type === "ROASTED_BEAN" && { retailPrice, potentialRevenue }),
         });
       }
     } else if (p.type === "FINISHED_GOODS") {
@@ -153,6 +159,10 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
   const fgGrossMargin = totalFinishedGoodsPotentialRevenue - totalFinishedGoodsValue;
   const totalFinishedGoodsMarginHealth = totalFinishedGoodsPotentialRevenue > 0 ? (fgGrossMargin / totalFinishedGoodsPotentialRevenue) * 100 : 0;
 
+  const totalPotentialRevenue = items.reduce((s, i) => s + (i.potentialRevenue || 0), 0);
+  const totalGrossMargin = totalPotentialRevenue - (totalFinishedGoodsValue + totalRoastedBeanValue);
+  const totalMarginHealth = totalPotentialRevenue > 0 ? (totalGrossMargin / totalPotentialRevenue) * 100 : 0;
+
   return {
     items,
     totalGreenBeanValue,
@@ -162,6 +172,8 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
     grandTotalValue,
     totalFinishedGoodsPotentialRevenue,
     totalFinishedGoodsMarginHealth,
+    totalPotentialRevenue,
+    totalMarginHealth,
   };
 }
 

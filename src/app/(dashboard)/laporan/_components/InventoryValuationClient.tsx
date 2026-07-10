@@ -72,9 +72,9 @@ export function InventoryValuationClient({ report, hideLayout }: InventoryValuat
         </div>
         <div className="col-span-2 lg:col-span-1 rounded-2xl border border-white/60 bg-gradient-to-br from-fuchsia-50 to-pink-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><TrendingUp size={48} className="text-fuchsia-600" /></div>
-          <p className="text-xs font-medium text-fuchsia-600 relative z-10">Potensi Laba Kotor (Produk Jadi)</p>
-          <p className="mt-1 font-mono text-lg font-black tabular-nums text-fuchsia-700 relative z-10">{report.totalFinishedGoodsMarginHealth.toFixed(1)}%</p>
-          <p className="text-[10px] text-fuchsia-600 mt-1 relative z-10">dari {formatRupiah(report.totalFinishedGoodsPotentialRevenue)}</p>
+          <p className="text-xs font-medium text-fuchsia-600 relative z-10">Potensi Laba Kotor (Retail)</p>
+          <p className="mt-1 font-mono text-lg font-black tabular-nums text-fuchsia-700 relative z-10">{report.totalMarginHealth.toFixed(1)}%</p>
+          <p className="text-[10px] text-fuchsia-600 mt-1 relative z-10">dari {formatRupiah(report.totalPotentialRevenue)}</p>
         </div>
         <div className="rounded-2xl border border-white/60 bg-emerald-50 p-4 shadow-sm">
           <p className="text-xs font-medium text-emerald-600">Green Bean</p>
@@ -174,11 +174,11 @@ export function InventoryValuationClient({ report, hideLayout }: InventoryValuat
           </div>
         </div>
         
-        {/* Finished Goods Analysis Table */}
+        {/* Finished Goods & Roasted Bean Analysis Table */}
         <div className="col-span-1 lg:col-span-3 mt-2 rounded-2xl border border-fuchsia-100/60 bg-gradient-to-br from-white/60 to-fuchsia-50/30 shadow-sm backdrop-blur-xl overflow-hidden flex flex-col">
           <div className="border-b border-fuchsia-100/60 bg-fuchsia-50/40 px-5 py-3 flex items-center gap-2">
              <TrendingUp size={16} className="text-fuchsia-600" />
-             <h3 className="text-sm font-bold text-fuchsia-800 uppercase tracking-wide">Analisis Margin & Potensi Pendapatan (Khusus Produk Jadi)</h3>
+             <h3 className="text-sm font-bold text-fuchsia-800 uppercase tracking-wide">Analisis Margin & Potensi Pendapatan (Roasted Bean & Produk Jadi)</h3>
           </div>
           <div className="overflow-x-auto p-4 flex-1">
              <Table>
@@ -194,12 +194,12 @@ export function InventoryValuationClient({ report, hideLayout }: InventoryValuat
                    </TableRow>
                 </TableHeader>
                 <TableBody>
-                   {report.items.filter(i => i.category === "FINISHED_GOODS").length === 0 ? (
+                   {report.items.filter(i => i.category === "FINISHED_GOODS" || i.category === "ROASTED_BEAN").length === 0 ? (
                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-slate-400">Belum ada persediaan produk jadi di gudang</TableCell>
+                        <TableCell colSpan={7} className="text-center py-8 text-slate-400">Belum ada persediaan produk jadi / roasted bean di gudang</TableCell>
                      </TableRow>
                    ) : (
-                     report.items.filter(i => i.category === "FINISHED_GOODS").map((item) => {
+                     report.items.filter(i => i.category === "FINISHED_GOODS" || i.category === "ROASTED_BEAN").map((item) => {
                        const retail = item.retailPrice || 0;
                        const labaKotor = retail - item.unitCost;
                        const margin = retail > 0 ? (labaKotor / retail) * 100 : 0;
