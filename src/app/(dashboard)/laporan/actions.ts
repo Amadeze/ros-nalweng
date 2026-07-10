@@ -385,3 +385,121 @@ export async function distributeDividends(amount: number) {
   revalidatePath("/laporan");
   return { success: true };
 }
+
+export type GreenBeanFlow = {
+  id: string;
+  name: string;
+  boughtKg: number;
+  roastedKg: number;
+  adjustmentOutKg: number;
+  currentStockKg: number;
+};
+
+export type RoastedBeanFlow = {
+  id: string;
+  name: string;
+  producedKg: number;
+  roastLossKg: number;
+  packagedKg: number;
+  adjustmentOutKg: number;
+  currentStockKg: number;
+};
+
+export type FinishedGoodsFlow = {
+  id: string;
+  name: string;
+  producedUnits: number;
+  soldUnits: number;
+  adjustmentOutUnits: number;
+  currentStockUnits: number;
+  weightPerUnitGrams: number;
+  soldEquivalentKg: number;
+  producedEquivalentKg: number;
+};
+
+export type CoffeeFlowReport = {
+  greenBeans: GreenBeanFlow[];
+  roastedBeans: RoastedBeanFlow[];
+  finishedGoods: FinishedGoodsFlow[];
+};
+
+export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
+  const products = await prisma.product.findMany({
+    where: { isActive: true },
+    include: {
+      ledgerEntries: true,
+      recipes: true
+    }
+  });
+
+  const greenBeans: GreenBeanFlow[] = [];
+  const roastedBeans: RoastedBeanFlow[] = [];
+  const finishedGoods: FinishedGoodsFlow[] = [];
+
+  for (const p of products) {
+    if (p.type === "GREEN_BEAN") {
+      let bought = 0, roasted = 0, adjOut = 0, stock = 0;
+      for (const l of p.ledgerEntries) {
+        const qty = Number(l.quantityKg || 0);
+        if (l.entryType === "IN") stock += qty; else stock -= qty;
+        
+        if (l.refType === "PURCHASE_GB" && l.entryType === "IN") bought += qty;
+        if (l.refType === "ROASTING_GB_OUT" && l.entryType === "OUT") roasted += qty;
+        if (l.refType === "ADJUSTMENT_OUT" && l.entryType === "OUT") adjOut += qty;
+      }
+      greenBeans.push({
+        id: p.id, name: p.name, boughtKg: bought, roastedKg: roasted, adjustmentOutKg: adjOut, currentStockKg: stock
+      });
+    } else if (p.type === "ROASTED_BEAN") {
+      let produced = 0, packaged = 0, adjOut = 0, stock = 0;
+      for (const l of p.ledgerEntries) {
+        const qty = Number(l.quantityKg || 0);
+        if (l.entryType === "IN") stock += qty; else stock -= qty;
+        
+        if (l.refType === "ROASTING_RB_IN" && l.entryType === "IN") produced += qty;
+        if (l.refType === "PRODUCTION_RB_OUT" && l.entryType === "OUT") packaged += qty;
+        if (l.refType === "ADJUSTMENT_OUT" && l.entryType === "OUT") adjOut += qty;
+      }
+      
+      roastedBeans.push({
+        id: p.id, name: p.name, producedKg: produced, roastLossKg: 0, packagedKg: packaged, adjustmentOutKg: adjOut, currentStockKg: stock
+      });
+    } else if (p.type === "FINISHED_GOODS") {
+      let producedU = 0, soldU = 0, adjOutU = 0, stockU = 0;
+      for (const l of p.ledgerEntries) {
+        const qty = Number(l.quantityUnit || 0);
+        if (l.entryType === "IN") stockU += qty; else stockU -= qty;
+        
+        if (l.refType === "PRODUCTION_FG_IN" && l.entryType === "IN") producedU += qty;
+        if (l.refType === "SALE_FG_OUT" && l.entryType === "OUT") soldU += qty;
+        if (l.refType === "ADJUSTMENT_OUT" && l.entryType === "OUT") adjOutU += qty;
+      }
+      
+      const weightGrams = p.recipes.length > 0 ? Number(p.recipes[0].outputGrams) : 0;
+      finishedGoods.push({
+        id: p.id, name: p.name, producedUnits: producedU, soldUnits: soldU, adjustmentOutUnits: adjOutU, currentStockUnits: stockU,
+        weightPerUnitGrams: weightGrams,
+        soldEquivalentKg: (soldU * weightGrams) / 1000,
+        producedEquivalentKg: (producedU * weightGrams) / 1000
+      });
+    }
+  }
+
+  // Calculate Roast Loss for RBs based on actual roasting batches
+  const roastingBatches = await prisma.roastingBatch.findMany({
+    where: { status: "COMPLETED" }
+  });
+  
+  for (const rb of roastedBeans) {
+    const batches = roastingBatches.filter(b => b.outputProductId === rb.id);
+    let totalInput = 0;
+    let totalOutput = 0;
+    for (const b of batches) {
+      totalInput += Number(b.inputWeightKg);
+      totalOutput += Number(b.outputWeightKg);
+    }
+    rb.roastLossKg = totalInput - totalOutput;
+  }
+
+  return { greenBeans, roastedBeans, finishedGoods };
+}

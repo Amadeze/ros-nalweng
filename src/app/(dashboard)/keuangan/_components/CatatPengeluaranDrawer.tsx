@@ -20,7 +20,6 @@ import { createExpense } from "../actions";
 import { toast } from "sonner";
 
 const CATEGORIES = [
-  { value: "GAJI",        label: "Gaji & Tunjangan" },
   { value: "UTILITAS",    label: "Utilitas (Listrik, Air, Internet)" },
   { value: "OPERASIONAL", label: "Operasional (Sewa, Bahan Habis Pakai)" },
   { value: "LAINNYA",     label: "Lainnya" },
@@ -28,7 +27,7 @@ const CATEGORIES = [
 
 const schema = z.object({
   date:        z.string().min(1, "Tanggal wajib diisi"),
-  category:    z.enum(["GAJI", "UTILITAS", "OPERASIONAL", "LAINNYA"] as const),
+  category:    z.enum(["UTILITAS", "OPERASIONAL", "LAINNYA"] as const),
   amount:      z.number({ error: "Nominal harus angka" }).positive("Nominal harus lebih dari 0"),
   description: z.string().optional(),
 });

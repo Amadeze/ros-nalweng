@@ -1,5 +1,5 @@
 import { getPnLReport } from "../keuangan/actions";
-import { getInventoryValuationReport, getBalanceSheetReport } from "./actions";
+import { getInventoryValuationReport, getBalanceSheetReport, getCoffeeFlowReport } from "./actions";
 import { SuperDashboardClient } from "./_components/SuperDashboardClient";
 import { cookies } from "next/headers";
 import { getIronSession } from "iron-session";
@@ -23,6 +23,7 @@ export default async function LaporanPage({ searchParams }: { searchParams: Prom
   const pnlReport = await getPnLReport(month, year);
   const inventoryReport = await getInventoryValuationReport();
   const balanceSheetReport = await getBalanceSheetReport(inventoryReport.grandTotalValue);
+  const flowReport = await getCoffeeFlowReport();
 
-  return <SuperDashboardClient pnlReport={pnlReport} inventoryReport={inventoryReport} balanceSheetReport={balanceSheetReport} userRole={session.user?.role || "OWNER"} />;
+  return <SuperDashboardClient pnlReport={pnlReport} inventoryReport={inventoryReport} balanceSheetReport={balanceSheetReport} flowReport={flowReport} userRole={session.user?.role || "OWNER"} />;
 }

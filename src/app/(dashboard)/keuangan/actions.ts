@@ -53,7 +53,7 @@ export type PaymentActionResult =
 
 export type CreateExpenseInput = {
   date: string;
-  category: "GAJI" | "UTILITAS" | "OPERASIONAL" | "LAINNYA";
+  category: "UTILITAS" | "OPERASIONAL" | "LAINNYA";
   amount: number;
   description?: string;
 };

@@ -10,16 +10,19 @@ import type { InventoryValuationReport, BalanceSheetReport } from "../actions";
 import { cn } from "@/lib/utils";
 import { FileText, Database, Scale, Users } from "lucide-react";
 import { FounderDashboardClient } from "./FounderDashboardClient";
+import { CoffeeFlowClient } from "./CoffeeFlowClient";
+import { Activity } from "lucide-react";
 
 interface SuperDashboardClientProps {
   pnlReport: PnLReport;
   inventoryReport: InventoryValuationReport;
   balanceSheetReport: BalanceSheetReport;
+  flowReport: any;
   userRole: string;
 }
 
-export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetReport, userRole }: SuperDashboardClientProps) {
-  const [activeTab, setActiveTab] = useState<"pnl" | "inventory" | "balanceSheet" | "founder">("pnl");
+export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetReport, flowReport, userRole }: SuperDashboardClientProps) {
+  const [activeTab, setActiveTab] = useState<"pnl" | "inventory" | "balanceSheet" | "founder" | "flow">("pnl");
 
   return (
     <StandardPageLayout
@@ -60,6 +63,17 @@ export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetR
         >
           <Scale size={18} /> Neraca
         </button>
+        <button
+          onClick={() => setActiveTab("flow")}
+          className={cn(
+            "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
+            activeTab === "flow" 
+              ? "bg-white text-rose-600 shadow-sm" 
+              : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
+          )}
+        >
+          <Activity size={18} /> Arus Kopi
+        </button>
         {userRole === "OWNER" && (
           <button
             onClick={() => setActiveTab("founder")}
@@ -94,6 +108,11 @@ export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetR
         {activeTab === "founder" && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
             <FounderDashboardClient retainedEarnings={balanceSheetReport.equity.retainedEarnings} />
+          </div>
+        )}
+        {activeTab === "flow" && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <CoffeeFlowClient report={flowReport} />
           </div>
         )}
       </div>
