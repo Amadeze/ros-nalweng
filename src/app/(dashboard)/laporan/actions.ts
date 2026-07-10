@@ -314,7 +314,7 @@ export async function calculateFounderSalary(month: number, year: number) {
 
   const salaryPerPerson = salaryPool / 3;
 
-  return { success: true, salaryPerPerson, salaryPool };
+  return { success: true, salaryPerPerson, salaryPool, profitBeforeSalary };
 }
 
 export async function postFounderSalary(month: number, year: number, salaryPerPerson: number) {

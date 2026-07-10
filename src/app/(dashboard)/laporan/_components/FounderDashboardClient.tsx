@@ -14,7 +14,7 @@ export function FounderDashboardClient({ retainedEarnings }: FounderDashboardCli
   // Formulir Gaji Bulanan
   const [salaryMonth, setSalaryMonth] = useState(new Date().getMonth() + 1);
   const [salaryYear, setSalaryYear] = useState(new Date().getFullYear());
-  const [salaryResult, setSalaryResult] = useState<{ pool: number, perPerson: number, err?: string } | null>(null);
+  const [salaryResult, setSalaryResult] = useState<{ pool: number, perPerson: number, profitBeforeSalary: number, err?: string } | null>(null);
 
   // Formulir Dividen
   const [dividendAmount, setDividendAmount] = useState("");
@@ -30,10 +30,10 @@ export function FounderDashboardClient({ retainedEarnings }: FounderDashboardCli
     setSalaryResult(null);
     const result = await calculateFounderSalary(salaryMonth, salaryYear);
     if (!result.success) {
-      setSalaryResult({ pool: 0, perPerson: 0, err: result.error as string });
+      setSalaryResult({ pool: 0, perPerson: 0, profitBeforeSalary: 0, err: result.error as string });
       setIsSubmitting(false);
     } else {
-      setSalaryResult({ pool: result.salaryPool as number, perPerson: result.salaryPerPerson as number });
+      setSalaryResult({ pool: result.salaryPool as number, perPerson: result.salaryPerPerson as number, profitBeforeSalary: result.profitBeforeSalary as number });
       setIsSubmitting(false);
     }
   };
@@ -100,15 +100,29 @@ export function FounderDashboardClient({ retainedEarnings }: FounderDashboardCli
               <p className="text-red-600 text-sm font-semibold text-center">{salaryResult.err}</p>
             ) : (
               <div className="space-y-4 text-sm">
-                <div className="flex justify-between items-center py-2 border-b border-slate-200">
-                  <span className="font-semibold text-slate-600">Pool Gaji (40% / max 15jt)</span>
-                  <span className="font-bold text-indigo-600 text-base">{formatCurrency(salaryResult.pool)}</span>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                    <span className="font-medium text-slate-500">1. Total Laba Bersih (Sebelum Gaji)</span>
+                    <span className="font-semibold text-slate-700">{formatCurrency(salaryResult.profitBeforeSalary)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                    <span className="font-medium text-slate-500">2. Alokasi Gaji (40%)</span>
+                    <span className="font-semibold text-slate-700">{formatCurrency(salaryResult.profitBeforeSalary * 0.40)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                    <span className="font-medium text-slate-500">3. Batas Maksimal (Cap)</span>
+                    <span className="font-semibold text-slate-700">Rp 15.000.000</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-slate-200 bg-indigo-50/50 px-2 rounded-lg -mx-2">
+                    <span className="font-semibold text-indigo-700">4. Final Pool Gaji (Ambil yg terkecil)</span>
+                    <span className="font-bold text-indigo-700 text-base">{formatCurrency(salaryResult.pool)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 pb-4">
+                    <span className="font-semibold text-emerald-700">5. Gaji per Orang (dibagi 3)</span>
+                    <span className="font-black text-emerald-600 text-xl tracking-tight">{formatCurrency(salaryResult.perPerson)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="font-semibold text-slate-600">Gaji per Orang (dibagi 3)</span>
-                  <span className="font-bold text-emerald-600 text-lg">{formatCurrency(salaryResult.perPerson)}</span>
-                </div>
-                <button onClick={handlePostSalary} disabled={isSubmitting} className="w-full bg-emerald-600 text-white py-3 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
+                <button onClick={handlePostSalary} disabled={isSubmitting} className="w-full bg-emerald-600 text-white py-3 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20">
                   <CheckCircle size={18} /> Eksekusi & Posting ke Laporan
                 </button>
               </div>
