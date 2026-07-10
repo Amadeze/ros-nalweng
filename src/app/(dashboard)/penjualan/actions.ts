@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { computeFGUnitStock } from "@/lib/stock";
+import { computeFGUnitStock, computeKgStock } from "@/lib/stock";
 
 // =============================================================================
 // TYPES
@@ -24,7 +24,9 @@ export type FGStockOption = {
   priceSilver: number;
   priceGold: number;
   stockUnit: number;
+  stockUnit: number; // For GB/RB, this stores kg
   lastHppPerUnit: number | null;
+  type: string;
 };
 
 export type InvoiceItemInput = {
@@ -122,9 +124,9 @@ export async function getSalesPageData(): Promise<SalesPageData> {
       select: { id: true, code: true, name: true, phone: true, tier: true },
     }),
     prisma.product.findMany({
-      where: { type: "FINISHED_GOODS", isActive: true },
+      where: { type: { in: ["FINISHED_GOODS", "ROASTED_BEAN", "GREEN_BEAN"] }, isActive: true },
       orderBy: { name: "asc" },
-      select: { id: true, code: true, name: true, price: true, priceSilver: true, priceGold: true },
+      select: { id: true, code: true, name: true, type: true, price: true, priceSilver: true, priceGold: true },
     }),
   ]);
 
@@ -133,8 +135,8 @@ export async function getSalesPageData(): Promise<SalesPageData> {
 
   const [allLedgers, latestBatches] = await Promise.all([
     prisma.inventoryLedger.findMany({
-      where: { productId: { in: fgProductIds }, quantityUnit: { not: null } },
-      select: { productId: true, entryType: true, quantityUnit: true },
+      where: { productId: { in: fgProductIds } },
+      select: { productId: true, entryType: true, quantityUnit: true, quantityKg: true },
     }),
     prisma.productionBatch.findMany({
       where: { outputProductId: { in: fgProductIds }, status: "COMPLETED" },
@@ -148,7 +150,8 @@ export async function getSalesPageData(): Promise<SalesPageData> {
   allLedgers.forEach(e => {
     if (!e.productId) return;
     const current = stockMap.get(e.productId) || 0;
-    const qty = e.quantityUnit || 0;
+    const product = fgProducts.find(p => p.id === e.productId);
+    const qty = product?.type === "FINISHED_GOODS" ? (e.quantityUnit || 0) : Number(e.quantityKg || 0);
     stockMap.set(e.productId, e.entryType === "IN" ? current + qty : current - qty);
   });
 
@@ -161,6 +164,7 @@ export async function getSalesPageData(): Promise<SalesPageData> {
     id: p.id,
     code: p.code,
     name: p.name,
+    type: p.type,
     price: Number(p.price) || 0,
     priceSilver: Number(p.priceSilver) || 0,
     priceGold: Number(p.priceGold) || 0,
@@ -208,15 +212,17 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
 
     // ── Validate stock for every item ──
     for (const item of input.items) {
-      const stock = await computeFGUnitStock(item.productId);
+      const product = await prisma.product.findUnique({
+        where: { id: item.productId },
+        select: { name: true, type: true },
+      });
+      const stock = product?.type === "FINISHED_GOODS" ? await computeFGUnitStock(item.productId) : await computeKgStock(item.productId);
+      const unitLabel = product?.type === "FINISHED_GOODS" ? "unit" : "kg";
+
       if (stock < item.quantity) {
-        const product = await prisma.product.findUnique({
-          where: { id: item.productId },
-          select: { name: true },
-        });
         return {
           success: false,
-          error: `Stok "${product?.name ?? "produk"}" tidak cukup. Tersedia: ${stock} unit, dibutuhkan: ${item.quantity} unit.`,
+          error: `Stok "${product?.name ?? "produk"}" tidak cukup. Tersedia: ${stock} ${unitLabel}, dibutuhkan: ${item.quantity} ${unitLabel}.`,
         };
       }
     }
@@ -286,13 +292,15 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
 
       // InventoryLedger OUT per item
       for (const item of enrichedItems) {
+        const prod = await tx.product.findUnique({ where: { id: item.productId }, select: { type: true } });
         await tx.inventoryLedger.create({
           data: {
             productId: item.productId,
             entryType: "OUT",
             refType: "SALE_FG_OUT",
             refId: inv.id,
-            quantityUnit: item.quantity,
+            quantityUnit: prod?.type === "FINISHED_GOODS" ? item.quantity : null,
+            quantityKg: prod?.type !== "FINISHED_GOODS" ? item.quantity : null,
             notes: `Penjualan ${invoiceCode}`,
             createdById: user.id,
           },
