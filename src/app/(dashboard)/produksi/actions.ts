@@ -151,7 +151,7 @@ async function fetchFGOptions(): Promise<FGProductOption[]> {
 
 async function fetchRBOptions(): Promise<RBStockOption[]> {
   const products = await prisma.product.findMany({
-    where: { type: "ROASTED_BEAN", isActive: true },
+    where: { type: { in: ["ROASTED_BEAN", "GREEN_BEAN"] }, isActive: true },
     include: { ledgerEntries: { select: { entryType: true, quantityKg: true } } },
     orderBy: { name: "asc" },
   });
@@ -284,51 +284,68 @@ export async function createProductionBatch(
       const actualKg = comp.actualGrams / 1000;
       if (actualKg <= 0) continue;
 
+      const rbProduct = await prisma.product.findUnique({
+        where: { id: comp.productId },
+        select: { name: true, type: true },
+      });
+
       // Validasi stok RB
       const rbStock = await computeKgStock(comp.productId);
       if (rbStock < actualKg) {
-        const rbProduct = await prisma.product.findUnique({
-          where: { id: comp.productId },
-          select: { name: true },
-        });
         return {
           success: false,
           error: `Stok "${rbProduct?.name ?? comp.productId}" tidak cukup. Tersedia: ${rbStock.toFixed(3)} kg, dibutuhkan: ${actualKg.toFixed(3)} kg.`,
         };
       }
 
-      // Ambil HPP RB dari roasting batch terakhir via ledger (masuk dari ROASTING_RB_IN)
-      const lastRbLedger = await prisma.inventoryLedger.findFirst({
-        where: { productId: comp.productId, entryType: "IN", refType: "ROASTING_RB_IN" },
-        orderBy: { createdAt: "desc" },
-        select: { refId: true },
-      });
-
       let hppPerKg = 0;
-      if (lastRbLedger) {
-        const roastBatch = await prisma.roastingBatch.findUnique({
-          where: { id: lastRbLedger.refId },
-          include: {
-            inputProduct: {
-              include: {
-                purchases: {
-                  where: { status: "COMPLETED" },
-                  orderBy: { receivedAt: "desc" },
-                  take: 1,
-                  select: { pricePerUnit: true, weightKg: true, shippingCost: true },
+
+      if (rbProduct?.type === "GREEN_BEAN") {
+        // Ambil HPP GB langsung dari purchase terakhir
+        const lastPurchase = await prisma.purchase.findFirst({
+          where: { productId: comp.productId, status: "COMPLETED" },
+          orderBy: { receivedAt: "desc" },
+          select: { pricePerUnit: true, weightKg: true, shippingCost: true },
+        });
+        if (lastPurchase) {
+          const wKg = Number(lastPurchase.weightKg ?? 0);
+          if (wKg > 0) {
+            hppPerKg = (Number(lastPurchase.pricePerUnit) * wKg + Number(lastPurchase.shippingCost ?? 0)) / wKg;
+          }
+        }
+      } else {
+        // Ambil HPP RB dari roasting batch terakhir via ledger (masuk dari ROASTING_RB_IN)
+        const lastRbLedger = await prisma.inventoryLedger.findFirst({
+          where: { productId: comp.productId, entryType: "IN", refType: "ROASTING_RB_IN" },
+          orderBy: { createdAt: "desc" },
+          select: { refId: true },
+        });
+
+        if (lastRbLedger) {
+          const roastBatch = await prisma.roastingBatch.findUnique({
+            where: { id: lastRbLedger.refId },
+            include: {
+              inputProduct: {
+                include: {
+                  purchases: {
+                    where: { status: "COMPLETED" },
+                    orderBy: { receivedAt: "desc" },
+                    take: 1,
+                    select: { pricePerUnit: true, weightKg: true, shippingCost: true },
+                  },
                 },
               },
             },
-          },
-        });
-        if (roastBatch?.inputProduct.purchases[0]) {
-          const pur = roastBatch.inputProduct.purchases[0];
-          const wKg = Number(pur.weightKg ?? 0);
-          if (wKg > 0) {
-            const gbHppPerKg = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
-            // RB HPP = GB HPP / (1 - shrinkage/100)
-            const shrinkage = Number(roastBatch.roastLossPercent) / 100;
-            hppPerKg = shrinkage < 1 ? gbHppPerKg / (1 - shrinkage) : gbHppPerKg;
+          });
+          if (roastBatch?.inputProduct.purchases[0]) {
+            const pur = roastBatch.inputProduct.purchases[0];
+            const wKg = Number(pur.weightKg ?? 0);
+            if (wKg > 0) {
+              const gbHppPerKg = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
+              // RB HPP = GB HPP / (1 - shrinkage/100)
+              const shrinkage = Number(roastBatch.roastLossPercent) / 100;
+              hppPerKg = shrinkage < 1 ? gbHppPerKg / (1 - shrinkage) : gbHppPerKg;
+            }
           }
         }
       }

@@ -72,7 +72,7 @@ interface ProductFormProps {
   onSuccess:    () => void;
   onPendingChange?: (isPending: boolean) => void;
   initialData?: ProductRow;
-  roastedBeans: Array<{ id: string; name: string; code: string }>;
+  rawMaterials: Array<{ id: string; name: string; code: string; type?: string }>;
   packagings:   PackagingRow[];
 }
 
@@ -80,7 +80,7 @@ interface ProductFormProps {
 // Component
 // =============================================================================
 
-export function ProductForm({ id, onSuccess, onPendingChange, initialData, roastedBeans, packagings }: ProductFormProps) {
+export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMaterials, packagings }: ProductFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditMode = !!initialData;
   const existingRecipe = initialData?.recipe ?? null;
@@ -138,6 +138,12 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, roast
       }
       const badItem = values.recipeItems!.find((i) => !i.rbProductId || (i.gramsPerUnit ?? 0) <= 0);
       if (badItem) { toast.error("Setiap bahan resep harus dipilih dan diisi gramnya."); setIsSubmitting(false); onPendingChange?.(false); return; }
+
+      // Validate mixing GREEN_BEAN and ROASTED_BEAN
+      const typesInRecipe = new Set(values.recipeItems!.map(i => rawMaterials.find(rm => rm.id === i.rbProductId)?.type));
+      if (typesInRecipe.has("GREEN_BEAN") && typesInRecipe.has("ROASTED_BEAN")) {
+        toast.error("Resep tidak boleh mencampur Green Bean dan Roasted Bean."); setIsSubmitting(false); onPendingChange?.(false); return;
+      }
     }
 
     const recipe = isFG && hasItems && values.recipePackagingId && values.recipeOutputGrams
@@ -335,7 +341,7 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, roast
           {/* Recipe items */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Komposisi Bahan (Roasted Bean)</Label>
+              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Komposisi Bahan (Green Bean / Roasted Bean)</Label>
               {fields.length > 0 && recipeOutputGrams > 0 && (
                 <span className={`text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full border ${Math.abs(totalGrams - recipeOutputGrams) < 0.01 ? "bg-emerald-50/50 border-emerald-200 text-emerald-700" : "bg-amber-50/50 border-amber-200 text-amber-700"}`}>
                   Total: {totalGrams}g / {recipeOutputGrams}g
@@ -364,21 +370,21 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, roast
                   
                   {/* RB selector */}
                   <div className="flex-1 min-w-[150px] space-y-1">
-                    <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Roasted Bean</Label>
+                    <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Bahan Baku</Label>
                     <Controller
                       control={control}
                       name={`recipeItems.${index}.rbProductId`}
                       render={({ field: f }) => (
                         <Select value={f.value ?? ""} onValueChange={(v) => f.onChange(v || "")}>
                           <SelectTrigger className={cn("h-9 w-full text-xs font-medium", glassInput)}>
-                            <SelectValue placeholder="Pilih Roasted Bean...">
-                              {f.value ? roastedBeans.find((rb) => rb.id === f.value)?.name : null}
+                            <SelectValue placeholder="Pilih Bahan Baku...">
+                              {f.value ? rawMaterials.find((rm) => rm.id === f.value)?.name : null}
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
-                            {roastedBeans.map((rb) => (
-                              <SelectItem key={rb.id} value={rb.id}>
-                                {rb.name}
+                            {rawMaterials.map((rm) => (
+                              <SelectItem key={rm.id} value={rm.id}>
+                                {rm.name} {rm.type === "GREEN_BEAN" ? "(GB)" : "(RB)"}
                               </SelectItem>
                             ))}
                           </SelectContent>

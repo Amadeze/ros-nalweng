@@ -301,7 +301,7 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
   const [editProduct,  setEditProduct]      = useState<ProductRow  | null>(null);
   const [editUser,     setEditUser]         = useState<UserRow     | null>(null);
 
-  const roastedBeans = useMemo(() => data.products.filter((p) => p.type === "ROASTED_BEAN"), [data.products]);
+  const rawMaterials = useMemo(() => data.products.filter((p) => p.type === "ROASTED_BEAN" || p.type === "GREEN_BEAN"), [data.products]);
 
   const handleTabChange = (tab: Tab) => {
     setDrawerOpen(false);
@@ -454,7 +454,7 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
             onSuccess={handleSuccess}
             onPendingChange={setIsSubmitting}
             initialData={mode === "edit" ? editProduct ?? undefined : undefined}
-            roastedBeans={roastedBeans}
+            rawMaterials={rawMaterials}
             packagings={data.packagings}
           />
         )}
