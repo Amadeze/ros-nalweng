@@ -49,6 +49,7 @@ export type ProductRow = {
   price: number;
   priceSilver: number;
   priceGold: number;
+  latestHppPerKg?: number;
   recipe: ProductRecipe | null;
 };
 
@@ -111,6 +112,19 @@ export async function getMasterData(): Promise<MasterPageData> {
       orderBy: { createdAt: "desc" },
       take: 1,
     },
+    purchases: {
+      where: { status: "COMPLETED" },
+      orderBy: { receivedAt: "desc" },
+      take: 1,
+      select: { pricePerUnit: true, weightKg: true, shippingCost: true }
+    },
+    // For ROASTED_BEAN HPP
+    ledgerEntries: {
+      where: { entryType: "IN", refType: "ROASTING_RB_IN" },
+      orderBy: { createdAt: "desc" },
+      take: 1,
+      select: { refId: true }
+    },
   },
 }),
 
@@ -131,6 +145,29 @@ export async function getMasterData(): Promise<MasterPageData> {
     }),
   ]);
 
+  // We need to resolve ROASTED_BEAN HPP by fetching the roasting batch details
+  const rbLedgerRefIds = products
+    .filter(p => p.type === "ROASTED_BEAN" && p.ledgerEntries[0])
+    .map(p => p.ledgerEntries[0].refId);
+
+  const roastingBatches = rbLedgerRefIds.length > 0 ? await prisma.roastingBatch.findMany({
+    where: { id: { in: rbLedgerRefIds } },
+    include: {
+      inputProduct: {
+        include: {
+          purchases: {
+            where: { status: "COMPLETED" },
+            orderBy: { receivedAt: "desc" },
+            take: 1,
+            select: { pricePerUnit: true, weightKg: true, shippingCost: true },
+          },
+        },
+      },
+    }
+  }) : [];
+
+  const roastingBatchMap = new Map(roastingBatches.map(b => [b.id, b]));
+
   return {
     suppliers: suppliers.map((s) => ({
       id: s.id, code: s.code, name: s.name, phone: s.phone,
@@ -148,6 +185,31 @@ export async function getMasterData(): Promise<MasterPageData> {
 
     products: products.map((p) => {
       const r = p.recipes[0] ?? null;
+      let latestHppPerKg = 0;
+
+      if (p.type === "GREEN_BEAN") {
+        if (p.purchases[0]) {
+          const pur = p.purchases[0];
+          const wKg = Number(pur.weightKg ?? 0);
+          if (wKg > 0) {
+            latestHppPerKg = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
+          }
+        }
+      } else if (p.type === "ROASTED_BEAN") {
+        if (p.ledgerEntries[0]) {
+          const batch = roastingBatchMap.get(p.ledgerEntries[0].refId);
+          if (batch?.inputProduct.purchases[0]) {
+            const pur = batch.inputProduct.purchases[0];
+            const wKg = Number(pur.weightKg ?? 0);
+            if (wKg > 0) {
+              const gbHppPerKg = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
+              const shrinkage = Number(batch.roastLossPercent) / 100;
+              latestHppPerKg = shrinkage < 1 ? gbHppPerKg / (1 - shrinkage) : gbHppPerKg;
+            }
+          }
+        }
+      }
+
       return {
         id: p.id,
         code: p.code,
@@ -160,6 +222,7 @@ export async function getMasterData(): Promise<MasterPageData> {
         price: p.price ? Number(p.price) : 0,
         priceSilver: p.priceSilver ? Number(p.priceSilver) : 0,
         priceGold: p.priceGold ? Number(p.priceGold) : 0,
+        latestHppPerKg,
         createdAt: p.createdAt.toISOString(),
         recipe: r
           ? {

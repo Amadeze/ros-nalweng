@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -72,7 +72,7 @@ interface ProductFormProps {
   onSuccess:    () => void;
   onPendingChange?: (isPending: boolean) => void;
   initialData?: ProductRow;
-  rawMaterials: Array<{ id: string; name: string; code: string; type?: string }>;
+  rawMaterials: Array<{ id: string; name: string; code: string; type?: string; latestHppPerKg?: number }>;
   packagings:   PackagingRow[];
 }
 
@@ -122,6 +122,24 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
   const recipeOutputGrams = watch("recipeOutputGrams") ?? 0;
   const totalGrams       = recipeItems.reduce((s, i) => s + (Number(i.gramsPerUnit) || 0), 0);
   const isFG             = selectedType === "FINISHED_GOODS";
+  const recipePackagingId = watch("recipePackagingId");
+
+  const estimatedHpp = useMemo(() => {
+    if (!isFG) return 0;
+    let cost = 0;
+    for (const item of recipeItems) {
+      if (!item.rbProductId || !item.gramsPerUnit) continue;
+      const rm = rawMaterials.find(r => r.id === item.rbProductId);
+      if (rm && rm.latestHppPerKg) {
+        cost += (rm.latestHppPerKg * (Number(item.gramsPerUnit) / 1000));
+      }
+    }
+    if (recipePackagingId) {
+      const pkg = packagings.find(p => p.id === recipePackagingId);
+      if (pkg) cost += Number(pkg.costPerUnit);
+    }
+    return Math.round(cost);
+  }, [isFG, recipeItems, recipePackagingId, rawMaterials, packagings]);
 
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
@@ -251,7 +269,14 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
       {/* ── Harga Jual (FINISHED_GOODS only) ── */}
       {selectedType === "FINISHED_GOODS" && (
         <div className={cn(glassCard, "space-y-4")}>
-          <h3 className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Harga Jual (Tiered Pricing)</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Harga Jual (Tiered Pricing)</h3>
+            {estimatedHpp > 0 && (
+              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                Estimasi HPP: Rp {estimatedHpp.toLocaleString("id-ID")}
+              </span>
+            )}
+          </div>
           
           <div className="space-y-1.5">
             <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Harga Retail (Eceran)</Label>
