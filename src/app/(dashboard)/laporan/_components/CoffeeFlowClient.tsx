@@ -1,13 +1,55 @@
 "use client";
 
 
+import { useState, useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CoffeeFlowReport } from "../actions";
-import { Package, Coffee, Box, ArrowRight } from "lucide-react";
+import { Package, Coffee, Box, ArrowRight, Search, TrendingUp } from "lucide-react";
 
 export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredGB = useMemo(() => report.greenBeans.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())), [report.greenBeans, searchQuery]);
+  const filteredRB = useMemo(() => report.roastedBeans.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())), [report.roastedBeans, searchQuery]);
+  const filteredFG = useMemo(() => report.finishedGoods.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())), [report.finishedGoods, searchQuery]);
+
+  const totalKgSold = useMemo(() => report.finishedGoods.reduce((sum, item) => sum + item.soldEquivalentKg, 0), [report.finishedGoods]);
+  const totalGBCurrent = useMemo(() => report.greenBeans.reduce((sum, item) => sum + item.currentStockKg, 0), [report.greenBeans]);
+  const totalRBCurrent = useMemo(() => report.roastedBeans.reduce((sum, item) => sum + item.currentStockKg, 0), [report.roastedBeans]);
+
   return (
     <div className="space-y-6">
+      
+      {/* HEADER & SEARCH */}
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-white/40 p-4 rounded-xl border border-white/60 shadow-sm backdrop-blur-md">
+        <div className="flex items-center gap-4">
+          <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg border border-emerald-100 flex flex-col">
+            <span className="text-xs font-semibold uppercase tracking-wider opacity-80">Stok GB Total</span>
+            <span className="text-lg font-bold">{totalGBCurrent.toLocaleString('id-ID', {maximumFractionDigits: 1})} kg</span>
+          </div>
+          <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-lg border border-amber-100 flex flex-col">
+            <span className="text-xs font-semibold uppercase tracking-wider opacity-80">Stok RB Total</span>
+            <span className="text-lg font-bold">{totalRBCurrent.toLocaleString('id-ID', {maximumFractionDigits: 1})} kg</span>
+          </div>
+          <div className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg border border-indigo-100 flex flex-col">
+            <span className="text-xs font-semibold uppercase tracking-wider opacity-80">Kopi Terjual</span>
+            <span className="text-lg font-bold">{totalKgSold.toLocaleString('id-ID', {maximumFractionDigits: 1})} kg</span>
+          </div>
+        </div>
+
+        <div className="relative w-full md:w-72">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search size={16} className="text-slate-400" />
+          </div>
+          <input
+            type="text"
+            className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-all"
+            placeholder="Cari nama kopi..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
       {/* GREEN BEAN */}
       <div className="border border-emerald-100 rounded-lg shadow-sm overflow-hidden bg-white">
         <div className="bg-emerald-50/50 border-b border-emerald-100 p-6 pb-4">
@@ -29,10 +71,10 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {report.greenBeans.length === 0 && (
+              {filteredGB.length === 0 && (
                 <TableRow><TableCell colSpan={5} className="text-center text-slate-500 py-6">Belum ada data Green Bean</TableCell></TableRow>
               )}
-              {report.greenBeans.map(gb => (
+              {filteredGB.map(gb => (
                 <TableRow key={gb.id} className="hover:bg-emerald-50/20">
                   <TableCell className="font-medium text-slate-700">{gb.name}</TableCell>
                   <TableCell className="text-right text-emerald-700 font-medium">+{gb.boughtKg.toLocaleString('id-ID')} kg</TableCell>
@@ -68,10 +110,10 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {report.roastedBeans.length === 0 && (
+              {filteredRB.length === 0 && (
                 <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-6">Belum ada data Roasted Bean</TableCell></TableRow>
               )}
-              {report.roastedBeans.map(rb => {
+              {filteredRB.map(rb => {
                 const lossPct = rb.producedKg + rb.roastLossKg > 0 ? (rb.roastLossKg / (rb.producedKg + rb.roastLossKg)) * 100 : 0;
                 return (
                   <TableRow key={rb.id} className="hover:bg-amber-50/20">
@@ -114,10 +156,10 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {report.finishedGoods.length === 0 && (
+              {filteredFG.length === 0 && (
                 <TableRow><TableCell colSpan={5} className="text-center text-slate-500 py-6">Belum ada data Finished Goods</TableCell></TableRow>
               )}
-              {report.finishedGoods.map(fg => (
+              {filteredFG.map(fg => (
                 <TableRow key={fg.id} className="hover:bg-indigo-50/20">
                   <TableCell className="font-medium text-slate-700">
                     <div className="flex flex-col">
