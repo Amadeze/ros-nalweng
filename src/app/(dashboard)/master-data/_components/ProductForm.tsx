@@ -25,8 +25,6 @@ const PRODUCT_TYPES = [
   { value: "GREEN_BEAN",     label: "Green Bean (Mentah)" },
   { value: "ROASTED_BEAN",   label: "Roasted Bean (Matang)" },
   { value: "FINISHED_GOODS", label: "Finished Goods (Produk Jadi)" },
-  { value: "PACKAGING",      label: "Packaging (Kemasan)" },
-  
 ] as const;
 
 const ROAST_LEVELS = [
@@ -47,7 +45,7 @@ const recipeItemSchema = z.object({
 
 const schema = z.object({
   name:              z.string().min(1, "Nama wajib diisi"),
-  type:              z.enum(["GREEN_BEAN", "ROASTED_BEAN", "FINISHED_GOODS", "PACKAGING"]),
+  type:              z.enum(["GREEN_BEAN", "ROASTED_BEAN", "FINISHED_GOODS"]),
   origin:            z.string().optional(),
   roastLevel:        z.enum(["LIGHT", "MEDIUM", "MEDIUM_DARK", "DARK"]).nullable().optional(),
   description:       z.string().optional(),
@@ -95,7 +93,7 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
     defaultValues: initialData
       ? {
           name:              initialData.name,
-          type:              initialData.type,
+          type:              (initialData.type as FormValues["type"]) ?? "GREEN_BEAN",
           origin:            initialData.origin ?? "",
           roastLevel:        (initialData.roastLevel as FormValues["roastLevel"]) ?? null,
           description:       initialData.description ?? "",

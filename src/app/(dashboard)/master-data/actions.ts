@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 
 // =============================================================================
 // TYPES
@@ -653,5 +654,66 @@ export async function updateProduct(input: UpdateProductInput): Promise<ActionRe
   } catch (err) {
     console.error("[updateProduct]", err);
     return { success: false, error: "Gagal memperbarui produk. Coba lagi." };
+  }
+}
+
+// =============================================================================
+// PACKAGING — CREATE & UPDATE
+// =============================================================================
+
+const packagingSchema = z.object({
+  name: z.string().min(1),
+  weightGrams: z.number().min(0),
+  costPerUnit: z.number().min(0),
+  isActive: z.boolean().default(true),
+});
+type CreatePackagingInput = z.infer<typeof packagingSchema>;
+type UpdatePackagingInput = CreatePackagingInput & { id: string };
+
+export async function createPackaging(input: CreatePackagingInput): Promise<ActionResult> {
+  try {
+    const data = packagingSchema.parse(input);
+    const code = `PKG-${Date.now().toString().slice(-4)}`;
+    
+    await prisma.packaging.create({
+      data: {
+        code,
+        name: data.name,
+        weightGrams: data.weightGrams,
+        costPerUnit: data.costPerUnit,
+        isActive: data.isActive,
+      }
+    });
+
+    revalidatePath("/master-data");
+    revalidatePath("/inventory");
+    return { success: true, code };
+  } catch (err) {
+    console.error("[createPackaging]", err);
+    return { success: false, error: "Gagal menyimpan kemasan." };
+  }
+}
+
+export async function updatePackaging(input: UpdatePackagingInput): Promise<ActionResult> {
+  try {
+    const { id, ...data } = input;
+    const parsed = packagingSchema.parse(data);
+
+    await prisma.packaging.update({
+      where: { id },
+      data: {
+        name: parsed.name,
+        weightGrams: parsed.weightGrams,
+        costPerUnit: parsed.costPerUnit,
+        isActive: parsed.isActive,
+      }
+    });
+
+    revalidatePath("/master-data");
+    revalidatePath("/inventory");
+    return { success: true, code: "Kemasan" };
+  } catch (err) {
+    console.error("[updatePackaging]", err);
+    return { success: false, error: "Gagal memperbarui kemasan." };
   }
 }

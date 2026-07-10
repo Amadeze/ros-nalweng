@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button";
 import { SupplierForm } from "./SupplierForm";
 import { CustomerForm } from "./CustomerForm";
 import { ProductForm } from "./ProductForm";
+import { PackagingForm } from "./PackagingForm";
 import { UserForm } from "./UserForm";
-import type { MasterPageData, SupplierRow, CustomerRow, ProductRow, UserRow } from "../actions";
+import type { MasterPageData, SupplierRow, CustomerRow, ProductRow, UserRow, PackagingRow } from "../actions";
 
 interface MasterDataClientProps {
   data: MasterPageData;
@@ -23,19 +24,20 @@ interface MasterDataClientProps {
 // Tab definition
 // =============================================================================
 
-type Tab = "supplier" | "pelanggan" | "produk" | "pengguna";
+type Tab = "supplier" | "pelanggan" | "produk" | "kemasan" | "pengguna";
 
 const ALL_TABS: { id: Tab; label: string; icon: React.ElementType; count: (d: MasterPageData) => number }[] = [
   { id: "supplier",  label: "Supplier",  icon: Building2, count: (d) => d.suppliers.length },
   { id: "pelanggan", label: "Pelanggan", icon: Users,     count: (d) => d.customers.length },
   { id: "produk",    label: "Produk",    icon: Package,   count: (d) => d.products.length  },
+  { id: "kemasan",   label: "Kemasan",   icon: Package,   count: (d) => d.packagings.length },
   { id: "pengguna",  label: "Pengguna",  icon: UserCog,   count: (d) => d.users.length     },
 ];
 
 function getTabsForRole(role: string) {
   if (role === "OWNER" || role === "MANAGER") return ALL_TABS;
   if (role === "CASHIER") return ALL_TABS.filter(t => t.id === "produk" || t.id === "pelanggan");
-  if (role === "OPERATOR") return ALL_TABS.filter(t => t.id === "supplier" || t.id === "pelanggan" || t.id === "produk");
+  if (role === "OPERATOR") return ALL_TABS.filter(t => t.id === "supplier" || t.id === "pelanggan" || t.id === "produk" || t.id === "kemasan");
   return ALL_TABS.filter(t => t.id === "produk"); // fallback
 }
 
@@ -246,6 +248,42 @@ function ProductTable({ rows, onEdit }: { rows: ProductRow[]; onEdit: (r: Produc
 }
 
 // =============================================================================
+// Packaging Table
+// =============================================================================
+
+function PackagingTable({ rows, onEdit }: { rows: PackagingRow[]; onEdit: (r: PackagingRow) => void }) {
+  if (rows.length === 0) return <EmptyState label="kemasan" />;
+  return (
+    <div className="overflow-hidden rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl shadow-lg shadow-slate-200/30">
+      <table className="w-full text-sm">
+        <thead className="border-b border-white/50 bg-white/40 backdrop-blur-md">
+          <tr>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Kode</th>
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-500">Nama</th>
+            <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-slate-500">Berat (g)</th>
+            <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-slate-500">HPP (Rp)</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">Status</th>
+            <th className="px-4 py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-500">Aksi</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/30">
+          {rows.map((row) => (
+            <tr key={row.id} className="hover:bg-white/40 transition-colors">
+              <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-700">{row.code}</td>
+              <td className="px-4 py-3 font-medium text-slate-800">{row.name}</td>
+              <td className="px-4 py-3 text-right text-xs text-slate-600">{row.weightGrams}</td>
+              <td className="px-4 py-3 text-right text-xs text-slate-600">{row.costPerUnit.toLocaleString("id-ID")}</td>
+              <td className="px-4 py-3 text-center"><ActiveBadge active={row.isActive} /></td>
+              <td className="px-4 py-3 text-center"><EditButton onClick={() => onEdit(row)} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// =============================================================================
 // User Table
 // =============================================================================
 
@@ -299,6 +337,7 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
   const [editSupplier, setEditSupplier]     = useState<SupplierRow | null>(null);
   const [editCustomer, setEditCustomer]     = useState<CustomerRow | null>(null);
   const [editProduct,  setEditProduct]      = useState<ProductRow  | null>(null);
+  const [editPackaging, setEditPackaging]   = useState<PackagingRow| null>(null);
   const [editUser,     setEditUser]         = useState<UserRow     | null>(null);
 
   const rawMaterials = useMemo(() => data.products.filter((p) => p.type === "ROASTED_BEAN" || p.type === "GREEN_BEAN"), [data.products]);
@@ -306,13 +345,13 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
   const handleTabChange = (tab: Tab) => {
     setDrawerOpen(false);
     setMode("create");
-    setEditSupplier(null); setEditCustomer(null); setEditProduct(null); setEditUser(null);
+    setEditSupplier(null); setEditCustomer(null); setEditProduct(null); setEditUser(null); setEditPackaging(null);
     setActiveTab(tab);
   };
 
   const openCreate = () => {
     setMode("create");
-    setEditSupplier(null); setEditCustomer(null); setEditProduct(null); setEditUser(null);
+    setEditSupplier(null); setEditCustomer(null); setEditProduct(null); setEditUser(null); setEditPackaging(null);
     setDrawerOpen(true);
   };
 
@@ -325,6 +364,9 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
   const openEditProduct = (row: ProductRow) => {
     setMode("edit"); setEditProduct(row); setActiveTab("produk"); setDrawerOpen(true);
   };
+  const openEditPackaging = (row: PackagingRow) => {
+    setMode("edit"); setEditPackaging(row); setActiveTab("kemasan"); setDrawerOpen(true);
+  };
   const openEditUser = (row: UserRow) => {
     setMode("edit"); setEditUser(row); setActiveTab("pengguna"); setDrawerOpen(true);
   };
@@ -332,7 +374,7 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
   const handleSuccess = () => {
     setDrawerOpen(false);
     setMode("create");
-    setEditSupplier(null); setEditCustomer(null); setEditProduct(null); setEditUser(null);
+    setEditSupplier(null); setEditCustomer(null); setEditProduct(null); setEditUser(null); setEditPackaging(null);
     router.refresh();
   };
 
@@ -343,16 +385,19 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
       ? activeTab === "supplier"  ? `Edit Supplier${editSupplier  ? ` · ${editSupplier.code}`  : ""}`
       : activeTab === "pelanggan" ? `Edit Pelanggan${editCustomer ? ` · ${editCustomer.code}` : ""}`
       : activeTab === "produk"    ? `Edit Produk${editProduct     ? ` · ${editProduct.code}`   : ""}`
+      : activeTab === "kemasan"   ? `Edit Kemasan${editPackaging   ? ` · ${editPackaging.code}`   : ""}`
       :                             `Edit Pengguna${editUser      ? ` · ${editUser.email}`      : ""}`
       : activeTab === "supplier"  ? "Tambah Supplier"
       : activeTab === "pelanggan" ? "Tambah Pelanggan"
       : activeTab === "produk"    ? "Tambah Produk"
+      : activeTab === "kemasan"   ? "Tambah Kemasan"
       :                             "Tambah Pengguna";
 
   const submitFormId =
     activeTab === "supplier"  ? "supplier-form"  :
     activeTab === "pelanggan" ? "customer-form"  :
     activeTab === "produk"    ? "product-form"   :
+    activeTab === "kemasan"   ? "packaging-form" :
                                 "user-form";
 
   // Drawer size: product form with recipe needs more space
@@ -371,7 +416,7 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
         }
       >
         {/* ── Tab pills ── */}
-        <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-2 bg-white/20 p-2 rounded-2xl backdrop-blur-md border border-white/50">
+        <div className="mb-6 grid grid-cols-2 md:grid-cols-5 gap-2 bg-white/20 p-2 rounded-2xl backdrop-blur-md border border-white/50">
           {TABS.map((tab) => {
             const Icon   = tab.icon;
             const active = tab.id === activeTab;
@@ -456,6 +501,14 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
             initialData={mode === "edit" ? editProduct ?? undefined : undefined}
             rawMaterials={rawMaterials}
             packagings={data.packagings}
+          />
+        )}
+        {activeTab === "kemasan" && (
+          <PackagingForm
+            id="packaging-form"
+            onSuccess={handleSuccess}
+            onPendingChange={setIsSubmitting}
+            initialData={mode === "edit" ? editPackaging ?? undefined : undefined}
           />
         )}
         {activeTab === "pengguna" && (
