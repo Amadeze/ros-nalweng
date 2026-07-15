@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: TenantPageProps): Promise<Met
   return {
     title: tenant.name,
     icons: {
-      icon: tenant.logoUrl || '/icon.png',
+      icon: tenant.logoUrl || '/logo.png',
     }
   };
 }
