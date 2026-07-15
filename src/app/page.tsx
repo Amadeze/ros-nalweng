@@ -38,7 +38,7 @@ export default function LandingPage() {
         <div className="flex justify-between items-center h-20 px-container-margin max-w-screen-2xl mx-auto">
           {/* Brand */}
           <div className="flex items-center gap-4">
-            <img alt="Beanslab Logo" className="w-8 h-8 object-contain" src="/logo.png" />
+            <img alt="Beanslab Logo" className="w-8 h-8 object-contain" src="https://lh3.googleusercontent.com/aida/AP1WRLurQEuvujgYcc2qdi9Hk7VBR9uKnsfcsrQQfhjVLONCU-YGQr2P6-cu8P1mY2BOaKTrN1wUOnC8afdEy9lf5kx_Hn0eU7iMH8wC83QHmJWlyf_TkaJsl0cEAEUb6cG1cQBx3Jgzs4fRq2SOJfUW6jALPIhHwk0R5EzN2xqlEY7Hzf2E5ZB_7sR9laCQJSSJ9iXB16apiIdfZ1DS5pL2GXebp3z7BQWrL6peLwj-aE1SosPUm_-RkXO8adm4" />
             <span className="font-headline-md text-headline-md font-semibold text-on-background tracking-tight">Beanslab</span>
           </div>
           {/* Navigation Links (Desktop) */}
@@ -244,7 +244,7 @@ export default function LandingPage() {
           {/* Brand Column */}
           <div className="flex flex-col gap-6 lg:col-span-2">
             <div className="flex items-center gap-3">
-              <img alt="Beanslab Logo" className="w-8 h-8 object-contain" src="/logo.png" />
+              <img alt="Beanslab Logo" className="w-8 h-8 object-contain" src="https://lh3.googleusercontent.com/aida/AP1WRLurQEuvujgYcc2qdi9Hk7VBR9uKnsfcsrQQfhjVLONCU-YGQr2P6-cu8P1mY2BOaKTrN1wUOnC8afdEy9lf5kx_Hn0eU7iMH8wC83QHmJWlyf_TkaJsl0cEAEUb6cG1cQBx3Jgzs4fRq2SOJfUW6jALPIhHwk0R5EzN2xqlEY7Hzf2E5ZB_7sR9laCQJSSJ9iXB16apiIdfZ1DS5pL2GXebp3z7BQWrL6peLwj-aE1SosPUm_-RkXO8adm4" />
               <span className="font-headline-md text-headline-md font-semibold text-on-background tracking-tight">Beanslab</span>
             </div>
             <p className="font-body-md text-body-md text-on-surface-variant max-w-sm">
