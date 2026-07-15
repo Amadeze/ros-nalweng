@@ -12,14 +12,14 @@ type AppSession = IronSession<{ user?: SessionUser }>;
 // ─── Login ───────────────────────────────────────────────────────────────────
 
 export type LoginResult =
-  | { success: true }
+  | { success: true; role: string }
   | { success: false; error: string };
 
 export async function loginAction(email: string, password: string): Promise<LoginResult> {
   try {
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },
-      select: { id: true, name: true, email: true, role: true, password: true, isActive: true },
+      select: { id: true, name: true, email: true, role: true, password: true, isActive: true, tenantId: true },
     });
 
     if (!user || !user.isActive) {
@@ -46,11 +46,12 @@ export async function loginAction(email: string, password: string): Promise<Logi
       name:  user.name,
       email: user.email,
       role:  user.role as SessionUser["role"],
+      tenantId: user.tenantId,
     };
 
     await session.save();
 
-    return { success: true };
+    return { success: true, role: user.role };
   } catch (err) {
     console.error("[loginAction]", err);
     return { success: false, error: "Terjadi kesalahan. Coba lagi." };
@@ -66,14 +67,3 @@ export async function logoutAction() {
   redirect("/login");
 }
 
-// ─── Get current user (server component helper) ──────────────────────────────
-
-export async function getCurrentUser(): Promise<SessionUser | null> {
-  try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<{ user?: SessionUser }>(cookieStore, SESSION_OPTIONS);
-    return session.user ?? null;
-  } catch {
-    return null;
-  }
-}

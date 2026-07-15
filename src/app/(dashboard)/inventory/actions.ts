@@ -1,8 +1,8 @@
 "use server";
 
+import { appendLedger } from "@/lib/stock";
+import { getSystemUserId, requireTenantPrisma } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
-import { getSystemUserId } from "@/lib/auth";
 
 // =============================================================================
 // TYPES — semua Decimal dikonversi ke number agar bisa di-serialize ke client
@@ -93,7 +93,7 @@ export type ActionResult =
 async function generatePurchaseCode(): Promise<string> {
   const now = new Date();
   const prefix = `PUR-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const count = await prisma.purchase.count({
+  const count = await (await requireTenantPrisma()).purchase.count({
     where: { code: { startsWith: prefix } },
   });
   return `${prefix}-${String(count + 1).padStart(3, "0")}`;
@@ -108,7 +108,7 @@ async function generateProductCode(name: string): Promise<string> {
     .replace(/^-|-$/g, "")
     .slice(0, 12);
   const prefix = `GB-${slug}`;
-  const existing = await prisma.product.count({
+  const existing = await (await requireTenantPrisma()).product.count({
     where: { code: { startsWith: prefix } },
   });
   return existing === 0 ? prefix : `${prefix}-${existing + 1}`;
@@ -121,7 +121,7 @@ async function generateProductCode(name: string): Promise<string> {
 async function fetchProductStocks(
   type: "GREEN_BEAN" | "ROASTED_BEAN"
 ): Promise<ProductStockRow[]> {
-  const products = await prisma.product.findMany({
+  const products = await (await requireTenantPrisma()).product.findMany({
     where: { type, isActive: true },
     include: {
       ledgerEntries: {
@@ -167,7 +167,7 @@ async function fetchProductStocks(
 }
 
 async function fetchPackagingStocks(): Promise<PackagingStockRow[]> {
-  const packagings = await prisma.packaging.findMany({
+  const packagings = await (await requireTenantPrisma()).packaging.findMany({
     where: { isActive: true },
     include: {
       ledgerEntries: {
@@ -195,7 +195,7 @@ async function fetchPackagingStocks(): Promise<PackagingStockRow[]> {
 }
 
 async function fetchFGStocks(): Promise<FGStockRow[]> {
-  const products = await prisma.product.findMany({
+  const products = await (await requireTenantPrisma()).product.findMany({
     where: { type: "FINISHED_GOODS", isActive: true },
     include: {
       ledgerEntries: {
@@ -243,12 +243,12 @@ export async function getInventoryPageData(): Promise<InventoryPageData> {
       fetchProductStocks("ROASTED_BEAN"),
       fetchPackagingStocks(),
       fetchFGStocks(),
-      prisma.supplier.findMany({
+      (await requireTenantPrisma()).supplier.findMany({
         where: { isActive: true },
         select: { id: true, code: true, name: true },
         orderBy: { name: "asc" },
       }),
-      prisma.product.findMany({
+      (await requireTenantPrisma()).product.findMany({
         where: { type: "GREEN_BEAN", isActive: true },
         select: { id: true, name: true, origin: true },
         orderBy: { name: "asc" },
@@ -260,7 +260,7 @@ export async function getInventoryPageData(): Promise<InventoryPageData> {
 
 // Tambah packaging options ke page data helper
 export async function getPackagingOptions() {
-  return prisma.packaging.findMany({
+  return (await requireTenantPrisma()).packaging.findMany({
     where: { isActive: true },
     select: { id: true, name: true, code: true, costPerUnit: true },
     orderBy: { name: "asc" },
@@ -290,12 +290,12 @@ export async function createGreenBeanPurchase(
 
     // 1. Find or create Product
     let product = input.productId
-      ? await prisma.product.findUnique({ where: { id: input.productId } })
+      ? await (await requireTenantPrisma()).product.findUnique({ where: { id: input.productId } })
       : null;
 
     if (!product && input.productName) {
       const code = await generateProductCode(input.productName);
-      product = await prisma.product.upsert({
+      product = await (await requireTenantPrisma()).product.upsert({
         where: { code },
         create: {
           code,
@@ -321,7 +321,7 @@ export async function createGreenBeanPurchase(
     const purchaseCode = await generatePurchaseCode();
 
     // 4. ACID transaction
-    await prisma.$transaction(async (tx) => {
+    await (await requireTenantPrisma()).$transaction(async (tx) => {
       const purchase = await tx.purchase.create({
         data: {
           code: purchaseCode,
@@ -339,7 +339,7 @@ export async function createGreenBeanPurchase(
         },
       });
 
-      await tx.inventoryLedger.create({
+      await appendLedger(tx, {
         data: {
           productId: product!.id,
           entryType: "IN",
@@ -373,7 +373,7 @@ export async function createPackagingPurchase(
   try {
     const userId = await getSystemUserId();
 
-    const packaging = await prisma.packaging.findUnique({
+    const packaging = await (await requireTenantPrisma()).packaging.findUnique({
       where: { id: input.packagingId },
     });
     if (!packaging) return { success: false, error: "Kemasan tidak ditemukan." };
@@ -381,7 +381,7 @@ export async function createPackagingPurchase(
     const totalCost = input.pricePerUnit * input.quantityUnits + input.shippingCost;
     const purchaseCode = await generatePurchaseCode();
 
-    await prisma.$transaction(async (tx) => {
+    await (await requireTenantPrisma()).$transaction(async (tx) => {
       const purchase = await tx.purchase.create({
         data: {
           code:         purchaseCode,
@@ -399,7 +399,7 @@ export async function createPackagingPurchase(
         },
       });
 
-      await tx.inventoryLedger.create({
+      await appendLedger(tx, {
         data: {
           packagingId:  input.packagingId,
           entryType:    "IN",
@@ -430,7 +430,7 @@ export async function createPackaging(data: {
   costPerUnit: number;
 }) {
   try {
-    const newPkg = await prisma.packaging.create({
+    const newPkg = await (await requireTenantPrisma()).packaging.create({
       data: {
         code: data.code,
         name: data.name,
@@ -471,7 +471,7 @@ export async function adjustStock(input: {
       throw new Error("Kuantitas penyesuaian harus lebih dari 0");
     }
 
-    await prisma.$transaction(async (tx) => {
+    await (await requireTenantPrisma()).$transaction(async (tx) => {
       let qtyKg: number | null = null;
       let qtyUnit: number | null = null;
       let refType: "ADJUSTMENT_IN" | "ADJUSTMENT_OUT" = input.type === "IN" ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT";
@@ -488,7 +488,7 @@ export async function adjustStock(input: {
         }
       }
 
-      await tx.inventoryLedger.create({
+      await appendLedger(tx, {
         data: {
           productId:   input.isPackaging ? null : input.targetId,
           packagingId: input.isPackaging ? input.targetId : null,

@@ -1,8 +1,7 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
 import { getPnLReport } from "../keuangan/actions";
-import { getSystemUserId } from "@/lib/auth";
+import { getSystemUserId, requireTenantPrisma } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export type ValuationRow = {
@@ -33,7 +32,7 @@ export type InventoryValuationReport = {
 
 export async function getInventoryValuationReport(): Promise<InventoryValuationReport> {
   // 1. Fetch GB and RB
-  const products = await prisma.product.findMany({
+  const products = await (await requireTenantPrisma()).product.findMany({
     where: { isActive: true },
     include: {
       ledgerEntries: { select: { entryType: true, quantityKg: true, quantityUnit: true } },
@@ -70,10 +69,39 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
           unitCost = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
         }
       } else if (p.type === "ROASTED_BEAN") {
-        // Asumsi nilai RB = nilai GB + ongkos (kalau tidak ada perhitungan batch yang eksplisit menyimpan nilai aset)
-        // Kita set 0 atau kita bisa hitung average dari production.
-        // Di sini saya asumsikan 0 untuk simplifikasi, karena RB cost biasanya dari HPP blending.
-        unitCost = 0;
+        // Cari harga GB terakhir yang di-roast menjadi RB ini
+        const lastRoast = await (await requireTenantPrisma()).roastingBatch.findFirst({
+          where: { outputProductId: p.id, status: "COMPLETED" },
+          orderBy: { roastedAt: "desc" },
+          include: {
+            inputProduct: {
+              include: {
+                purchases: {
+                  where: { status: "COMPLETED" },
+                  orderBy: { receivedAt: "desc" },
+                  take: 1
+                }
+              }
+            }
+          }
+        });
+
+        if (lastRoast && lastRoast.inputProduct.purchases[0]) {
+          const pur = lastRoast.inputProduct.purchases[0];
+          const wKg = Number(pur.weightKg ?? 0);
+          let gbCost = 0;
+          if (wKg > 0) gbCost = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
+          
+          const inputW = Number(lastRoast.inputWeightKg);
+          const outputW = Number(lastRoast.outputWeightKg);
+          if (outputW > 0) {
+            unitCost = gbCost * (inputW / outputW);
+          } else {
+            unitCost = gbCost;
+          }
+        } else {
+          unitCost = 0;
+        }
       }
 
       if (stockKg > 0) {
@@ -120,7 +148,7 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
   }
 
   // 2. Fetch Packaging
-  const packagings = await prisma.packaging.findMany({
+  const packagings = await (await requireTenantPrisma()).packaging.findMany({
     where: { isActive: true },
     include: {
       ledgerEntries: { select: { entryType: true, quantityUnit: true } },
@@ -200,31 +228,31 @@ export type BalanceSheetReport = {
 
 export async function getBalanceSheetReport(inventoryValue?: number): Promise<BalanceSheetReport> {
   // Cash & Bank (Kas) = Total Paid Invoices - Total Expenses - Total Completed Purchases
-  const paidInvoices = await prisma.invoice.aggregate({
+  const paidInvoices = await (await requireTenantPrisma()).invoice.aggregate({
     where: { status: "PAID" },
     _sum: { paidAmount: true }
   });
-  const partialInvoices = await prisma.invoice.aggregate({
+  const partialInvoices = await (await requireTenantPrisma()).invoice.aggregate({
     where: { status: "PARTIAL" },
     _sum: { paidAmount: true }
   });
-  const expenses = await prisma.expense.aggregate({
+  const expenses = await (await requireTenantPrisma()).expense.aggregate({
     _sum: { amount: true }
   });
-  const purchases = await prisma.purchase.aggregate({
+  const purchases = await (await requireTenantPrisma()).purchase.aggregate({
     where: { status: "COMPLETED" },
     _sum: { totalCost: true }
   });
 
-  const capitalInjections = await prisma.capitalTransaction.aggregate({
+  const capitalInjections = await (await requireTenantPrisma()).capitalTransaction.aggregate({
     where: { type: "INJECTION" },
     _sum: { amount: true }
   });
-  const capitalWithdrawals = await prisma.capitalTransaction.aggregate({
+  const capitalWithdrawals = await (await requireTenantPrisma()).capitalTransaction.aggregate({
     where: { type: "WITHDRAWAL" },
     _sum: { amount: true }
   });
-  const profitDistributions = await prisma.profitDistribution.aggregate({
+  const profitDistributions = await (await requireTenantPrisma()).profitDistribution.aggregate({
     _sum: { amount: true }
   });
 
@@ -239,7 +267,7 @@ export async function getBalanceSheetReport(inventoryValue?: number): Promise<Ba
   const cashAndBank = cashIn - cashOut + totalInjected - totalWithdrawn - totalDistributed;
 
   // Accounts Receivable (Piutang)
-  const piutangInvoices = await prisma.invoice.findMany({
+  const piutangInvoices = await (await requireTenantPrisma()).invoice.findMany({
     where: { status: { in: ["ISSUED", "PARTIAL"] } },
     select: { grandTotal: true, paidAmount: true }
   });
@@ -280,111 +308,7 @@ export async function getBalanceSheetReport(inventoryValue?: number): Promise<Ba
   };
 }
 
-// =============================================================================
-// FOUNDER SALARY & DIVIDENDS
-// =============================================================================
 
-export async function calculateFounderSalary(month: number, year: number) {
-  const pnl = await getPnLReport(month, year);
-  const currentNetProfit = pnl.netProfit;
-
-  const startDate = new Date(year, month - 1, 1);
-  const endDate   = new Date(year, month, 0, 23, 59, 59, 999);
-  
-  const existingSalaries = await prisma.expense.findMany({
-    where: {
-      category: "GAJI",
-      description: { startsWith: "Gaji bulanan untuk" },
-      date: { gte: startDate, lte: endDate }
-    }
-  });
-  
-  const existingSalaryAmount = existingSalaries.reduce((sum, e) => sum + Number(e.amount), 0);
-  const profitBeforeSalary = currentNetProfit + existingSalaryAmount;
-
-  if (profitBeforeSalary <= 0) {
-    return { success: false, error: "Laba bersih (sebelum gaji) tidak mencukupi." };
-  }
-
-  // 2. Calculate Salary Pool
-  let salaryPool = profitBeforeSalary * 0.40;
-  if (salaryPool > 15000000) {
-    salaryPool = 15000000;
-  }
-
-  const salaryPerPerson = salaryPool / 3;
-
-  return { success: true, salaryPerPerson, salaryPool, profitBeforeSalary };
-}
-
-export async function postFounderSalary(month: number, year: number, salaryPerPerson: number) {
-  const userId = await getSystemUserId();
-  const startDate = new Date(year, month - 1, 1);
-  const endDate   = new Date(year, month, 0, 23, 59, 59, 999);
-
-  const existingSalaries = await prisma.expense.findMany({
-    where: {
-      category: "GAJI",
-      description: { startsWith: "Gaji bulanan untuk" },
-      date: { gte: startDate, lte: endDate }
-    }
-  });
-
-  if (existingSalaries.length > 0) {
-    await prisma.expense.deleteMany({
-      where: {
-        id: { in: existingSalaries.map(e => e.id) }
-      }
-    });
-  }
-
-  const dateToPost = new Date();
-  if (month !== dateToPost.getMonth() + 1 || year !== dateToPost.getFullYear()) {
-    dateToPost.setTime(endDate.getTime());
-  }
-
-  const salaries = [
-    { name: "Anda (Investor)" },
-    { name: "Reza" },
-    { name: "Theo" }
-  ];
-
-  for (const person of salaries) {
-    await prisma.expense.create({
-      data: {
-        date: dateToPost,
-        category: "GAJI",
-        amount: salaryPerPerson,
-        description: `Gaji bulanan untuk ${person.name} (${month}/${year})`,
-        createdById: userId
-      }
-    });
-  }
-
-  revalidatePath("/laporan");
-  revalidatePath("/keuangan");
-
-  return { success: true };
-}
-
-export async function distributeDividends(amount: number) {
-  if (amount <= 0) {
-    return { success: false, error: "Nominal harus lebih besar dari 0" };
-  }
-
-  // Record a capital withdrawal (Prive) named as Dividen
-  await prisma.capitalTransaction.create({
-    data: {
-      code: `DIV-${Date.now()}`,
-      type: "WITHDRAWAL",
-      amount: amount,
-      notes: "Pencairan Tabungan Profit (Dividen) dibagi 3",
-    }
-  });
-
-  revalidatePath("/laporan");
-  return { success: true };
-}
 
 export type GreenBeanFlow = {
   id: string;
@@ -393,6 +317,7 @@ export type GreenBeanFlow = {
   roastedKg: number;
   adjustmentOutKg: number;
   currentStockKg: number;
+  avgPurchasePrice: number;
 };
 
 export type RoastedBeanFlow = {
@@ -403,6 +328,7 @@ export type RoastedBeanFlow = {
   packagedKg: number;
   adjustmentOutKg: number;
   currentStockKg: number;
+  roastLossValue: number;
 };
 
 export type FinishedGoodsFlow = {
@@ -415,6 +341,9 @@ export type FinishedGoodsFlow = {
   weightPerUnitGrams: number;
   soldEquivalentKg: number;
   producedEquivalentKg: number;
+  salesRevenue: number;
+  cogs: number;
+  grossProfit: number;
 };
 
 export type CoffeeFlowReport = {
@@ -424,11 +353,18 @@ export type CoffeeFlowReport = {
 };
 
 export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
-  const products = await prisma.product.findMany({
+  const products = await (await requireTenantPrisma()).product.findMany({
     where: { isActive: true },
     include: {
       ledgerEntries: true,
-      recipes: true
+      recipes: true,
+      purchases: { where: { status: "COMPLETED" } },
+      invoiceItems: { include: { invoice: { select: { status: true } } } },
+      productionBatches: {
+        where: { status: "COMPLETED" },
+        orderBy: { producedAt: "desc" },
+        take: 1
+      }
     }
   });
 
@@ -447,8 +383,17 @@ export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
         if (l.refType === "ROASTING_GB_OUT" && l.entryType === "OUT") roasted += qty;
         if (l.refType === "ADJUSTMENT_OUT" && l.entryType === "OUT") adjOut += qty;
       }
+      
+      let totalPurCost = 0; let totalPurKg = 0;
+      for (const pur of p.purchases) {
+        totalPurCost += Number(pur.totalCost);
+        totalPurKg += Number(pur.weightKg);
+      }
+      const avgPurchasePrice = totalPurKg > 0 ? totalPurCost / totalPurKg : 0;
+
       greenBeans.push({
-        id: p.id, name: p.name, boughtKg: bought, roastedKg: roasted, adjustmentOutKg: adjOut, currentStockKg: stock
+        id: p.id, name: p.name, boughtKg: bought, roastedKg: roasted, adjustmentOutKg: adjOut, currentStockKg: stock,
+        avgPurchasePrice
       });
     } else if (p.type === "ROASTED_BEAN") {
       let produced = 0, packaged = 0, adjOut = 0, stock = 0;
@@ -462,7 +407,8 @@ export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
       }
       
       roastedBeans.push({
-        id: p.id, name: p.name, producedKg: produced, roastLossKg: 0, packagedKg: packaged, adjustmentOutKg: adjOut, currentStockKg: stock
+        id: p.id, name: p.name, producedKg: produced, roastLossKg: 0, packagedKg: packaged, adjustmentOutKg: adjOut, currentStockKg: stock,
+        roastLossValue: 0
       });
     } else if (p.type === "FINISHED_GOODS") {
       let producedU = 0, soldU = 0, adjOutU = 0, stockU = 0;
@@ -475,30 +421,49 @@ export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
         if (l.refType === "ADJUSTMENT_OUT" && l.entryType === "OUT") adjOutU += qty;
       }
       
+      let salesRevenue = 0;
+      for (const inv of p.invoiceItems) {
+        if (inv.invoice.status === "PAID" || inv.invoice.status === "PARTIAL" || inv.invoice.status === "ISSUED") {
+          salesRevenue += Number(inv.subtotal) - Number(inv.discount || 0);
+        }
+      }
+      const unitCost = p.productionBatches[0] ? Number(p.productionBatches[0].hppPerUnit) : 0;
+      const cogs = soldU * unitCost;
+      const grossProfit = salesRevenue - cogs;
+
       const weightGrams = p.recipes.length > 0 ? Number(p.recipes[0].outputGrams) : 0;
       finishedGoods.push({
         id: p.id, name: p.name, producedUnits: producedU, soldUnits: soldU, adjustmentOutUnits: adjOutU, currentStockUnits: stockU,
         weightPerUnitGrams: weightGrams,
         soldEquivalentKg: (soldU * weightGrams) / 1000,
-        producedEquivalentKg: (producedU * weightGrams) / 1000
+        producedEquivalentKg: (producedU * weightGrams) / 1000,
+        salesRevenue, cogs, grossProfit
       });
     }
   }
 
   // Calculate Roast Loss for RBs based on actual roasting batches
-  const roastingBatches = await prisma.roastingBatch.findMany({
-    where: { status: "COMPLETED" }
+  const roastingBatches = await (await requireTenantPrisma()).roastingBatch.findMany({
+    where: { status: "COMPLETED" },
+    select: { outputProductId: true, inputProductId: true, inputWeightKg: true, outputWeightKg: true }
   });
   
   for (const rb of roastedBeans) {
     const batches = roastingBatches.filter(b => b.outputProductId === rb.id);
     let totalInput = 0;
     let totalOutput = 0;
+    let totalLossValue = 0;
     for (const b of batches) {
-      totalInput += Number(b.inputWeightKg);
-      totalOutput += Number(b.outputWeightKg);
+      const inW = Number(b.inputWeightKg);
+      const outW = Number(b.outputWeightKg);
+      totalInput += inW;
+      totalOutput += outW;
+      const lossKg = inW - outW;
+      const gbPrice = greenBeans.find(gb => gb.id === b.inputProductId)?.avgPurchasePrice || 0;
+      totalLossValue += lossKg * gbPrice;
     }
     rb.roastLossKg = totalInput - totalOutput;
+    rb.roastLossValue = totalLossValue;
   }
 
   return { greenBeans, roastedBeans, finishedGoods };

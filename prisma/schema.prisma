@@ -20,15 +20,31 @@ datasource db {
 // =============================================================================
 
 enum UserRole {
-  OWNER     // full access
-  MANAGER   // semua modul, tanpa user management
-  OPERATOR  // input transaksi hulu & tengah
-  CASHIER   // input penjualan & payment
+  SUPERADMIN // web owner / system admin
+  OWNER // full access
+  MANAGER // semua modul, tanpa user management
+  OPERATOR // input transaksi hulu & tengah
+  CASHIER // input penjualan & payment
 }
 
+enum SubscriptionTier {
+  TRIAL
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+
 enum ProductType {
-  GREEN_BEAN    // biji kopi mentah
-  ROASTED_BEAN  // biji kopi yang sudah di-roast
+  GREEN_BEAN // biji kopi mentah
+  ROASTED_BEAN // biji kopi yang sudah di-roast
   FINISHED_GOODS // produk jadi siap jual
   PACKAGING //Packaging
 }
@@ -42,21 +58,21 @@ enum RoastLevel {
 
 enum PurchaseType {
   GREEN_BEAN // pembelian biji kopi mentah
-  PACKAGING  // pembelian bahan kemasan
+  PACKAGING // pembelian bahan kemasan
 }
 
 enum TransactionStatus {
-  PENDING   // belum dieksekusi / dalam proses
+  PENDING // belum dieksekusi / dalam proses
   COMPLETED // selesai, stok sudah dimutasi
-  VOID      // dibatalkan, mutasi stok sudah dibalik
+  VOID // dibatalkan, mutasi stok sudah dibalik
 }
 
 enum InvoiceStatus {
-  DRAFT   // nota belum diterbitkan
-  ISSUED  // nota diterbitkan, belum bayar
+  DRAFT // nota belum diterbitkan
+  ISSUED // nota diterbitkan, belum bayar
   PARTIAL // bayar sebagian
-  PAID    // lunas
-  VOID    // dibatalkan
+  PAID // lunas
+  VOID // dibatalkan
 }
 
 enum CustomerTier {
@@ -73,30 +89,99 @@ enum PaymentMethod {
 }
 
 enum LedgerEntryType {
-  IN  // stok masuk
+  IN // stok masuk
   OUT // stok keluar
 }
 
 enum ExpenseCategory {
-  GAJI        // Gaji & tunjangan karyawan
-  UTILITAS    // Listrik, air, internet
+  GAJI // Gaji & tunjangan karyawan
+  UTILITAS // Listrik, air, internet
   OPERASIONAL // Sewa tempat, bahan habis pakai, dll.
-  LAINNYA     // Pengeluaran lain-lain
+  LAINNYA // Pengeluaran lain-lain
 }
 
 /// Jenis transaksi asal untuk audit trail di InventoryLedger
 enum LedgerRefType {
-  PURCHASE_GB       // Green Bean masuk via Purchase
-  PURCHASE_PKG      // Packaging masuk via Purchase
-  ROASTING_GB_OUT   // Green Bean keluar ke roasting
-  ROASTING_RB_IN    // Roasted Bean masuk dari roasting
+  PURCHASE_GB // Green Bean masuk via Purchase
+  PURCHASE_PKG // Packaging masuk via Purchase
+  ROASTING_GB_OUT // Green Bean keluar ke roasting
+  ROASTING_RB_IN // Roasted Bean masuk dari roasting
   PRODUCTION_RB_OUT // Roasted Bean keluar ke produksi
   PRODUCTION_PKG_OUT // Packaging keluar ke produksi
-  PRODUCTION_FG_IN  // Finished Goods masuk dari produksi
-  SALE_FG_OUT       // Finished Goods keluar via penjualan
-  ADJUSTMENT_IN     // Penyesuaian stok masuk (Opname)
-  ADJUSTMENT_OUT    // Penyesuaian stok keluar (Opname)
-  VOID_REVERSAL     // entri kebalikan saat VOID
+  PRODUCTION_FG_IN // Finished Goods masuk dari produksi
+  SALE_FG_OUT // Finished Goods keluar via penjualan
+  ADJUSTMENT_IN // Penyesuaian stok masuk (Opname)
+  ADJUSTMENT_OUT // Penyesuaian stok keluar (Opname)
+  VOID_REVERSAL // entri kebalikan saat VOID
+}
+
+// =============================================================================
+// TABLE 0 · Tenant (SaaS Multi-Tenancy)
+// =============================================================================
+
+model Tenant {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  name         String
+  subdomain    String?  @unique
+  themeColor   String   @default("amber")
+  logoUrl      String?
+  heroImageUrl String?
+  heroText     String?
+  backgroundImageUrl String?
+  whatsappNumber String?
+  contactEmail   String?
+  instagramHandle String?
+  aboutText      String?
+  catalogTitle   String?
+  catalogSubtitle String?
+  footerText     String?
+  problemStatement String?
+  solutionStatement String?
+  uspText        String?
+  features       Json?
+  testimonials   Json?
+  faqs           Json?
+  midtransClientKey String?
+  midtransServerKey String?
+  midtransIsProduction Boolean @default(false)
+  layoutStyle  String   @default("modern")
+  fontFamily   String   @default("sans")
+  themeMode    String   @default("light")
+  borderRadius String   @default("md")
+  animationStyle String @default("subtle")
+  animationDirection String @default("up")
+  iconStyle    String   @default("regular")
+  isActive     Boolean  @default(true)
+  themeConfig  Json?
+  
+  // Subscription & Billing Fields
+  subscriptionTier   SubscriptionTier @default(TRIAL)
+  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+  trialEndsAt        DateTime?
+  nextBillingDate    DateTime?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users               User[]
+  customers           Customer[]
+  suppliers           Supplier[]
+  products            Product[]
+  packagings          Packaging[]
+  recipes             Recipe[]
+  purchases           Purchase[]
+  roastingBatches     RoastingBatch[]
+  productionBatches   ProductionBatch[]
+  invoices            Invoice[]
+  payments            Payment[]
+  inventoryLedgers    InventoryLedger[]
+  expenses            Expense[]
+  partners            Partner[]
+  capitalTransactions CapitalTransaction[]
+  profitDistributions ProfitDistribution[]
+
+  @@map("tenants")
 }
 
 // =============================================================================
@@ -107,7 +192,7 @@ model User {
   id        String   @id @default(cuid())
   name      String
   email     String   @unique
-  password  String   // bcrypt hash
+  password  String // bcrypt hash
   role      UserRole @default(OPERATOR)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -120,6 +205,8 @@ model User {
   payments          Payment[]
   ledgerEntries     InventoryLedger[]
   expenses          Expense[]
+  tenantId          String            @default("default")
+  tenant            Tenant            @relation(fields: [tenantId], references: [id])
 
   @@map("users")
 }
@@ -129,18 +216,20 @@ model User {
 // =============================================================================
 
 model Customer {
-  id        String   @id @default(cuid())
-  code      String   @unique // e.g., "CST-001"
+  id        String       @id @default(cuid())
+  code      String       @unique // e.g., "CST-001"
   name      String
   phone     String?
   email     String?
   address   String?
   tier      CustomerTier @default(RETAIL)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   invoices Invoice[]
+  tenantId String    @default("default")
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
 
   @@map("customers")
 }
@@ -155,12 +244,14 @@ model Supplier {
   name      String
   phone     String?
   address   String?
-  region    String?  // wilayah asal (Gayo, Toraja, Flores, dsb.)
+  region    String? // wilayah asal (Gayo, Toraja, Flores, dsb.)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   purchases Purchase[]
+  tenantId  String     @default("default")
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
 
   @@map("suppliers")
 }
@@ -176,31 +267,40 @@ model Product {
   code        String      @unique // e.g., "GB-GAYO-001", "RB-ETHIOPIA-MED", "FG-BLEND-250"
   name        String
   type        ProductType
-  origin      String?     // asal kopi: "Gayo", "Ethiopia Yirgacheffe", dsb.
+  category    String? // e.g. "Espresso Base", "Specialty"
+  origin      String? // asal kopi: "Gayo", "Ethiopia Yirgacheffe", dsb.
   roastLevel  RoastLevel? // hanya relevan untuk ROASTED_BEAN
   description String?
-  price       Decimal?    @db.Decimal(12, 2) @default(0) // Harga jual retail
-  priceSilver Decimal?    @db.Decimal(12, 2) @default(0) // Harga jual Wholesale Silver
-  priceGold   Decimal?    @db.Decimal(12, 2) @default(0) // Harga jual Wholesale Gold
+  imageUrl    String? // URL gambar produk
+  price       Decimal?    @default(0) @db.Decimal(12, 2) // Harga jual retail
+  priceSilver Decimal?    @default(0) @db.Decimal(12, 2) // Harga jual Wholesale Silver
+  priceGold   Decimal?    @default(0) @db.Decimal(12, 2) // Harga jual Wholesale Gold
   isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
+  // Caching Field untuk Performa
+  stockUnit   Int         @default(0) // Cache jumlah unit (FG)
+  stockKg     Decimal     @default(0) @db.Decimal(10, 3) // Cache berat kg (GB/RB)
+  lastHpp     Decimal?    @db.Decimal(12, 2) // HPP terakhir untuk FG
+
   // Relasi transaksi hulu
-  purchases            Purchase[]
-  roastingInputs       RoastingBatch[] @relation("RoastingInput")
-  roastingOutputs      RoastingBatch[] @relation("RoastingOutput")
+  purchases       Purchase[]
+  roastingInputs  RoastingBatch[] @relation("RoastingInput")
+  roastingOutputs RoastingBatch[] @relation("RoastingOutput")
 
   // Relasi resep & produksi
-  recipeItems          RecipeItem[]
-  recipes              Recipe[]
-  productionBatches    ProductionBatch[]
+  recipeItems       RecipeItem[]
+  recipes           Recipe[]
+  productionBatches ProductionBatch[]
 
   // Relasi hilir
-  invoiceItems         InvoiceItem[]
+  invoiceItems InvoiceItem[]
 
   // Ledger
-  ledgerEntries        InventoryLedger[]
+  ledgerEntries InventoryLedger[]
+  tenantId      String            @default("default")
+  tenant        Tenant            @relation(fields: [tenantId], references: [id])
 
   @@map("products")
 }
@@ -214,17 +314,22 @@ model Product {
 model Packaging {
   id          String   @id @default(cuid())
   code        String   @unique // e.g., "PKG-ZIPPER-250"
-  name        String   // "Zipper Bag 250g", "Kraft Box 1kg"
-  weightGrams Decimal  @db.Decimal(8, 2)  // berat kemasan kosong (gram)
+  name        String // "Zipper Bag 250g", "Kraft Box 1kg"
+  weightGrams Decimal  @db.Decimal(8, 2) // berat kemasan kosong (gram)
   costPerUnit Decimal  @db.Decimal(12, 2) // HPP kemasan per unit
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Caching Field untuk Performa
+  stockUnit   Int      @default(0) // Cache jumlah unit tersedia
+
   purchases         Purchase[]
   recipes           Recipe[]
   productionBatches ProductionBatch[]
   ledgerEntries     InventoryLedger[]
+  tenantId          String            @default("default")
+  tenant            Tenant            @relation(fields: [tenantId], references: [id])
 
   @@map("packagings")
 }
@@ -237,9 +342,9 @@ model Packaging {
 model Recipe {
   id          String   @id @default(cuid())
   code        String   @unique // e.g., "RCP-HOUSE-BLEND-250"
-  name        String   // "House Blend 250g"
-  productId   String   // FK → Product (type = FINISHED_GOODS)
-  packagingId String   // FK → Packaging default untuk resep ini
+  name        String // "House Blend 250g"
+  productId   String // FK → Product (type = FINISHED_GOODS)
+  packagingId String // FK → Packaging default untuk resep ini
   outputGrams Decimal  @db.Decimal(8, 2) // gram kopi bersih per unit output
   notes       String?
   isActive    Boolean  @default(true)
@@ -250,6 +355,8 @@ model Recipe {
   packaging         Packaging         @relation(fields: [packagingId], references: [id])
   items             RecipeItem[]
   productionBatches ProductionBatch[]
+  tenantId          String            @default("default")
+  tenant            Tenant            @relation(fields: [tenantId], references: [id])
 
   @@map("recipes")
 }
@@ -264,9 +371,9 @@ model Recipe {
 model RecipeItem {
   id           String  @id @default(cuid())
   recipeId     String
-  productId    String  // FK → Product (type = ROASTED_BEAN)
-  ratioPercent Decimal @db.Decimal(5, 2)  // % kontribusi dalam blend
-  gramsPerUnit Decimal @db.Decimal(8, 3)  // gram RB per 1 unit output
+  productId    String // FK → Product (type = ROASTED_BEAN)
+  ratioPercent Decimal @db.Decimal(5, 2) // % kontribusi dalam blend
+  gramsPerUnit Decimal @db.Decimal(8, 3) // gram RB per 1 unit output
 
   recipe  Recipe  @relation(fields: [recipeId], references: [id])
   product Product @relation(fields: [productId], references: [id])
@@ -286,34 +393,36 @@ model RecipeItem {
 // =============================================================================
 
 model Purchase {
-  id            String            @id @default(cuid())
-  code          String            @unique // e.g., "PUR-2024-001"
-  type          PurchaseType
+  id   String       @id @default(cuid())
+  code String       @unique // e.g., "PUR-2024-001"
+  type PurchaseType
 
-  supplierId    String
-  productId     String?           // wajib jika type = GREEN_BEAN
-  packagingId   String?           // wajib jika type = PACKAGING
+  supplierId  String
+  productId   String? // wajib jika type = GREEN_BEAN
+  packagingId String? // wajib jika type = PACKAGING
 
-  weightKg      Decimal?          @db.Decimal(10, 3) // GREEN_BEAN: berat masuk (kg)
-  quantityUnits Int?              // PACKAGING: jumlah unit masuk
+  weightKg      Decimal? @db.Decimal(10, 3) // GREEN_BEAN: berat masuk (kg)
+  quantityUnits Int? // PACKAGING: jumlah unit masuk
 
-  pricePerUnit  Decimal           @db.Decimal(12, 2) // per kg (GB) atau per unit (PKG)
-  shippingCost  Decimal           @db.Decimal(12, 2) @default(0) // ongkos kirim total
-  totalCost     Decimal           @db.Decimal(14, 2) // = qty * pricePerUnit + shippingCost (dihitung server)
+  pricePerUnit Decimal @db.Decimal(12, 2) // per kg (GB) atau per unit (PKG)
+  shippingCost Decimal @default(0) @db.Decimal(12, 2) // ongkos kirim total
+  totalCost    Decimal @db.Decimal(14, 2) // = qty * pricePerUnit + shippingCost (dihitung server)
 
-  status        TransactionStatus @default(PENDING)
-  receivedAt    DateTime          @default(now())
-  notes         String?
-  voidReason    String?
-  voidAt        DateTime?
+  status     TransactionStatus @default(PENDING)
+  receivedAt DateTime          @default(now())
+  notes      String?
+  voidReason String?
+  voidAt     DateTime?
 
-  createdById   String
-  createdAt     DateTime          @default(now())
+  createdById String
+  createdAt   DateTime @default(now())
 
-  supplier    Supplier   @relation(fields: [supplierId], references: [id])
-  product     Product?   @relation(fields: [productId], references: [id])
-  packaging   Packaging? @relation(fields: [packagingId], references: [id])
-  createdBy   User       @relation(fields: [createdById], references: [id])
+  supplier  Supplier   @relation(fields: [supplierId], references: [id])
+  product   Product?   @relation(fields: [productId], references: [id])
+  packaging Packaging? @relation(fields: [packagingId], references: [id])
+  createdBy User       @relation(fields: [createdById], references: [id])
+  tenantId  String     @default("default")
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
 
   @@map("purchases")
 }
@@ -327,30 +436,32 @@ model Purchase {
 // =============================================================================
 
 model RoastingBatch {
-  id                String            @id @default(cuid())
-  code              String            @unique // e.g., "RST-2024-001"
+  id   String @id @default(cuid())
+  code String @unique // e.g., "RST-2024-001"
 
-  inputProductId    String            // FK → Product (type = GREEN_BEAN)
-  inputWeightKg     Decimal           @db.Decimal(10, 3)
+  inputProductId String // FK → Product (type = GREEN_BEAN)
+  inputWeightKg  Decimal @db.Decimal(10, 3)
 
-  outputProductId   String            // FK → Product (type = ROASTED_BEAN)
-  outputWeightKg    Decimal           @db.Decimal(10, 3)
+  outputProductId String // FK → Product (type = ROASTED_BEAN)
+  outputWeightKg  Decimal @db.Decimal(10, 3)
 
-  roastLossPercent  Decimal           @db.Decimal(5, 2)  // dihitung server: % susut roasting
-  roastDurationMin  Int?              // durasi roasting dalam menit
+  roastLossPercent Decimal @db.Decimal(5, 2) // dihitung server: % susut roasting
+  roastDurationMin Int? // durasi roasting dalam menit
 
-  status            TransactionStatus @default(COMPLETED)
-  roastedAt         DateTime          @default(now())
-  notes             String?
-  voidReason        String?
-  voidAt            DateTime?
+  status     TransactionStatus @default(COMPLETED)
+  roastedAt  DateTime          @default(now())
+  notes      String?
+  voidReason String?
+  voidAt     DateTime?
 
-  createdById       String
-  createdAt         DateTime          @default(now())
+  createdById String
+  createdAt   DateTime @default(now())
 
-  inputProduct  Product @relation("RoastingInput",  fields: [inputProductId],  references: [id])
+  inputProduct  Product @relation("RoastingInput", fields: [inputProductId], references: [id])
   outputProduct Product @relation("RoastingOutput", fields: [outputProductId], references: [id])
   createdBy     User    @relation(fields: [createdById], references: [id])
+  tenantId      String  @default("default")
+  tenant        Tenant  @relation(fields: [tenantId], references: [id])
 
   @@map("roasting_batches")
 }
@@ -365,30 +476,32 @@ model RoastingBatch {
 // =============================================================================
 
 model ProductionBatch {
-  id              String            @id @default(cuid())
-  code            String            @unique // e.g., "PRD-2024-001"
+  id   String @id @default(cuid())
+  code String @unique // e.g., "PRD-2024-001"
 
-  recipeId        String?           // FK → Recipe (opsional: null jika produksi bebas tanpa template resep)
-  outputProductId String            // FK → Product (type = FINISHED_GOODS)
-  packagingId     String            // bisa berbeda dari default resep (misal: kehabisan stok)
+  recipeId        String? // FK → Recipe (opsional: null jika produksi bebas tanpa template resep)
+  outputProductId String // FK → Product (type = FINISHED_GOODS)
+  packagingId     String // bisa berbeda dari default resep (misal: kehabisan stok)
 
-  unitsProduced   Int               // jumlah unit yang diproduksi
-  totalRbUsedKg   Decimal           @db.Decimal(10, 3) // total RB terpakai (kg), dihitung server
-  hppPerUnit      Decimal           @db.Decimal(12, 2) // HPP per unit, snapshot saat produksi
+  unitsProduced Int // jumlah unit yang diproduksi
+  totalRbUsedKg Decimal @db.Decimal(10, 3) // total RB terpakai (kg), dihitung server
+  hppPerUnit    Decimal @db.Decimal(12, 2) // HPP per unit, snapshot saat produksi
 
-  status          TransactionStatus @default(COMPLETED)
-  producedAt      DateTime          @default(now())
-  notes           String?
-  voidReason      String?
-  voidAt          DateTime?
+  status     TransactionStatus @default(COMPLETED)
+  producedAt DateTime          @default(now())
+  notes      String?
+  voidReason String?
+  voidAt     DateTime?
 
-  createdById     String
-  createdAt       DateTime          @default(now())
+  createdById String
+  createdAt   DateTime @default(now())
 
   recipe        Recipe?   @relation(fields: [recipeId], references: [id])
   outputProduct Product   @relation(fields: [outputProductId], references: [id])
   packaging     Packaging @relation(fields: [packagingId], references: [id])
   createdBy     User      @relation(fields: [createdById], references: [id])
+  tenantId      String    @default("default")
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
 
   @@map("production_batches")
 }
@@ -400,33 +513,40 @@ model ProductionBatch {
 // =============================================================================
 
 model Invoice {
-  id          String        @id @default(cuid())
-  code        String        @unique // e.g., "INV-2024-001"
+  id   String @id @default(cuid())
+  code String @unique // e.g., "INV-2024-001"
 
-  customerId  String
+  customerId String
 
-  subtotal    Decimal       @db.Decimal(14, 2) // sebelum diskon & pajak
-  discount    Decimal       @db.Decimal(14, 2) @default(0)
-  tax         Decimal       @db.Decimal(14, 2) @default(0)
-  grandTotal  Decimal       @db.Decimal(14, 2) // = subtotal - discount + tax
+  subtotal     Decimal @db.Decimal(14, 2) // sebelum diskon, pajak & ongkir
+  discount     Decimal @default(0) @db.Decimal(14, 2)
+  tax          Decimal @default(0) @db.Decimal(14, 2)
+  shippingCost Decimal @default(0) @db.Decimal(14, 2) // ongkos kirim
+  shippingMethod String? // "PICKUP", "LOCAL_DELIVERY", "COURIER"
+  shippingAddress String? // alamat spesifik jika dikirim
+  courierName    String? // nama ekspedisi
+  trackingNumber String? // nomor resi
+  grandTotal   Decimal @db.Decimal(14, 2) // = subtotal - discount + tax + shippingCost
 
-  paidAmount  Decimal       @db.Decimal(14, 2) @default(0) // diupdate server tiap Payment masuk
-  status      InvoiceStatus @default(DRAFT)
+  paidAmount Decimal       @default(0) @db.Decimal(14, 2) // diupdate server tiap Payment masuk
+  status     InvoiceStatus @default(DRAFT)
 
-  issuedAt    DateTime      @default(now())
-  dueDate     DateTime?
+  issuedAt DateTime  @default(now())
+  dueDate  DateTime?
 
-  notes       String?
-  voidReason  String?
-  voidAt      DateTime?
+  notes      String?
+  voidReason String?
+  voidAt     DateTime?
 
   createdById String
-  createdAt   DateTime      @default(now())
+  createdAt   DateTime @default(now())
 
   customer  Customer      @relation(fields: [customerId], references: [id])
   createdBy User          @relation(fields: [createdById], references: [id])
   items     InvoiceItem[]
   payments  Payment[]
+  tenantId  String        @default("default")
+  tenant    Tenant        @relation(fields: [tenantId], references: [id])
 
   @@map("invoices")
 }
@@ -439,15 +559,15 @@ model Invoice {
 // =============================================================================
 
 model InvoiceItem {
-  id         String  @id @default(cuid())
-  invoiceId  String
-  productId  String  // FK → Product (type = FINISHED_GOODS)
+  id        String @id @default(cuid())
+  invoiceId String
+  productId String // FK → Product (type = FINISHED_GOODS)
 
-  quantity   Int
-  unitPrice  Decimal @db.Decimal(12, 2)
-  discount   Decimal @db.Decimal(12, 2) @default(0) // diskon per unit
-  subtotal   Decimal @db.Decimal(14, 2) // = (unitPrice - discount) * quantity, dihitung server
-  hpp        Decimal @db.Decimal(12, 2) // snapshot HPP per unit saat transaksi
+  quantity  Int
+  unitPrice Decimal @db.Decimal(12, 2)
+  discount  Decimal @default(0) @db.Decimal(12, 2) // diskon per unit
+  subtotal  Decimal @db.Decimal(14, 2) // = (unitPrice - discount) * quantity, dihitung server
+  hpp       Decimal @db.Decimal(12, 2) // snapshot HPP per unit saat transaksi
 
   invoice Invoice @relation(fields: [invoiceId], references: [id])
   product Product @relation(fields: [productId], references: [id])
@@ -462,25 +582,27 @@ model InvoiceItem {
 // =============================================================================
 
 model Payment {
-  id          String        @id @default(cuid())
-  code        String        @unique // e.g., "PAY-2024-001"
+  id   String @id @default(cuid())
+  code String @unique // e.g., "PAY-2024-001"
 
-  invoiceId   String
+  invoiceId String
 
-  amount      Decimal       @db.Decimal(14, 2)
-  method      PaymentMethod @default(CASH)
-  reference   String?       // no. referensi transfer / QRIS
-  paidAt      DateTime      @default(now())
+  amount    Decimal       @db.Decimal(14, 2)
+  method    PaymentMethod @default(CASH)
+  reference String? // no. referensi transfer / QRIS
+  paidAt    DateTime      @default(now())
 
-  notes       String?
-  voidReason  String?
-  voidAt      DateTime?
+  notes      String?
+  voidReason String?
+  voidAt     DateTime?
 
   createdById String
-  createdAt   DateTime      @default(now())
+  createdAt   DateTime @default(now())
 
   invoice   Invoice @relation(fields: [invoiceId], references: [id])
   createdBy User    @relation(fields: [createdById], references: [id])
+  tenantId  String  @default("default")
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
 
   @@map("payments")
 }
@@ -498,33 +620,35 @@ model Payment {
 // =============================================================================
 
 model InventoryLedger {
-  id           String          @id @default(cuid())
+  id String @id @default(cuid())
 
-  productId    String?         // FK → Product (GB / RB / FG)
-  packagingId  String?         // FK → Packaging
+  productId   String? // FK → Product (GB / RB / FG)
+  packagingId String? // FK → Packaging
 
-  entryType    LedgerEntryType // IN | OUT
-  refType      LedgerRefType   // jenis transaksi asal
-  refId        String          // ID transaksi asal (Purchase.id, RoastingBatch.id, dsb.)
+  entryType LedgerEntryType // IN | OUT
+  refType   LedgerRefType // jenis transaksi asal
+  refId     String // ID transaksi asal (Purchase.id, RoastingBatch.id, dsb.)
 
-  quantityKg   Decimal?        @db.Decimal(10, 3) // diisi untuk GB & RB
-  quantityUnit Int?            // diisi untuk FG & Packaging
+  quantityKg   Decimal? @db.Decimal(10, 3) // diisi untuk GB & RB
+  quantityUnit Int? // diisi untuk FG & Packaging
 
-  notes        String?
+  notes String?
 
-  createdById  String
-  createdAt    DateTime        @default(now())
+  createdById String
+  createdAt   DateTime @default(now())
 
   product   Product?   @relation(fields: [productId], references: [id])
   packaging Packaging? @relation(fields: [packagingId], references: [id])
   createdBy User       @relation(fields: [createdById], references: [id])
 
   // Index untuk kalkulasi stok realtime per produk/packaging
+  tenantId String @default("default")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
   @@index([productId, createdAt])
   @@index([packagingId, createdAt])
   // Index untuk audit trail per transaksi
   @@index([refType, refId])
-
   @@map("inventory_ledger")
 }
 
@@ -542,9 +666,11 @@ model Expense {
   description String?
 
   createdById String
-  createdAt   DateTime        @default(now())
+  createdAt   DateTime @default(now())
 
-  createdBy   User            @relation(fields: [createdById], references: [id])
+  createdBy User   @relation(fields: [createdById], references: [id])
+  tenantId  String @default("default")
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
 
   @@index([date])
   @@index([category])
@@ -566,6 +692,8 @@ model Partner {
 
   profitDistributions ProfitDistribution[]
   capitalTransactions CapitalTransaction[]
+  tenantId            String               @default("default")
+  tenant              Tenant               @relation(fields: [tenantId], references: [id])
 
   @@map("partners")
 }
@@ -577,21 +705,23 @@ model Partner {
 // =============================================================================
 
 enum CapitalTransactionType {
-  INJECTION   // Modal disetor (Kas naik, Ekuitas naik)
-  WITHDRAWAL  // Prive / Tarik tunai pribadi (Kas turun, Ekuitas turun)
+  INJECTION // Modal disetor (Kas naik, Ekuitas naik)
+  WITHDRAWAL // Prive / Tarik tunai pribadi (Kas turun, Ekuitas turun)
 }
 
 model CapitalTransaction {
-  id          String   @id @default(cuid())
-  code        String   @unique // e.g., "CAP-2024-001"
-  partnerId   String?  // Wajib jika penarikan (Prive), bisa opsional untuk kas masuk umum
-  type        CapitalTransactionType
-  amount      Decimal  @db.Decimal(14, 2)
-  notes       String?
-  transactionDate DateTime @default(now())
-  createdAt   DateTime @default(now())
+  id              String                 @id @default(cuid())
+  code            String                 @unique // e.g., "CAP-2024-001"
+  partnerId       String? // Wajib jika penarikan (Prive), bisa opsional untuk kas masuk umum
+  type            CapitalTransactionType
+  amount          Decimal                @db.Decimal(14, 2)
+  notes           String?
+  transactionDate DateTime               @default(now())
+  createdAt       DateTime               @default(now())
 
-  partner     Partner? @relation(fields: [partnerId], references: [id])
+  partner  Partner? @relation(fields: [partnerId], references: [id])
+  tenantId String   @default("default")
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
 
   @@map("capital_transactions")
 }
@@ -602,20 +732,22 @@ model CapitalTransaction {
 // =============================================================================
 
 model ProfitDistribution {
-  id          String   @id @default(cuid())
-  code        String   @unique // e.g., "DIV-2024-01-A"
-  partnerId   String
-  
-  month       Int
-  year        Int
-  netProfit   Decimal  @db.Decimal(14, 2) // snapshot Laba Bersih total di bulan tersebut
-  amount      Decimal  @db.Decimal(14, 2) // = netProfit * partner.equityShare / 100
-  
-  notes       String?
-  distributedAt DateTime @default(now())
-  createdAt   DateTime @default(now())
+  id        String @id @default(cuid())
+  code      String @unique // e.g., "DIV-2024-01-A"
+  partnerId String
 
-  partner     Partner  @relation(fields: [partnerId], references: [id])
+  month     Int
+  year      Int
+  netProfit Decimal @db.Decimal(14, 2) // snapshot Laba Bersih total di bulan tersebut
+  amount    Decimal @db.Decimal(14, 2) // = netProfit * partner.equityShare / 100
+
+  notes         String?
+  distributedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  partner  Partner @relation(fields: [partnerId], references: [id])
+  tenantId String  @default("default")
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
 
   @@map("profit_distributions")
 }

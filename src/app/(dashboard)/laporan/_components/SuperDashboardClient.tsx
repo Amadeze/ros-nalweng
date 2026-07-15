@@ -8,10 +8,8 @@ import { BalanceSheetClient } from "./BalanceSheetClient";
 import type { PnLReport } from "../../keuangan/actions";
 import type { InventoryValuationReport, BalanceSheetReport } from "../actions";
 import { cn } from "@/lib/utils";
-import { FileText, Database, Scale, Users } from "lucide-react";
-import { FounderDashboardClient } from "./FounderDashboardClient";
+import { FileText, Database, Scale, Activity } from "lucide-react";
 import { CoffeeFlowClient } from "./CoffeeFlowClient";
-import { Activity } from "lucide-react";
 
 interface SuperDashboardClientProps {
   pnlReport: PnLReport;
@@ -22,7 +20,7 @@ interface SuperDashboardClientProps {
 }
 
 export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetReport, flowReport, userRole }: SuperDashboardClientProps) {
-  const [activeTab, setActiveTab] = useState<"pnl" | "inventory" | "balanceSheet" | "founder" | "flow">("pnl");
+  const [activeTab, setActiveTab] = useState<"pnl" | "inventory" | "balanceSheet" | "flow">("pnl");
 
   return (
     <StandardPageLayout
@@ -74,19 +72,6 @@ export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetR
         >
           <Activity size={18} /> Arus Kopi
         </button>
-        {userRole === "OWNER" && (
-          <button
-            onClick={() => setActiveTab("founder")}
-            className={cn(
-              "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
-              activeTab === "founder" 
-                ? "bg-white text-orange-600 shadow-sm" 
-                : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
-            )}
-          >
-            <Users size={18} /> Gaji & Tabungan
-          </button>
-        )}
       </div>
 
       <div className="h-full flex flex-col">
@@ -103,11 +88,6 @@ export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetR
         {activeTab === "balanceSheet" && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
             <BalanceSheetClient report={balanceSheetReport} />
-          </div>
-        )}
-        {activeTab === "founder" && (
-          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <FounderDashboardClient retainedEarnings={balanceSheetReport.equity.retainedEarnings} />
           </div>
         )}
         {activeTab === "flow" && (

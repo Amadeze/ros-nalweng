@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { formatDate, formatRupiah } from "@/lib/format";
 import { VoidConfirmDialog } from "@/components/VoidConfirmDialog";
 import { TerimaPaymentDialog } from "../../keuangan/_components/TerimaPaymentDialog";
-import { voidInvoice } from "../actions";
+import { ResiDialog } from "./ResiDialog";
+import { Truck } from "lucide-react";
+import { voidInvoice, approveInvoiceForMidtrans } from "../actions";
 import type { InvoiceRow } from "../actions";
 
 const triggerSilentPrint = (url: string) => {
@@ -59,8 +61,10 @@ function EmptyState({ isFiltered }: { isFiltered: boolean }) {
 export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
   const [voidTarget, setVoidTarget] = useState<InvoiceRow | null>(null);
   const [payTarget, setPayTarget] = useState<InvoiceRow | null>(null);
+  const [resiTarget, setResiTarget] = useState<InvoiceRow | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [isApproving, setIsApproving] = useState<string | null>(null);
 
   const filteredInvoices = useMemo(() => {
     return invoices.filter((inv) => {
@@ -86,6 +90,19 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
     isOverdue: false,
     itemSummary: `${payTarget.itemCount} item`,
   } : null;
+
+  const handleApprove = async (inv: InvoiceRow) => {
+    setIsApproving(inv.id);
+    const res = await approveInvoiceForMidtrans(inv.id);
+    setIsApproving(null);
+    if (!res.success) {
+      alert(res.error);
+    } else if (res.paymentLink) {
+      // Buka link payment di tab baru agar Admin bisa copy atau langsung bayar (opsional)
+      // atau redirect WhatsApp? Kita buka link Midtrans di tab baru dan refresh halaman
+      window.open(res.paymentLink, "_blank");
+    }
+  };
 
   return (
     <>
@@ -169,6 +186,16 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
                 </TableCell>
                 <TableCell className="text-center">
                   <div className="flex flex-wrap items-center justify-center gap-2">
+                    {inv.status === "DRAFT" && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleApprove(inv)}
+                        disabled={isApproving === inv.id}
+                        className="h-7 px-2.5 text-[11px] font-bold uppercase tracking-wide bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-200 rounded-lg shadow-sm"
+                      >
+                        {isApproving === inv.id ? "Memproses..." : "Approve"}
+                      </Button>
+                    )}
                     {(inv.status === "ISSUED" || inv.status === "PARTIAL") && (
                       <Button
                         size="sm"
@@ -177,6 +204,16 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
                       >
                         <Banknote size={12} />
                         Bayar
+                      </Button>
+                    )}
+                    {(inv.shippingMethod && inv.shippingMethod !== "PICKUP") && (
+                      <Button
+                        size="sm"
+                        onClick={() => setResiTarget(inv)}
+                        className="h-7 gap-1 px-2.5 text-[11px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200 rounded-lg shadow-sm"
+                      >
+                        <Truck size={12} />
+                        Resi
                       </Button>
                     )}
                     <button
@@ -238,10 +275,21 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
                 <span className="text-[10px] font-semibold text-slate-500">{formatDate(inv.issuedAt)}</span>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
-                {(inv.status === "ISSUED" || inv.status === "PARTIAL") && (
-                  <Button size="sm" onClick={() => setPayTarget(inv)} className="h-7 px-2.5 text-[11px] font-bold uppercase bg-emerald-100 text-emerald-700 hover:bg-emerald-200">
-                    Bayar
+                {inv.status === "DRAFT" && (
+                  <Button
+                    size="sm"
+                    onClick={() => handleApprove(inv)}
+                    disabled={isApproving === inv.id}
+                    className="h-7 px-2.5 text-[11px] font-bold uppercase tracking-wide bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-200 rounded-lg shadow-sm"
+                  >
+                    {isApproving === inv.id ? "Memproses..." : "Approve"}
                   </Button>
+                )}
+                {(inv.status === "ISSUED" || inv.status === "PARTIAL") && (
+                  <Button size="sm" onClick={() => setPayTarget(inv)} className="h-7 px-2 bg-emerald-100 text-emerald-700">Bayar</Button>
+                )}
+                {(inv.shippingMethod && inv.shippingMethod !== "PICKUP") && (
+                  <Button size="sm" onClick={() => setResiTarget(inv)} className="h-7 px-2 bg-amber-100 text-amber-700">Resi</Button>
                 )}
                 <button onClick={() => triggerSilentPrint(`/nota/${inv.id}?print=true`)} className="inline-flex items-center justify-center h-7 px-2.5 rounded-lg border border-slate-300 text-[11px] font-bold uppercase text-slate-600 hover:bg-slate-900 hover:text-white bg-white/40 shadow-sm">
                   Print
@@ -272,9 +320,12 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
       onOpenChange={(v) => { if (!v) setPayTarget(null); }}
       onSuccess={() => setPayTarget(null)}
     />
+
+    <ResiDialog
+      invoice={resiTarget}
+      open={!!resiTarget}
+      onOpenChange={(v) => { if (!v) setResiTarget(null); }}
+    />
     </>
   );
 }
-
-
-

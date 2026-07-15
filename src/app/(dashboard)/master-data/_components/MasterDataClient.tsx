@@ -220,7 +220,14 @@ function ProductTable({ rows, onEdit }: { rows: ProductRow[]; onEdit: (r: Produc
           {rows.map((row) => (
             <tr key={row.id} className="hover:bg-white/40 transition-colors">
               <td className="px-4 py-3">
-                <p className="font-medium text-slate-800">{row.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-slate-800">{row.name}</p>
+                  {row.category && (
+                    <span className="rounded-full bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                      {row.category}
+                    </span>
+                  )}
+                </div>
                 {row.description && <p className="text-[11px] text-zinc-400 truncate max-w-[200px]">{row.description}</p>}
               </td>
               <td className="px-4 py-3">

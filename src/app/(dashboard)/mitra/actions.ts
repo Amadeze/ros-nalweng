@@ -1,22 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
 import { getPnLReport } from "../keuangan/actions";
-import { getSystemUserId } from "@/lib/auth";
+import { getSystemUserId, requireTenantPrisma } from "@/lib/auth";
 
 export async function getMitraData() {
-  const partners = await prisma.partner.findMany({
+  const partners = await (await requireTenantPrisma()).partner.findMany({
     orderBy: { name: "asc" }
   });
   
-  const capitalTransactions = await prisma.capitalTransaction.findMany({
+  const capitalTransactions = await (await requireTenantPrisma()).capitalTransaction.findMany({
     include: { partner: true },
     orderBy: { transactionDate: "desc" },
     take: 50
   });
 
-  const profitDistributions = await prisma.profitDistribution.findMany({
+  const profitDistributions = await (await requireTenantPrisma()).profitDistribution.findMany({
     include: { partner: true },
     orderBy: { distributedAt: "desc" },
     take: 50
@@ -26,7 +25,7 @@ export async function getMitraData() {
 }
 
 export async function createPartner(data: { name: string; equityShare: number }) {
-  await prisma.partner.create({
+  await (await requireTenantPrisma()).partner.create({
     data: {
       name: data.name,
       equityShare: data.equityShare
@@ -41,7 +40,7 @@ export async function createCapitalTransaction(data: {
   amount: number;
   notes?: string;
 }) {
-  await prisma.capitalTransaction.create({
+  await (await requireTenantPrisma()).capitalTransaction.create({
     data: {
       code: `CAP-${Date.now()}`,
       partnerId: data.partnerId || null,
@@ -66,7 +65,7 @@ export async function calculateAndPostFounderSalary(month: number, year: number)
   const startDate = new Date(year, month - 1, 1);
   const endDate   = new Date(year, month, 0, 23, 59, 59, 999);
   
-  const existingSalaries = await prisma.expense.findMany({
+  const existingSalaries = await (await requireTenantPrisma()).expense.findMany({
     where: {
       category: "GAJI",
       description: { startsWith: "Gaji bulanan untuk" },
@@ -91,7 +90,7 @@ export async function calculateAndPostFounderSalary(month: number, year: number)
 
   // Delete old salaries for this month to replace them
   if (existingSalaries.length > 0) {
-    await prisma.expense.deleteMany({
+    await (await requireTenantPrisma()).expense.deleteMany({
       where: {
         id: { in: existingSalaries.map(e => e.id) }
       }
@@ -112,7 +111,7 @@ export async function calculateAndPostFounderSalary(month: number, year: number)
   ];
 
   for (const person of salaries) {
-    await prisma.expense.create({
+    await (await requireTenantPrisma()).expense.create({
       data: {
         date: dateToPost,
         category: "GAJI",

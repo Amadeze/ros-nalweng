@@ -1,8 +1,8 @@
 "use server";
+import { requireTenantPrisma } from "@/lib/auth";
 
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 // =============================================================================
@@ -45,7 +45,9 @@ export type ProductRecipe = {
 export type ProductRow = {
   id: string; code: string; name: string;
   type: "GREEN_BEAN" | "ROASTED_BEAN" | "FINISHED_GOODS" | "PACKAGING";
+  category: string | null;
   origin: string | null; roastLevel: string | null; description: string | null;
+  imageUrl: string | null;
   isActive: boolean; createdAt: string;
   price: number;
   priceSilver: number;
@@ -68,27 +70,29 @@ export type MasterPageData = {
 
 export async function getMasterData(): Promise<MasterPageData> {
   const [suppliers, customers, products, packagings, users] = await Promise.all([
-    prisma.supplier.findMany({
+    (await requireTenantPrisma()).supplier.findMany({
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { purchases: true } } },
     }),
 
-    prisma.customer.findMany({
+    (await requireTenantPrisma()).customer.findMany({
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { invoices: true } } },
     }),
 
     // ✅ QUERY PRODUCT YANG SUDAH DIPERBAIKI
- prisma.product.findMany({
+ (await requireTenantPrisma()).product.findMany({
   orderBy: [{ type: "asc" }, { name: "asc" }],
   select: {
     id: true,
     code: true,
     name: true,
     type: true,
+    category: true,
     origin: true,
     roastLevel: true,
     description: true,
+    imageUrl: true,
     isActive: true,
     createdAt: true,
     price: true,
@@ -129,11 +133,11 @@ export async function getMasterData(): Promise<MasterPageData> {
   },
 }),
 
-    prisma.packaging.findMany({
+    (await requireTenantPrisma()).packaging.findMany({
       orderBy: { name: "asc" },
     }),
 
-    prisma.user.findMany({
+    (await requireTenantPrisma()).user.findMany({
       orderBy: { createdAt: "desc" },
       select: { 
         id: true, 
@@ -151,7 +155,7 @@ export async function getMasterData(): Promise<MasterPageData> {
     .filter(p => p.type === "ROASTED_BEAN" && p.ledgerEntries[0])
     .map(p => p.ledgerEntries[0].refId);
 
-  const roastingBatches = rbLedgerRefIds.length > 0 ? await prisma.roastingBatch.findMany({
+  const roastingBatches = rbLedgerRefIds.length > 0 ? await (await requireTenantPrisma()).roastingBatch.findMany({
     where: { id: { in: rbLedgerRefIds } },
     include: {
       inputProduct: {
@@ -216,9 +220,11 @@ export async function getMasterData(): Promise<MasterPageData> {
         code: p.code,
         name: p.name,
         type: p.type as ProductRow["type"],
+        category: p.category,
         origin: p.origin,
         roastLevel: p.roastLevel,
         description: p.description,
+        imageUrl: p.imageUrl,
         isActive: p.isActive,
         price: p.price ? Number(p.price) : 0,
         priceSilver: p.priceSilver ? Number(p.priceSilver) : 0,
@@ -283,9 +289,9 @@ export type CreateSupplierInput = {
 export async function createSupplier(input: CreateSupplierInput): Promise<ActionResult> {
   try {
     if (!input.name?.trim()) return { success: false, error: "Nama supplier wajib diisi." };
-    const count = await prisma.supplier.count();
+    const count = await (await requireTenantPrisma()).supplier.count();
     const code  = `SUP-${String(count + 1).padStart(3, "0")}`;
-    await prisma.supplier.create({
+    await (await requireTenantPrisma()).supplier.create({
       data: { code, name: input.name.trim(), phone: input.phone?.trim() || null,
               address: input.address?.trim() || null, region: input.region?.trim() || null },
     });
@@ -304,9 +310,9 @@ export type UpdateSupplierInput = CreateSupplierInput & { id: string; isActive: 
 export async function updateSupplier(input: UpdateSupplierInput): Promise<ActionResult> {
   try {
     if (!input.name?.trim()) return { success: false, error: "Nama supplier wajib diisi." };
-    const existing = await prisma.supplier.findUnique({ where: { id: input.id }, select: { code: true } });
+    const existing = await (await requireTenantPrisma()).supplier.findUnique({ where: { id: input.id }, select: { code: true } });
     if (!existing) return { success: false, error: "Supplier tidak ditemukan." };
-    await prisma.supplier.update({
+    await (await requireTenantPrisma()).supplier.update({
       where: { id: input.id },
       data: { name: input.name.trim(), phone: input.phone?.trim() || null,
               address: input.address?.trim() || null, region: input.region?.trim() || null,
@@ -332,9 +338,9 @@ export type CreateCustomerInput = {
 export async function createCustomer(input: CreateCustomerInput): Promise<ActionResult> {
   try {
     if (!input.name?.trim()) return { success: false, error: "Nama pelanggan wajib diisi." };
-    const count = await prisma.customer.count();
+    const count = await (await requireTenantPrisma()).customer.count();
     const code  = `CST-${String(count + 1).padStart(3, "0")}`;
-    await prisma.customer.create({
+    await (await requireTenantPrisma()).customer.create({
       data: { code, name: input.name.trim(), phone: input.phone?.trim() || null,
               email: input.email?.trim() || null, address: input.address?.trim() || null,
               tier: input.tier || "RETAIL" },
@@ -354,9 +360,9 @@ export type UpdateCustomerInput = CreateCustomerInput & { id: string; isActive: 
 export async function updateCustomer(input: UpdateCustomerInput): Promise<ActionResult> {
   try {
     if (!input.name?.trim()) return { success: false, error: "Nama pelanggan wajib diisi." };
-    const existing = await prisma.customer.findUnique({ where: { id: input.id }, select: { code: true } });
+    const existing = await (await requireTenantPrisma()).customer.findUnique({ where: { id: input.id }, select: { code: true } });
     if (!existing) return { success: false, error: "Pelanggan tidak ditemukan." };
-    await prisma.customer.update({
+    await (await requireTenantPrisma()).customer.update({
       where: { id: input.id },
       data: { name: input.name.trim(), phone: input.phone?.trim() || null,
               email: input.email?.trim() || null, address: input.address?.trim() || null,
@@ -404,11 +410,11 @@ export async function createUser(input: CreateUserInput): Promise<ActionResult> 
     if (!password) return { success: false, error: "Password wajib diisi." };
     if (!USER_ROLES.includes(input.role)) return { success: false, error: "Role pengguna tidak valid." };
 
-    const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+    const existing = await (await requireTenantPrisma()).user.findUnique({ where: { email }, select: { id: true } });
     if (existing) return { success: false, error: "Email sudah digunakan pengguna lain." };
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await prisma.user.create({
+    await (await requireTenantPrisma()).user.create({
       data: { name, email, password: hashedPassword, role: input.role },
     });
 
@@ -430,10 +436,10 @@ export async function updateUser(input: UpdateUserInput): Promise<ActionResult> 
     if (!email) return { success: false, error: "Email wajib diisi." };
     if (!USER_ROLES.includes(input.role)) return { success: false, error: "Role pengguna tidak valid." };
 
-    const existing = await prisma.user.findUnique({ where: { id: input.id }, select: { id: true } });
+    const existing = await (await requireTenantPrisma()).user.findUnique({ where: { id: input.id }, select: { id: true } });
     if (!existing) return { success: false, error: "Pengguna tidak ditemukan." };
 
-    const duplicate = await prisma.user.findFirst({
+    const duplicate = await (await requireTenantPrisma()).user.findFirst({
       where: { email, NOT: { id: input.id } },
       select: { id: true },
     });
@@ -456,7 +462,7 @@ export async function updateUser(input: UpdateUserInput): Promise<ActionResult> 
       data.password = await bcrypt.hash(password, 10);
     }
 
-    await prisma.user.update({
+    await (await requireTenantPrisma()).user.update({
       where: { id: input.id },
       data,
     });
@@ -488,9 +494,11 @@ export type RecipeInput = {
 export type CreateProductInput = {
   name: string;
   type: "GREEN_BEAN" | "ROASTED_BEAN" | "FINISHED_GOODS" | "PACKAGING";
+  category?:    string; // e.g. "Espresso Base", "Specialty"
   origin?:      string;
   roastLevel?:  "LIGHT" | "MEDIUM" | "MEDIUM_DARK" | "DARK" | null;
   description?: string;
+  imageUrl?:    string;
   price?:       number; // Harga jual retail
   priceSilver?: number; // Harga jual Wholesale Silver
   priceGold?:   number; // Harga jual Wholesale Gold
@@ -519,16 +527,18 @@ export async function createProduct(input: CreateProductInput): Promise<ActionRe
     if (!input.name?.trim()) return { success: false, error: "Nama produk wajib diisi." };
 
     const prefix = TYPE_PREFIX[input.type];
-    const count  = await prisma.product.count({ where: { type: input.type } });
+    const count  = await (await requireTenantPrisma()).product.count({ where: { type: input.type } });
     const code   = `${prefix}-${String(count + 1).padStart(3, "0")}`;
 
-    await prisma.$transaction(async (tx) => {
+    await (await requireTenantPrisma()).$transaction(async (tx) => {
       const product = await tx.product.create({
         data: {
           code, name: input.name.trim(), type: input.type,
+          category:    input.category?.trim()    || null,
           origin:      input.origin?.trim()      || null,
           roastLevel:  input.type === "ROASTED_BEAN" ? (input.roastLevel ?? null) : null,
           description: input.description?.trim() || null,
+          imageUrl:    input.imageUrl?.trim() || null,
           price:       input.type === "FINISHED_GOODS" ? (input.price ?? 0) : null,
           priceSilver: input.type === "FINISHED_GOODS" ? (input.priceSilver ?? 0) : null,
           priceGold:   input.type === "FINISHED_GOODS" ? (input.priceGold ?? 0) : null,
@@ -578,21 +588,23 @@ export async function updateProduct(input: UpdateProductInput): Promise<ActionRe
   try {
     if (!input.name?.trim()) return { success: false, error: "Nama produk wajib diisi." };
 
-    const existing = await prisma.product.findUnique({
+    const existing = await (await requireTenantPrisma()).product.findUnique({
       where: { id: input.id },
       select: { code: true, type: true, recipes: { where: { isActive: true }, select: { id: true }, take: 1 } },
     });
     if (!existing) return { success: false, error: "Produk tidak ditemukan." };
 
-    await prisma.$transaction(async (tx) => {
+    await (await requireTenantPrisma()).$transaction(async (tx) => {
       // ✅ DITAMBAHKAN: Data price dikirim untuk update
       await tx.product.update({
         where: { id: input.id },
         data: {
           name:        input.name!.trim(),
+          category:    input.category?.trim()    || null,
           origin:      input.origin?.trim()      || null,
           roastLevel:  existing.type === "ROASTED_BEAN" ? (input.roastLevel ?? null) : null,
           description: input.description?.trim() || null,
+          imageUrl:    input.imageUrl?.trim() || null,
           isActive:    input.isActive,
           price:       existing.type === "FINISHED_GOODS" && input.price !== undefined ? input.price : undefined,
           priceSilver: existing.type === "FINISHED_GOODS" && input.priceSilver !== undefined ? input.priceSilver : undefined,
@@ -675,7 +687,7 @@ export async function createPackaging(input: CreatePackagingInput): Promise<Acti
     const data = packagingSchema.parse(input);
     const code = `PKG-${Date.now().toString().slice(-4)}`;
     
-    await prisma.packaging.create({
+    await (await requireTenantPrisma()).packaging.create({
       data: {
         code,
         name: data.name,
@@ -699,7 +711,7 @@ export async function updatePackaging(input: UpdatePackagingInput): Promise<Acti
     const { id, ...data } = input;
     const parsed = packagingSchema.parse(data);
 
-    await prisma.packaging.update({
+    await (await requireTenantPrisma()).packaging.update({
       where: { id },
       data: {
         name: parsed.name,

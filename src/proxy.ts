@@ -4,21 +4,62 @@ import { NextResponse } from "next/server";
 import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
 
 const PUBLIC_PATHS = ["/login"];
+const ROOT_DOMAINS = ['localhost', '127.0.0.1', 'ros.com', 'www.ros.com', 'app.ros.com'];
 
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const url = request.nextUrl;
+  const { pathname } = url;
 
-  // Allow public paths
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
-  }
-
-  // Allow Next.js internals
+  // Allow Next.js internals and public tenant APIs
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/_next") ||
+    pathname.startsWith("/api/tenant/") ||
     pathname === "/favicon.ico"
   ) {
+    return NextResponse.next();
+  }
+
+  // Get hostname of request (e.g. demo.ros.com, demo.localhost:3000)
+  let hostname = request.headers.get('host') || '';
+  hostname = hostname.split(':')[0]; // Remove port if present
+
+  // 1. SUBDOMAIN ROUTING (B2B PORTAL)
+  // If the hostname is NOT a root domain, it's a tenant subdomain
+  if (!ROOT_DOMAINS.includes(hostname)) {
+    let subdomain = '';
+    
+    if (hostname.endsWith('.localhost')) {
+      subdomain = hostname.replace('.localhost', '');
+    } else if (hostname.endsWith('.ros.com')) {
+      subdomain = hostname.replace('.ros.com', '');
+    } else {
+      subdomain = hostname.split('.')[0]; 
+    }
+
+    // Redirect admin paths to root domain
+    if (pathname.startsWith('/login') || pathname.startsWith('/dashboard')) {
+      const newUrl = new URL(request.url);
+      if (hostname.endsWith('.localhost')) {
+        newUrl.hostname = 'localhost';
+      } else if (hostname.endsWith('.ros.com')) {
+        newUrl.hostname = 'app.ros.com';
+      } else {
+        newUrl.hostname = 'localhost';
+      }
+      return NextResponse.redirect(newUrl);
+    }
+
+    if (subdomain && subdomain !== 'app' && subdomain !== 'www') {
+      // Rewrite the route to /tenant/[subdomain]/...
+      // B2B portals are public, so we don't enforce authentication
+      return NextResponse.rewrite(new URL(`/tenant/${subdomain}${pathname}${url.search}`, request.url));
+    }
+  }
+
+  // 2. MAIN SAAS APP (ROOT DOMAINS)
+  // Allow public paths on main app
+  if (pathname === "/" || PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
@@ -55,4 +96,3 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
-

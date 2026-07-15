@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -46,9 +46,11 @@ const recipeItemSchema = z.object({
 const schema = z.object({
   name:              z.string().min(1, "Nama wajib diisi"),
   type:              z.enum(["GREEN_BEAN", "ROASTED_BEAN", "FINISHED_GOODS"]),
+  category:          z.string().optional(),
   origin:            z.string().optional(),
   roastLevel:        z.enum(["LIGHT", "MEDIUM", "MEDIUM_DARK", "DARK"]).nullable().optional(),
   description:       z.string().optional(),
+  imageUrl:          z.string().optional(),
   price:             z.number().optional(),
   priceSilver:       z.number().optional(),
   priceGold:         z.number().optional(),
@@ -80,23 +82,27 @@ interface ProductFormProps {
 
 export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMaterials, packagings }: ProductFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const isEditMode = !!initialData;
   const existingRecipe = initialData?.recipe ?? null;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const defaultRecipeItems = existingRecipe?.items.map((i) => ({
     rbProductId:  i.rbProductId,
     gramsPerUnit: i.gramsPerUnit,
   })) ?? [];
 
-  const { register, handleSubmit, control, watch, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: initialData
       ? {
           name:              initialData.name,
           type:              (initialData.type as FormValues["type"]) ?? "GREEN_BEAN",
+          category:          initialData.category ?? "",
           origin:            initialData.origin ?? "",
           roastLevel:        (initialData.roastLevel as FormValues["roastLevel"]) ?? null,
           description:       initialData.description ?? "",
+          imageUrl:          initialData.imageUrl ?? "",
           price:             initialData.price ?? 0,
           priceSilver:       initialData.priceSilver ?? 0,
           priceGold:         initialData.priceGold ?? 0,
@@ -107,8 +113,8 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
           recipeItems:       defaultRecipeItems,
         }
       : {
-          name: "", type: "GREEN_BEAN", origin: "", roastLevel: null,
-          description: "", price: 0, priceSilver: 0, priceGold: 0, isActive: true,
+          name: "", type: "GREEN_BEAN", category: "", origin: "", roastLevel: null,
+          description: "", imageUrl: "", price: 0, priceSilver: 0, priceGold: 0, isActive: true,
           recipePackagingId: "", recipeOutputGrams: 0, recipeNotes: "", recipeItems: [],
         },
   });
@@ -118,6 +124,7 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
   const selectedType     = watch("type");
   const recipeItems      = watch("recipeItems") ?? [];
   const recipeOutputGrams = watch("recipeOutputGrams") ?? 0;
+  const currentImageUrl = watch("imageUrl");
   const totalGrams       = recipeItems.reduce((s, i) => s + (Number(i.gramsPerUnit) || 0), 0);
   const isFG             = selectedType === "FINISHED_GOODS";
   const recipePackagingId = watch("recipePackagingId");
@@ -138,6 +145,34 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
     }
     return Math.round(cost);
   }, [isFG, recipeItems, recipePackagingId, rawMaterials, packagings]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setValue("imageUrl", data.url);
+        toast.success("Foto produk berhasil diupload!");
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (e: any) {
+      toast.error("Upload gagal: " + e.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
@@ -176,8 +211,8 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
 
     try {
       const result = isEditMode
-        ? await updateProduct({ id: initialData!.id, name: values.name, origin: values.origin, roastLevel: values.roastLevel, description: values.description, price: values.price, priceSilver: values.priceSilver, priceGold: values.priceGold, isActive: values.isActive, recipe })
-        : await createProduct({ name: values.name, type: values.type, origin: values.origin, roastLevel: values.roastLevel, description: values.description, price: values.price, priceSilver: values.priceSilver, priceGold: values.priceGold, recipe });
+        ? await updateProduct({ id: initialData!.id, name: values.name, category: values.category || undefined, origin: values.origin, roastLevel: values.roastLevel, description: values.description, imageUrl: values.imageUrl, price: values.price, priceSilver: values.priceSilver, priceGold: values.priceGold, isActive: values.isActive, recipe })
+        : await createProduct({ name: values.name, type: values.type, category: values.category || undefined, origin: values.origin, roastLevel: values.roastLevel, description: values.description, imageUrl: values.imageUrl, price: values.price, priceSilver: values.priceSilver, priceGold: values.priceGold, recipe });
 
       if (!result.success) { toast.error(result.error); return; }
       toast.success(isEditMode ? `Produk ${result.code} berhasil diperbarui` : `Produk ${result.code} berhasil ditambahkan`);
@@ -226,13 +261,24 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
           </p>
         )}
       </div>
+      <div className="grid grid-cols-2 gap-4">
+        {/* ── Kategori ── */}
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Kategori</Label>
+          <Input list="category-list" placeholder="Espresso Base, Specialty, dll." className={cn("h-9", glassInput)} {...register("category")} />
+          <datalist id="category-list">
+            <option value="Espresso Base" />
+            <option value="Specialty" />
+            <option value="Filter" />
+          </datalist>
+        </div>
 
-      {/* ── Origin ── */}
-      <div className="space-y-1.5">
-        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Origin / Asal</Label>
-        <Input placeholder="Gayo, Toraja, Ethiopia, dll." className={cn("h-9", glassInput)} {...register("origin")} />
+        {/* ── Origin ── */}
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Origin / Asal</Label>
+          <Input placeholder="Gayo, Toraja, Ethiopia, dll." className={cn("h-9", glassInput)} {...register("origin")} />
+        </div>
       </div>
-
       {/* ── Roast Level (ROASTED_BEAN only) ── */}
       {selectedType === "ROASTED_BEAN" && (
         <div className="space-y-1.5">
@@ -262,6 +308,36 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
       <div className="space-y-1.5">
         <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Deskripsi (opsional)</Label>
         <Input placeholder="Tasting notes, karakteristik, dll." className={cn("h-9", glassInput)} {...register("description")} />
+      </div>
+
+      {/* ── Foto Produk ── */}
+      <div className="space-y-1.5">
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Foto Produk</Label>
+        <div className="flex items-center gap-4">
+          {currentImageUrl && (
+            <div className="w-16 h-16 rounded-xl overflow-hidden bg-white shadow-sm border border-slate-100 flex items-center justify-center shrink-0">
+              <img src={currentImageUrl} alt="Product" className="w-full h-full object-cover" />
+            </div>
+          )}
+          <div className="flex-1">
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/*"
+              onChange={handleFileUpload}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="flex items-center gap-2 rounded-xl border border-white/60 bg-white/50 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white transition-colors disabled:opacity-50 shadow-sm"
+            >
+              {isUploading ? "Mengupload..." : "Upload Foto"}
+            </button>
+            <p className="text-[10px] text-slate-500 mt-1">Format: JPG/PNG. Maksimal 2MB.</p>
+          </div>
+        </div>
       </div>
 
       {/* ── Harga Jual (FINISHED_GOODS only) ── */}

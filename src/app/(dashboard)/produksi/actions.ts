@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { appendLedger } from "@/lib/stock";
 import { computeKgStock, computeUnitStock } from "@/lib/stock";
-import { getSystemUserId } from "@/lib/auth";
+import { getSystemUserId, requireTenantPrisma } from "@/lib/auth";
 
 // =============================================================================
 // TYPES
@@ -97,7 +97,7 @@ export type ProductionPageData = {
 async function generateBatchCode(): Promise<string> {
   const now = new Date();
   const prefix = `PRD-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const count = await prisma.productionBatch.count({ where: { code: { startsWith: prefix } } });
+  const count = await (await requireTenantPrisma()).productionBatch.count({ where: { code: { startsWith: prefix } } });
   return `${prefix}-${String(count + 1).padStart(3, "0")}`;
 }
 
@@ -106,7 +106,7 @@ async function generateBatchCode(): Promise<string> {
 // =============================================================================
 
 async function fetchFGOptions(): Promise<FGProductOption[]> {
-  const products = await prisma.product.findMany({
+  const products = await (await requireTenantPrisma()).product.findMany({
     where: { type: "FINISHED_GOODS", isActive: true },
     include: {
       recipes: {
@@ -150,7 +150,7 @@ async function fetchFGOptions(): Promise<FGProductOption[]> {
 }
 
 async function fetchRBOptions(): Promise<RBStockOption[]> {
-  const products = await prisma.product.findMany({
+  const products = await (await requireTenantPrisma()).product.findMany({
     where: { type: { in: ["ROASTED_BEAN", "GREEN_BEAN"] }, isActive: true },
     include: { ledgerEntries: { select: { entryType: true, quantityKg: true } } },
     orderBy: { name: "asc" },
@@ -170,7 +170,7 @@ async function fetchRBOptions(): Promise<RBStockOption[]> {
 }
 
 async function fetchPackagingOptions(): Promise<PackagingOption[]> {
-  const pkgs = await prisma.packaging.findMany({
+  const pkgs = await (await requireTenantPrisma()).packaging.findMany({
     where: { isActive: true },
     include: { ledgerEntries: { select: { entryType: true, quantityUnit: true } } },
     orderBy: { name: "asc" },
@@ -190,7 +190,7 @@ async function fetchPackagingOptions(): Promise<PackagingOption[]> {
 }
 
 async function fetchBatchHistory(): Promise<ProductionBatchRow[]> {
-  const batches = await prisma.productionBatch.findMany({
+  const batches = await (await requireTenantPrisma()).productionBatch.findMany({
     orderBy: { producedAt: "desc" },
     take: 100,
     include: {
@@ -255,7 +255,7 @@ export async function createProductionBatch(
     const userId = await getSystemUserId();
 
     // 1. Ambil data packaging untuk validasi stok & HPP
-    const packaging = await prisma.packaging.findUnique({
+    const packaging = await (await requireTenantPrisma()).packaging.findUnique({
       where: { id: input.packagingId },
       select: { id: true, name: true, costPerUnit: true },
     });
@@ -284,7 +284,7 @@ export async function createProductionBatch(
       const actualKg = comp.actualGrams / 1000;
       if (actualKg <= 0) continue;
 
-      const rbProduct = await prisma.product.findUnique({
+      const rbProduct = await (await requireTenantPrisma()).product.findUnique({
         where: { id: comp.productId },
         select: { name: true, type: true },
       });
@@ -302,7 +302,7 @@ export async function createProductionBatch(
 
       if (rbProduct?.type === "GREEN_BEAN") {
         // Ambil HPP GB langsung dari purchase terakhir
-        const lastPurchase = await prisma.purchase.findFirst({
+        const lastPurchase = await (await requireTenantPrisma()).purchase.findFirst({
           where: { productId: comp.productId, status: "COMPLETED" },
           orderBy: { receivedAt: "desc" },
           select: { pricePerUnit: true, weightKg: true, shippingCost: true },
@@ -315,14 +315,14 @@ export async function createProductionBatch(
         }
       } else {
         // Ambil HPP RB dari roasting batch terakhir via ledger (masuk dari ROASTING_RB_IN)
-        const lastRbLedger = await prisma.inventoryLedger.findFirst({
+        const lastRbLedger = await (await requireTenantPrisma()).inventoryLedger.findFirst({
           where: { productId: comp.productId, entryType: "IN", refType: "ROASTING_RB_IN" },
           orderBy: { createdAt: "desc" },
           select: { refId: true },
         });
 
         if (lastRbLedger) {
-          const roastBatch = await prisma.roastingBatch.findUnique({
+          const roastBatch = await (await requireTenantPrisma()).roastingBatch.findUnique({
             where: { id: lastRbLedger.refId },
             include: {
               inputProduct: {
@@ -368,7 +368,7 @@ export async function createProductionBatch(
     const batchCode = await generateBatchCode();
 
     // 6. ACID transaction
-    await prisma.$transaction(async (tx) => {
+    await (await requireTenantPrisma()).$transaction(async (tx) => {
       const batch = await tx.productionBatch.create({
         data: {
           code:            batchCode,
@@ -386,7 +386,7 @@ export async function createProductionBatch(
 
       // RB keluar per komponen
       for (const rb of rbDetails) {
-        await tx.inventoryLedger.create({
+        await appendLedger(tx, {
           data: {
             productId:   rb.productId,
             entryType:   "OUT",
@@ -400,7 +400,7 @@ export async function createProductionBatch(
       }
 
       // Packaging keluar
-      await tx.inventoryLedger.create({
+      await appendLedger(tx, {
         data: {
           packagingId:  input.packagingId,
           entryType:    "OUT",
@@ -413,7 +413,7 @@ export async function createProductionBatch(
       });
 
       // Finished Goods masuk
-      await tx.inventoryLedger.create({
+      await appendLedger(tx, {
         data: {
           productId:    input.outputProductId,
           entryType:    "IN",
@@ -453,7 +453,7 @@ export async function voidProductionBatch(
   try {
     const userId = await getSystemUserId();
 
-    const batch = await prisma.productionBatch.findUnique({
+    const batch = await (await requireTenantPrisma()).productionBatch.findUnique({
       where: { id: batchId },
       include: {
         outputProduct: { select: { id: true } },
@@ -464,14 +464,14 @@ export async function voidProductionBatch(
     if (batch.status === "VOID") return { success: false, error: "Batch sudah di-void." };
 
     // Ambil semua ledger entries milik batch ini
-    const ledgerEntries = await prisma.inventoryLedger.findMany({
+    const ledgerEntries = await (await requireTenantPrisma()).inventoryLedger.findMany({
       where: { refId: batchId, refType: { in: ["PRODUCTION_RB_OUT", "PRODUCTION_PKG_OUT", "PRODUCTION_FG_IN"] } },
     });
 
-    await prisma.$transaction(async (tx) => {
+    await (await requireTenantPrisma()).$transaction(async (tx) => {
       // Balik setiap ledger entry
       for (const entry of ledgerEntries) {
-        await tx.inventoryLedger.create({
+        await appendLedger(tx, {
           data: {
             productId:    entry.productId,
             packagingId:  entry.packagingId,

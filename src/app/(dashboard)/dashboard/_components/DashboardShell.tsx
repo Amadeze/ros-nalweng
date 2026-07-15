@@ -13,6 +13,7 @@ import { RevenueChart } from "./RevenueChart";
 import { TopProductsChart } from "./TopProductsChart";
 import { TopCustomersChart } from "./TopCustomersChart";
 import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 
 // =============================================================================
 // Helpers
@@ -229,6 +230,9 @@ function ActivityFeed({ items }: { items: ActivityItem[] }) {
     );
   }
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   return (
     <div className="bg-white/10">
       {items.map((item, i) => {
@@ -275,9 +279,9 @@ function ActivityFeed({ items }: { items: ActivityItem[] }) {
             {/* Time ago */}
             <span
               className="w-16 shrink-0 text-right text-[10px] font-medium text-slate-400"
-              title={formatTimestamp(item.timestamp)}
+              title={mounted ? formatTimestamp(item.timestamp) : ""}
             >
-              {formatTimeAgo(item.timestamp)}
+              {mounted ? formatTimeAgo(item.timestamp) : ""}
             </span>
           </div>
         );
@@ -292,10 +296,13 @@ function ActivityFeed({ items }: { items: ActivityItem[] }) {
 
 export function DashboardShell({ data }: { data: DashboardData }) {
   const { kpi, lowStock, activity, asOf } = data;
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => setMounted(true), []);
 
-  const todayLabel = new Intl.DateTimeFormat("id-ID", {
+  const todayLabel = mounted ? new Intl.DateTimeFormat("id-ID", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
-  }).format(new Date());
+  }).format(new Date()) : "";
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -306,7 +313,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
           <p className="mt-0.5 text-xs font-medium text-slate-500">{todayLabel}</p>
         </div>
         <p className="hidden sm:block text-[11px] font-medium text-slate-400 bg-white/40 px-2.5 py-1 rounded-full border border-white/50 shadow-sm backdrop-blur-sm">
-          Diperbarui {formatTimeAgo(asOf)}
+          Diperbarui {mounted ? formatTimeAgo(asOf) : ""}
         </p>
       </header>
 
@@ -333,12 +340,13 @@ export function DashboardShell({ data }: { data: DashboardData }) {
           </Link>
         </div>
 
-        {/* ── 4 KPI Cards ── */}
+        {/* ── KPI Cards ── */}
+        {/* ── KPI Cards ── */}
         <motion.div 
           initial="hidden" 
           animate="show" 
           variants={{ show: { transition: { staggerChildren: 0.1 } } }} 
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5"
         >
 
           {/* Card 1 — Revenue */}
@@ -383,8 +391,40 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             href="/keuangan"
           />
 
-          {/* Card 4 — Stok Tipis */}
-          <LowStockCard items={lowStock} />
+          {/* Card 4 — Total Kopi Terjual */}
+          <KpiCard
+            label="Total Kopi Terjual"
+            value={`${formatKg(kpi.totalKopiTerjual)} kg`}
+            sub="Total penjualan sepanjang waktu"
+            icon={<ShoppingCart size={14} />}
+            accent="emerald"
+            href="/laporan"
+          />
+
+          {/* Card 5 — Average Roast Yield */}
+          <KpiCard
+            label="Average Roast Yield"
+            value={`${kpi.averageRoastYield.toFixed(1)}%`}
+            sub="Rata-rata output roasting (30 hr terakhir)"
+            icon={<Flame size={14} />}
+            accent={kpi.averageRoastYield >= 80 ? "emerald" : "amber"}
+            href="/roasting"
+          />
+
+          {/* Card 6 — Gross Margin */}
+          <KpiCard
+            label="Est. Gross Margin"
+            value={`${kpi.averageGrossMargin.toFixed(1)}%`}
+            sub="Estimasi profit margin kotor"
+            icon={<TrendingUp size={14} />}
+            accent="emerald"
+            href="/laporan"
+          />
+
+          {/* Card 7 — Stok Tipis */}
+          <div className="lg:col-span-3 sm:col-span-2">
+            <LowStockCard items={lowStock} />
+          </div>
 
         </motion.div>
 

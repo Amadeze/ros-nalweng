@@ -3,7 +3,7 @@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -181,6 +181,30 @@ export function RoastingForm({
   // Stok GB yang dipilih (untuk hint)
   const selectedGB = gbOptions.find((g) => g.id === inputProductId);
 
+  // Filter RB berdasarkan origin GB yang dipilih
+  const filteredRbOptions = rbOptions.filter((rb) => {
+    if (!selectedGB || !selectedGB.origin) return true;
+    
+    // Jika RB punya origin, cocokkan secara persis
+    if (rb.origin) return rb.origin === selectedGB.origin;
+    
+    // Fallback: Jika RB tidak punya origin, pastikan namanya mengandung kata kunci dari GB
+    // (misalnya GB "Robusta Malang" -> RB harus mengandung "Robusta" atau "Malang")
+    const gbName = selectedGB.name.toLowerCase();
+    const rbName = rb.name.toLowerCase();
+    const gbWords = gbName.split(" ").filter(w => w.length > 3 && !['green', 'bean'].includes(w));
+    
+    return gbWords.some(w => rbName.includes(w));
+  });
+
+  // Jika GB diubah dan RB yang sebelumnya dipilih tidak valid lagi, reset nilainya
+  useEffect(() => {
+    const currentRbId = watch("outputProductId");
+    if (currentRbId && !filteredRbOptions.some(r => r.id === currentRbId)) {
+      reset((prev) => ({ ...prev, outputProductId: "" }));
+    }
+  }, [inputProductId, filteredRbOptions, watch, reset]);
+
   // ── Submit ──
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
@@ -331,14 +355,14 @@ export function RoastingForm({
               >
                 <SelectTrigger className={cn("w-full h-9", glassInput)}>
                   <SelectValue placeholder="Pilih produk RB...">
-                    {field.value ? rbOptions.find((r) => r.id === field.value)?.name : null}
+                    {field.value ? filteredRbOptions.find((r) => r.id === field.value)?.name : null}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {rbOptions.length === 0 ? (
-                    <SelectItem value="_empty" disabled>Belum ada produk RB</SelectItem>
+                  {filteredRbOptions.length === 0 ? (
+                    <SelectItem value="_empty" disabled>Tidak ada RB dengan origin yang sesuai</SelectItem>
                   ) : (
-                    rbOptions.map((r) => (
+                    filteredRbOptions.map((r) => (
                       <SelectItem key={r.id} value={r.id}>
                         {r.name}{r.roastLevel ? ` — ${ROAST_LEVEL_LABELS[r.roastLevel] ?? r.roastLevel}` : ""}
                       </SelectItem>

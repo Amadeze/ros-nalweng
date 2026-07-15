@@ -159,6 +159,12 @@
   html {
     @apply font-sans;
   }
+
+  /* Protect images when theme wrapper is inverted (Light/Dark mode switch) */
+  .rep-theme-wrapper[style*="invert"] img,
+  .rep-theme-wrapper[style*="invert"] video {
+    filter: invert(1) hue-rotate(180deg);
+  }
 }
 
 @layer utilities {

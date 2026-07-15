@@ -291,31 +291,39 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
       {/* â”€â”€ Charts Row â”€â”€ */}
       <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4 print:hidden">
         <div className="rounded-2xl border border-white/60 bg-white/40 backdrop-blur-md p-4 shadow-sm flex flex-col h-[280px]">
-          <h3 className="text-xs font-bold text-slate-700 mb-4 uppercase tracking-wider">Distribusi OPEX</h3>
+          <h3 className="text-xs font-bold text-slate-700 mb-4 uppercase tracking-wider">Distribusi Pendapatan</h3>
           <div className="flex-1 min-h-0">
-            {opexBreakdown.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={opexBreakdown}
-                    dataKey="amount"
-                    nameKey="category"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={2}
-                  >
-                    {opexBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip formatter={(value: any) => formatRupiah(Number(value))} />
-                  <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} formatter={(value) => CATEGORY_LABELS[value] || value} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-sm text-slate-400">Belum ada OPEX</div>
+            {revenue > 0 ? (() => {
+              const chartData = [
+                { name: "HPP (Modal Kopi)", amount: cogs, fill: "#f59e0b" },
+                { name: "Beban Operasional", amount: opex, fill: "#ef4444" },
+                { name: "Laba Bersih", amount: Math.max(0, netProfit), fill: "#10b981" }
+              ].filter(d => d.amount > 0);
+
+              return (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      dataKey="amount"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={2}
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip formatter={(value: any) => formatRupiah(Number(value))} />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              );
+            })() : (
+              <div className="h-full flex items-center justify-center text-sm text-slate-400">Belum ada pendapatan</div>
             )}
           </div>
         </div>

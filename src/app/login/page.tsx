@@ -6,9 +6,7 @@ import { loginAction } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
-import Image from "next/image";
-import logoImg from "../../../public/logo.png";
+import { Eye, EyeOff, AlertCircle, Loader2, Coffee } from "lucide-react";
 
 // 1. PISAHKAN LOGIKA FORM KE KOMPONEN TERSENDIRI
 function LoginForm() {
@@ -32,7 +30,11 @@ function LoginForm() {
         setError(result.error);
         return;
       }
-      router.push(from);
+      if (result.role === "SUPERADMIN") {
+        router.push("/superadmin");
+      } else {
+        router.push(from);
+      }
       router.refresh();
     } finally {
       setLoading(false);
@@ -46,10 +48,10 @@ function LoginForm() {
         <Input
           type="email"
           autoComplete="email"
-          placeholder="admin@nalweng.com"
+          placeholder="admin@roasteryos.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="h-11 text-sm bg-white text-slate-900 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
+          className="h-11 text-sm bg-slate-900/50 text-slate-100 border-slate-700 focus:border-amber-500 focus:ring-amber-500 placeholder:text-slate-500"
           required
         />
       </div>
@@ -63,7 +65,7 @@ function LoginForm() {
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="h-11 pr-10 text-sm bg-white text-slate-900 border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
+            className="h-11 pr-10 text-sm bg-slate-900/50 text-slate-100 border-slate-700 focus:border-amber-500 focus:ring-amber-500 placeholder:text-slate-500"
             required
           />
           <button
@@ -86,7 +88,7 @@ function LoginForm() {
       <Button
         type="submit"
         disabled={loading}
-        className="w-full h-11 bg-white/20 hover:bg-white/30 border border-white/20 text-white font-semibold rounded-xl backdrop-blur-md transition-all shadow-lg"
+        className="w-full h-11 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold rounded-xl transition-all shadow-lg shadow-amber-500/20"
       >
         {loading ? "Masuk..." : "Masuk"}
       </Button>
@@ -97,45 +99,45 @@ function LoginForm() {
 // 2. HALAMAN UTAMA YANG MEMBUNGKUS FORM DENGAN SUSPENSE
 export default function LoginPage() {
   return (
-    <div 
-      className="min-h-[100dvh] w-full flex items-center justify-center p-4 md:p-8 relative overflow-hidden"
-      style={{
-        background: "linear-gradient(-45deg, #0f2b38, #164e63, #1e3a8a, #0f172a)",
-        backgroundSize: "400% 400%",
-        animation: "gradient-xy 15s ease infinite",
-      }}
-    >
+    <div className="min-h-[100dvh] w-full flex items-center justify-center p-4 md:p-8 bg-slate-950 relative overflow-hidden font-sans selection:bg-amber-500/30">
       {/* Decorative floating orbs */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-500/20 blur-[120px]" />
-        <div className="absolute top-[60%] -right-[10%] w-[40%] h-[60%] rounded-full bg-teal-500/20 blur-[120px]" />
-        <div className="absolute -bottom-[20%] left-[20%] w-[60%] h-[50%] rounded-full bg-indigo-500/20 blur-[100px]" />
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-amber-500/10 blur-[120px]" />
+        <div className="absolute top-[60%] -right-[10%] w-[40%] h-[60%] rounded-full bg-slate-800/40 blur-[120px]" />
       </div>
 
-      <div className="w-full max-w-sm relative z-10">
+      <div className="w-full max-w-md relative z-10">
         {/* Card */}
-        <div className="rounded-3xl border border-white/20 bg-white/10 backdrop-blur-2xl shadow-2xl p-8">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/60 backdrop-blur-2xl shadow-2xl p-8 sm:p-10">
           {/* Brand */}
-          <div className="mb-10 flex flex-col items-center gap-4">
-            <div className="flex items-center justify-center bg-white/10 p-4 rounded-2xl border border-white/10 shadow-inner">
-              <Image src={logoImg} alt="Nalweng Logo" className="h-16 w-auto object-contain drop-shadow-lg scale-110 brightness-0 invert" priority />
+          <div className="mb-10 flex flex-col items-center gap-4 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-400 flex items-center justify-center shadow-lg shadow-amber-900/20">
+              <Coffee className="w-8 h-8 text-white" strokeWidth={2.5} />
             </div>
-            <div className="text-center">
-              <p className="text-xs font-semibold text-white/80 uppercase tracking-widest">Operating System</p>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-white mb-1">Welcome back</h1>
+              <p className="text-sm text-slate-400">Sign in to your Roastery OS workspace</p>
             </div>
           </div>
 
           {/* Form dibungkus Suspense agar lolos build Next.js */}
           <Suspense fallback={
             <div className="flex justify-center items-center py-4">
-              <Loader2 className="animate-spin text-zinc-400" size={24} />
+              <Loader2 className="animate-spin text-slate-500" size={24} />
             </div>
           }>
             <LoginForm />
           </Suspense>
 
-          <p className="mt-8 text-center text-[11px] text-white/40">
-            ROS · Nalweng Roastery · v1.0
+          <div className="mt-8 p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
+            <p className="text-xs text-slate-400 text-center">
+              <span className="font-semibold text-slate-300">Demo Access:</span><br/>
+              admin@nalweng.com / admin123
+            </p>
+          </div>
+
+          <p className="mt-8 text-center text-xs text-slate-500">
+            &copy; {new Date().getFullYear()} Roastery OS. All rights reserved.
           </p>
         </div>
       </div>

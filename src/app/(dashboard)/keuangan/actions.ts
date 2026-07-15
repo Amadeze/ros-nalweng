@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
-import { getSystemUserId } from "@/lib/auth";
+import { getSystemUserId, requireTenantPrisma } from "@/lib/auth";
 
 // =============================================================================
 // TYPES
@@ -71,6 +70,18 @@ export type ExpenseRow = {
   createdAt: string;
 };
 
+export type PurchaseRow = {
+  id: string;
+  code: string;
+  receivedAt: string;
+  itemName: string;
+  type: string;
+  supplierName: string;
+  quantity: string;
+  totalCost: number;
+  createdAt: string;
+};
+
 export type PnLReport = {
   month: number;
   year: number;
@@ -107,7 +118,7 @@ export async function getKeuanganPageData(): Promise<KeuanganPageData> {
   const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
   const [piutangInvoices, revenueMTDRaw, revenueLastMonthRaw] = await Promise.all([
-    prisma.invoice.findMany({
+    (await requireTenantPrisma()).invoice.findMany({
       where: { status: { in: ["ISSUED", "PARTIAL"] } },
       include: {
         customer: { select: { name: true, phone: true } },
@@ -118,11 +129,11 @@ export async function getKeuanganPageData(): Promise<KeuanganPageData> {
         },
       },
     }),
-    prisma.invoice.aggregate({
+    (await requireTenantPrisma()).invoice.aggregate({
       where: { status: "PAID", issuedAt: { gte: startOfMonth } },
       _sum: { grandTotal: true },
     }),
-    prisma.invoice.aggregate({
+    (await requireTenantPrisma()).invoice.aggregate({
       where: { status: "PAID", issuedAt: { gte: startOfLastMonth, lte: endOfLastMonth } },
       _sum: { grandTotal: true },
     }),
@@ -187,7 +198,7 @@ export async function getKeuanganPageData(): Promise<KeuanganPageData> {
 export async function recordPayment(input: RecordPaymentInput): Promise<PaymentActionResult> {
   try {
     const userId = await getSystemUserId();
-    const inv = await prisma.invoice.findUnique({
+    const inv = await (await requireTenantPrisma()).invoice.findUnique({
       where: { id: input.invoiceId },
       select: { id: true, code: true, grandTotal: true, paidAmount: true, status: true },
     });
@@ -204,11 +215,11 @@ export async function recordPayment(input: RecordPaymentInput): Promise<PaymentA
     const newStatus: "PAID" | "PARTIAL" = newPaidTotal >= grandTotal - 0.01 ? "PAID" : "PARTIAL";
     const paidAt = new Date(input.paidAt + "T00:00:00");
     const prefix = `PAY-${paidAt.getFullYear()}${String(paidAt.getMonth() + 1).padStart(2, "0")}`;
-    const count  = await prisma.payment.count({ where: { code: { startsWith: prefix } } });
+    const count  = await (await requireTenantPrisma()).payment.count({ where: { code: { startsWith: prefix } } });
     const payCode = `${prefix}-${String(count + 1).padStart(3, "0")}`;
     const refParts = [input.bankName, input.reference].filter(Boolean);
     const refString = refParts.length > 0 ? refParts.join(" / ") : undefined;
-    await prisma.$transaction(async (tx) => {
+    await (await requireTenantPrisma()).$transaction(async (tx) => {
       await tx.payment.create({
         data: { code: payCode, invoiceId: inv.id, amount: input.amount, method: input.method, reference: refString, paidAt, notes: input.notes, createdById: userId },
       });
@@ -231,7 +242,7 @@ export async function createExpense(input: CreateExpenseInput): Promise<CreateEx
   try {
     const userId = await getSystemUserId();
     if (input.amount <= 0) return { success: false, error: "Nominal harus lebih dari 0." };
-    const expense = await prisma.expense.create({
+    const expense = await (await requireTenantPrisma()).expense.create({
       data: { date: new Date(input.date + "T00:00:00"), category: input.category, amount: input.amount, description: input.description || null, createdById: userId },
     });
     revalidatePath("/keuangan");
@@ -261,23 +272,66 @@ export async function getPnLReport(month: number, year: number): Promise<PnLRepo
   const prevEndDate   = new Date(prevYear, prevMonth, 0, 23, 59, 59, 999);
 
   const [invoices, expenses, prevInvoices, prevExpenses] = await Promise.all([
-    prisma.invoice.findMany({
+    (await requireTenantPrisma()).invoice.findMany({
       where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: startDate, lte: endDate } },
       select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, hpp: true, unitPrice: true, discount: true, product: { select: { type: true, name: true } } } } },
     }),
-    prisma.expense.findMany({ where: { date: { gte: startDate, lte: endDate } }, select: { category: true, amount: true } }),
-    prisma.invoice.findMany({
+    (await requireTenantPrisma()).expense.findMany({ where: { date: { gte: startDate, lte: endDate } }, select: { category: true, amount: true } }),
+    (await requireTenantPrisma()).invoice.findMany({
       where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: prevStartDate, lte: prevEndDate } },
       select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, hpp: true, unitPrice: true, discount: true, product: { select: { type: true, name: true } } } } },
     }),
-    prisma.expense.findMany({ where: { date: { gte: prevStartDate, lte: prevEndDate } }, select: { category: true, amount: true } }),
+    (await requireTenantPrisma()).expense.findMany({ where: { date: { gte: prevStartDate, lte: prevEndDate } }, select: { category: true, amount: true } }),
   ]);
+
+  // ==========================================
+  // MATERIAL LOSSES / GAINS (ABNORMAL SHRINKAGE / OPNAME)
+  // ==========================================
+  const adjustments = await (await requireTenantPrisma()).inventoryLedger.findMany({
+    where: { refType: { in: ["ADJUSTMENT_IN", "ADJUSTMENT_OUT"] }, createdAt: { gte: startDate, lte: endDate } },
+    include: { product: { include: { purchases: { where: { status: "COMPLETED" }, orderBy: { receivedAt: "desc" }, take: 1 }, productionBatches: { where: { status: "COMPLETED" }, orderBy: { producedAt: "desc" }, take: 1 } } }, packaging: true }
+  });
+
+  let totalAdjustmentOutValue = 0;
+  let totalAdjustmentInValue = 0;
+
+  for (const adj of adjustments) {
+    let unitCost = 0;
+    if (adj.packaging) {
+      unitCost = Number(adj.packaging.costPerUnit);
+    } else if (adj.product) {
+      if (adj.product.type === "GREEN_BEAN" && adj.product.purchases?.[0]) {
+        const pur = adj.product.purchases[0];
+        const wKg = Number(pur.weightKg);
+        unitCost = wKg > 0 ? (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost || 0)) / wKg : 0;
+      } else if (adj.product.type === "FINISHED_GOODS" && adj.product.productionBatches?.[0]) {
+        unitCost = Number(adj.product.productionBatches[0].hppPerUnit);
+      } else if (adj.product.type === "ROASTED_BEAN") {
+        const lastRoast = await (await requireTenantPrisma()).roastingBatch.findFirst({
+          where: { outputProductId: adj.productId as string, status: "COMPLETED" },
+          orderBy: { roastedAt: "desc" },
+          include: { inputProduct: { include: { purchases: { where: { status: "COMPLETED" }, orderBy: { receivedAt: "desc" }, take: 1 } } } }
+        });
+        if (lastRoast && lastRoast.inputProduct?.purchases?.[0]) {
+          const pur = lastRoast.inputProduct.purchases[0];
+          const wKg = Number(pur.weightKg);
+          const gbCost = wKg > 0 ? (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost || 0)) / wKg : 0;
+          const outW = Number(lastRoast.outputWeightKg);
+          unitCost = outW > 0 ? gbCost * (Number(lastRoast.inputWeightKg) / outW) : gbCost;
+        }
+      }
+    }
+    const qty = Number(adj.quantityKg || adj.quantityUnit || 0);
+    const value = qty * unitCost;
+    if (adj.refType === "ADJUSTMENT_OUT") totalAdjustmentOutValue += value;
+    if (adj.refType === "ADJUSTMENT_IN") totalAdjustmentInValue += value;
+  }
 
   const grossSales      = invoices.reduce((s, inv) => s + Number(inv.subtotal), 0);
   const invoiceDiscount = invoices.reduce((s, inv) => s + Number(inv.discount), 0);
   const tax             = invoices.reduce((s, inv) => s + Number(inv.tax), 0);
   const netSales        = grossSales - invoiceDiscount;
-  const revenue         = netSales;
+  let revenue           = netSales;
   const revenueMap: Record<string, number> = {};
   const cogsMap: Record<string, number> = {};
   const productMap: Record<string, { quantity: number; revenue: number }> = {};
@@ -312,7 +366,12 @@ export async function getPnLReport(month: number, year: number): Promise<PnLRepo
     }, 0);
   }, 0);
 
+  if (totalAdjustmentInValue > 0) {
+    revenueMap["PENDAPATAN_LAINNYA"] = (revenueMap["PENDAPATAN_LAINNYA"] ?? 0) + totalAdjustmentInValue;
+  }
   const revenueBreakdown = Object.entries(revenueMap).map(([category, amount]) => ({ category, amount }));
+  revenue = revenueBreakdown.reduce((s, e) => s + e.amount, 0);
+
   const cogsBreakdown = Object.entries(cogsMap).map(([category, amount]) => ({ category, amount }));
   
   const topProducts = Object.entries(productMap)
@@ -326,11 +385,18 @@ export async function getPnLReport(month: number, year: number): Promise<PnLRepo
     .slice(0, 5);
 
   const grossProfit = revenue - cogs;
-  const opex        = expenses.reduce((s, e) => s + Number(e.amount), 0);
-  const netProfit   = grossProfit - opex;
+  
   const opexMap: Record<string, number> = {};
   for (const e of expenses) { opexMap[e.category] = (opexMap[e.category] ?? 0) + Number(e.amount); }
+  
+  if (totalAdjustmentOutValue > 0) {
+    opexMap["KERUGIAN_MATERIAL"] = (opexMap["KERUGIAN_MATERIAL"] ?? 0) + totalAdjustmentOutValue;
+  }
+  
   const opexBreakdown = Object.entries(opexMap).map(([category, amount]) => ({ category, amount }));
+  const opex = opexBreakdown.reduce((s, e) => s + e.amount, 0);
+  
+  const netProfit = grossProfit - opex;
 
   const prevGrossSales = prevInvoices.reduce((s, inv) => s + Number(inv.subtotal), 0);
   const prevDiscount   = prevInvoices.reduce((s, inv) => s + Number(inv.discount), 0);
@@ -356,10 +422,51 @@ export async function getPnLReport(month: number, year: number): Promise<PnLRepo
 // =============================================================================
 
 export async function getExpenseHistory(): Promise<ExpenseRow[]> {
-  const expenses = await prisma.expense.findMany({
+  const expenses = await (await requireTenantPrisma()).expense.findMany({
     orderBy: { date: "desc" },
     take: 200,
     select: { id: true, date: true, category: true, amount: true, description: true, createdAt: true },
   });
   return expenses.map((e) => ({ id: e.id, date: e.date.toISOString(), category: e.category, amount: Number(e.amount), description: e.description, createdAt: e.createdAt.toISOString() }));
+}
+
+// =============================================================================
+// GET PURCHASE HISTORY
+// =============================================================================
+
+export async function getPurchaseHistory(): Promise<PurchaseRow[]> {
+  const purchases = await (await requireTenantPrisma()).purchase.findMany({
+    where: { status: "COMPLETED" },
+    orderBy: { receivedAt: "desc" },
+    take: 200,
+    include: {
+      product: { select: { name: true } },
+      packaging: { select: { name: true } },
+      supplier: { select: { name: true } }
+    }
+  });
+
+  return purchases.map((p) => {
+    let itemName = "Tidak diketahui";
+    let quantity = "-";
+    if (p.type === "GREEN_BEAN" && p.product) {
+      itemName = p.product.name;
+      quantity = `${Number(p.weightKg)} kg`;
+    } else if (p.type === "PACKAGING" && p.packaging) {
+      itemName = p.packaging.name;
+      quantity = `${Number(p.quantityUnits)} unit`;
+    }
+
+    return {
+      id: p.id,
+      code: p.code,
+      receivedAt: p.receivedAt.toISOString(),
+      itemName,
+      type: p.type,
+      supplierName: p.supplier?.name || "Supplier Umum",
+      quantity,
+      totalCost: Number(p.totalCost),
+      createdAt: p.createdAt.toISOString()
+    };
+  });
 }

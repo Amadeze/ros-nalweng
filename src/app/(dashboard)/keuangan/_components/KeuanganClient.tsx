@@ -11,8 +11,9 @@ import { PiutangTable } from "./PiutangTable";
 import { TerimaPaymentDialog } from "./TerimaPaymentDialog";
 import { CatatPengeluaranDrawer } from "./CatatPengeluaranDrawer";
 import { ExpenseTable } from "./ExpenseTable";
+import { PurchaseTable } from "./PurchaseTable";
 import { formatRupiah } from "@/lib/format";
-import type { KeuanganPageData, PiutangRow, ExpenseRow } from "../actions";
+import type { KeuanganPageData, PiutangRow, ExpenseRow, PurchaseRow } from "../actions";
 
 // =============================================================================
 // KPI Card
@@ -50,7 +51,7 @@ function KpiCard({ label, value, sub, accent = "default", icon }: KpiCardProps) 
 // Tab
 // =============================================================================
 
-type Tab = "piutang" | "pengeluaran";
+type Tab = "piutang" | "pengeluaran" | "pembelian";
 
 // =============================================================================
 // Main Client
@@ -59,9 +60,10 @@ type Tab = "piutang" | "pengeluaran";
 interface KeuanganClientProps {
   data: KeuanganPageData;
   expenses: ExpenseRow[];
+  purchases: PurchaseRow[];
 }
 
-export function KeuanganClient({ data, expenses }: KeuanganClientProps) {
+export function KeuanganClient({ data, expenses, purchases }: KeuanganClientProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<PiutangRow | null>(null);
   const [dialogOpen,      setDialogOpen]      = useState(false);
   const [expenseOpen,     setExpenseOpen]     = useState(false);
@@ -137,10 +139,11 @@ export function KeuanganClient({ data, expenses }: KeuanganClientProps) {
         </div>
 
         {/* ── Tabs ── */}
-        <div className="mb-4 grid grid-cols-2 gap-2 bg-white/20 p-2 rounded-2xl backdrop-blur-md border border-white/50 w-fit">
+        <div className="mb-4 grid grid-cols-3 gap-2 bg-white/20 p-2 rounded-2xl backdrop-blur-md border border-white/50 w-fit">
           {([
             { id: "piutang",      label: `Piutang (${piutangRows.length})` },
             { id: "pengeluaran",  label: `Pengeluaran (${expenses.length})` },
+            { id: "pembelian",    label: `Pembelian Modal (${purchases.length})` },
           ] as { id: Tab; label: string }[]).map((tab) => (
             <button
               key={tab.id}
@@ -158,11 +161,9 @@ export function KeuanganClient({ data, expenses }: KeuanganClientProps) {
         </div>
 
         {/* ── Content ── */}
-        {activeTab === "piutang" ? (
-          <PiutangTable rows={piutangRows} onTerimaPayment={handleTerimaPayment} />
-        ) : (
-          <ExpenseTable rows={expenses} />
-        )}
+        {activeTab === "piutang" && <PiutangTable rows={piutangRows} onTerimaPayment={handleTerimaPayment} />}
+        {activeTab === "pengeluaran" && <ExpenseTable rows={expenses} />}
+        {activeTab === "pembelian" && <PurchaseTable rows={purchases} />}
       </StandardPageLayout>
 
       {/* ── Payment Dialog ── */}

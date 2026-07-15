@@ -1,8 +1,7 @@
 "use server";
-
+import { requireTenantPrisma } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
-import { computeFGUnitStock } from "@/lib/stock";
+import { appendLedger, computeFGUnitStock } from "@/lib/stock";
 
 // =============================================================================
 // TYPES
@@ -60,6 +59,11 @@ export type InvoiceRow = {
   status: string;
   issuedAt: string;
   dueDate: string | null;
+  shippingMethod: string | null;
+  shippingAddress: string | null;
+  courierName: string | null;
+  trackingNumber: string | null;
+  shippingCost: number;
 };
 
 export type SalesPageData = {
@@ -108,7 +112,7 @@ export type InvoicePrintData = {
 
 export async function getSalesPageData(): Promise<SalesPageData> {
   const [invoicesRaw, customers, fgProducts] = await Promise.all([
-    prisma.invoice.findMany({
+    (await requireTenantPrisma()).invoice.findMany({
       include: {
         customer: { select: { name: true } },
         _count: { select: { items: true } },
@@ -116,46 +120,26 @@ export async function getSalesPageData(): Promise<SalesPageData> {
       orderBy: { issuedAt: "desc" },
       take: 200,
     }),
-    prisma.customer.findMany({
+    (await requireTenantPrisma()).customer.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
       select: { id: true, code: true, name: true, phone: true, tier: true },
     }),
-    prisma.product.findMany({
+    (await requireTenantPrisma()).product.findMany({
       where: { type: "FINISHED_GOODS", isActive: true },
       orderBy: { name: "asc" },
-      select: { id: true, code: true, name: true, price: true, priceSilver: true, priceGold: true },
+      select: { 
+        id: true, 
+        code: true, 
+        name: true, 
+        price: true, 
+        priceSilver: true, 
+        priceGold: true,
+        stockUnit: true,
+        lastHpp: true
+      },
     }),
   ]);
-
-  // FG stock + HPP snapshot (Optimized O(1) queries instead of N+1)
-  const fgProductIds = fgProducts.map(p => p.id);
-
-  const [allLedgers, latestBatches] = await Promise.all([
-    prisma.inventoryLedger.findMany({
-      where: { productId: { in: fgProductIds }, quantityUnit: { not: null } },
-      select: { productId: true, entryType: true, quantityUnit: true },
-    }),
-    prisma.productionBatch.findMany({
-      where: { outputProductId: { in: fgProductIds }, status: "COMPLETED" },
-      orderBy: { producedAt: "desc" },
-      distinct: ["outputProductId"],
-      select: { outputProductId: true, hppPerUnit: true },
-    })
-  ]);
-
-  const stockMap = new Map<string, number>();
-  allLedgers.forEach(e => {
-    if (!e.productId) return;
-    const current = stockMap.get(e.productId) || 0;
-    const qty = e.quantityUnit || 0;
-    stockMap.set(e.productId, e.entryType === "IN" ? current + qty : current - qty);
-  });
-
-  const hppMap = new Map<string, number>();
-  latestBatches.forEach(b => {
-    hppMap.set(b.outputProductId, Number(b.hppPerUnit));
-  });
 
   const fgOptions = fgProducts.map((p) => ({
     id: p.id,
@@ -164,11 +148,11 @@ export async function getSalesPageData(): Promise<SalesPageData> {
     price: Number(p.price) || 0,
     priceSilver: Number(p.priceSilver) || 0,
     priceGold: Number(p.priceGold) || 0,
-    stockUnit: stockMap.get(p.id) || 0,
-    lastHppPerUnit: hppMap.get(p.id) ?? null,
+    stockUnit: p.stockUnit || 0,
+    lastHppPerUnit: p.lastHpp ? Number(p.lastHpp) : null,
   }));
 
-  const invoices: InvoiceRow[] = invoicesRaw.map((inv) => {
+  const invoices: InvoiceRow[] = invoicesRaw.map((inv: any) => {
     const grand = Number(inv.grandTotal);
     const paid = Number(inv.paidAmount);
     return {
@@ -182,6 +166,11 @@ export async function getSalesPageData(): Promise<SalesPageData> {
       status: inv.status,
       issuedAt: inv.issuedAt.toISOString(),
       dueDate: inv.dueDate ? inv.dueDate.toISOString() : null,
+      shippingMethod: inv.shippingMethod,
+      shippingAddress: inv.shippingAddress,
+      courierName: inv.courierName,
+      trackingNumber: inv.trackingNumber,
+      shippingCost: Number(inv.shippingCost || 0),
     };
   });
 
@@ -195,7 +184,7 @@ export async function getSalesPageData(): Promise<SalesPageData> {
 export async function createInvoice(input: CreateInvoiceInput): Promise<SalesActionResult> {
   try {
     // ── System user ──
-    const user = await prisma.user.upsert({
+    const user = await (await requireTenantPrisma()).user.upsert({
       where: { email: "system@ros.internal" },
       update: {},
       create: {
@@ -210,7 +199,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
     for (const item of input.items) {
       const stock = await computeFGUnitStock(item.productId);
       if (stock < item.quantity) {
-        const product = await prisma.product.findUnique({
+        const product = await (await requireTenantPrisma()).product.findUnique({
           where: { id: item.productId },
           select: { name: true },
         });
@@ -225,7 +214,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
     const hppMap = new Map<string, number>();
     await Promise.all(
       input.items.map(async (item) => {
-        const lastBatch = await prisma.productionBatch.findFirst({
+        const lastBatch = await (await requireTenantPrisma()).productionBatch.findFirst({
           where: { outputProductId: item.productId, status: "COMPLETED" },
           orderBy: { producedAt: "desc" },
           select: { hppPerUnit: true },
@@ -237,7 +226,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
     // ── Generate invoice code ──
     const now = new Date();
     const prefix = `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const count = await prisma.invoice.count({ where: { code: { startsWith: prefix } } });
+    const count = await (await requireTenantPrisma()).invoice.count({ where: { code: { startsWith: prefix } } });
     const invoiceCode = `${prefix}-${String(count + 1).padStart(3, "0")}`;
 
     // ── Compute totals ──
@@ -251,7 +240,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
     const grandTotal = subtotal - input.invoiceDiscount + input.tax;
 
     // ── ACID transaction ──
-    const invoice = await prisma.$transaction(async (tx) => {
+    const invoice = await (await requireTenantPrisma()).$transaction(async (tx) => {
       const inv = await tx.invoice.create({
         data: {
           code: invoiceCode,
@@ -286,7 +275,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
 
       // InventoryLedger OUT per item
       for (const item of enrichedItems) {
-        await tx.inventoryLedger.create({
+        await appendLedger(tx, {
           data: {
             productId: item.productId,
             entryType: "OUT",
@@ -336,7 +325,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
 // =============================================================================
 
 export async function getInvoiceForPrint(id: string): Promise<InvoicePrintData | null> {
-  const inv = await prisma.invoice.findUnique({
+  const inv = await (await requireTenantPrisma()).invoice.findUnique({
     where: { id },
     include: {
       customer: { select: { name: true, phone: true, address: true } },
@@ -406,13 +395,13 @@ export async function voidInvoice(
   reason: string
 ): Promise<VoidResult> {
   try {
-    const user = await prisma.user.upsert({
+    const user = await (await requireTenantPrisma()).user.upsert({
       where: { email: "system@ros.internal" },
       update: {},
       create: { name: "System", email: "system@ros.internal", password: "system", role: "OWNER" },
     });
 
-    const inv = await prisma.invoice.findUnique({
+    const inv = await (await requireTenantPrisma()).invoice.findUnique({
       where: { id: invoiceId },
       include: { items: true },
     });
@@ -421,10 +410,10 @@ export async function voidInvoice(
     if (inv.status === "VOID") return { success: false, error: "Nota sudah di-void." };
     if (inv.status === "PAID") return { success: false, error: "Nota yang sudah LUNAS tidak bisa di-void. Hubungi manajer." };
 
-    await prisma.$transaction(async (tx) => {
+    await (await requireTenantPrisma()).$transaction(async (tx) => {
       // Kembalikan stok FG
       for (const item of inv.items) {
-        await tx.inventoryLedger.create({
+        await appendLedger(tx, {
           data: {
             productId:    item.productId,
             entryType:    "IN",
@@ -450,5 +439,114 @@ export async function voidInvoice(
   } catch (err) {
     console.error("[voidInvoice]", err);
     return { success: false, error: "Gagal melakukan void." };
+  }
+}
+// =============================================================================
+// APPROVE INVOICE & GENERATE MIDTRANS LINK
+// =============================================================================
+
+import { createMidtransSnapTransaction } from "@/lib/midtrans";
+
+export async function approveInvoiceForMidtrans(invoiceId: string) {
+  try {
+    const prisma = await requireTenantPrisma();
+    const inv = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: { 
+        customer: true,
+        tenant: true,
+        items: { include: { product: true } }
+      },
+    });
+
+    if (!inv) return { success: false, error: "Nota tidak ditemukan." };
+    if (inv.status !== "DRAFT") return { success: false, error: "Nota tidak berstatus DRAFT." };
+
+    const tenant = inv.tenant;
+    let paymentLink: string | null = null;
+    let warningMessage: string | null = null;
+
+    if (tenant.midtransServerKey) {
+      try {
+        const itemDetails = inv.items.map(i => ({
+          id: i.productId,
+          price: Number(i.unitPrice),
+          quantity: i.quantity,
+          name: i.product.name.substring(0, 50)
+        }));
+
+        const snapParams = {
+          order_id: inv.code,
+          gross_amount: Number(inv.grandTotal),
+          customer_details: {
+            first_name: inv.customer.name,
+            phone: inv.customer.phone || undefined,
+            email: inv.customer.email || undefined,
+          },
+          item_details: itemDetails
+        };
+
+        const snapRes = await createMidtransSnapTransaction(
+          tenant.midtransServerKey,
+          tenant.midtransIsProduction,
+          snapParams
+        );
+        paymentLink = snapRes.redirect_url;
+      } catch (midtransErr: any) {
+        console.error("[approveInvoiceForMidtrans Midtrans Error]", midtransErr);
+        warningMessage = midtransErr.message || "Gagal membuat link pembayaran Midtrans.";
+      }
+    }
+
+    const existingNotes = inv.notes ? inv.notes + "\n\n" : "";
+    const newNotes = paymentLink ? `${existingNotes}Link Pembayaran (Midtrans): ${paymentLink}` : inv.notes;
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: { 
+        status: "ISSUED",
+        notes: newNotes
+      }
+    });
+
+    revalidatePath("/penjualan");
+    return { success: true, paymentLink, warning: warningMessage };
+  } catch (err: any) {
+    console.error("[approveInvoiceForMidtrans]", err);
+    return { success: false, error: "Gagal memproses nota: " + (err.message || "Unknown error") };
+  }
+}
+
+export async function updateInvoiceShipping(
+  invoiceId: string, 
+  data: { courierName?: string; trackingNumber?: string; shippingCost?: number; shippingMethod?: string }
+) {
+  try {
+    const prisma = await requireTenantPrisma();
+
+    const { courierName, trackingNumber, shippingCost, shippingMethod } = data;
+    const updateData: any = {};
+    if (courierName !== undefined) updateData.courierName = courierName;
+    if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber;
+    if (shippingCost !== undefined) {
+      updateData.shippingCost = shippingCost;
+      // We also need to recalculate grandTotal if shippingCost changes
+      const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+      if (invoice) {
+        updateData.grandTotal = Number(invoice.subtotal) - Number(invoice.discount) + Number(invoice.tax) + shippingCost;
+      }
+    }
+    if (shippingMethod !== undefined) updateData.shippingMethod = shippingMethod;
+
+    await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: updateData
+    });
+
+    revalidatePath("/penjualan");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Update Shipping Error:", error);
+    return { error: "Gagal update data pengiriman: " + error.message };
   }
 }

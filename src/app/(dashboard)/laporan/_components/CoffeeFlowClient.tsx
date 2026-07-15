@@ -63,8 +63,9 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
           <Table>
             <TableHeader className="bg-emerald-50/30">
               <TableRow>
-                <TableHead className="font-semibold text-emerald-900 w-[30%]">Produk</TableHead>
+                <TableHead className="font-semibold text-emerald-900 w-[25%]">Produk</TableHead>
                 <TableHead className="text-right font-semibold text-emerald-900">Total Dibeli</TableHead>
+                <TableHead className="text-right font-semibold text-emerald-900">Harga Rata-Rata</TableHead>
                 <TableHead className="text-right font-semibold text-emerald-900">Masuk Roasting</TableHead>
                 <TableHead className="text-right font-semibold text-emerald-900">Koreksi/Hilang</TableHead>
                 <TableHead className="text-right font-semibold text-emerald-900 bg-emerald-50/50">Sisa Stok (kg)</TableHead>
@@ -72,12 +73,17 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
             </TableHeader>
             <TableBody>
               {filteredGB.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center text-slate-500 py-6">Belum ada data Green Bean</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-6">Belum ada data Green Bean</TableCell></TableRow>
               )}
               {filteredGB.map(gb => (
                 <TableRow key={gb.id} className="hover:bg-emerald-50/20">
                   <TableCell className="font-medium text-slate-700">{gb.name}</TableCell>
                   <TableCell className="text-right text-emerald-700 font-medium">+{gb.boughtKg.toLocaleString('id-ID')} kg</TableCell>
+                  <TableCell className="text-right text-slate-600">
+                    {gb.avgPurchasePrice > 0 ? (
+                      <span className="text-xs">Rp {gb.avgPurchasePrice.toLocaleString('id-ID', { maximumFractionDigits: 0 })} /kg</span>
+                    ) : '-'}
+                  </TableCell>
                   <TableCell className="text-right text-orange-600">-{gb.roastedKg.toLocaleString('id-ID')} kg</TableCell>
                   <TableCell className="text-right text-red-500">{gb.adjustmentOutKg > 0 ? `-${gb.adjustmentOutKg.toLocaleString('id-ID')} kg` : '-'}</TableCell>
                   <TableCell className="text-right font-bold text-slate-800 bg-emerald-50/30">{gb.currentStockKg.toLocaleString('id-ID')} kg</TableCell>
@@ -101,9 +107,10 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
           <Table>
             <TableHeader className="bg-amber-50/30">
               <TableRow>
-                <TableHead className="font-semibold text-amber-900 w-[25%]">Produk</TableHead>
+                <TableHead className="font-semibold text-amber-900 w-[20%]">Produk</TableHead>
                 <TableHead className="text-right font-semibold text-amber-900">Hasil Roasting</TableHead>
                 <TableHead className="text-right font-semibold text-amber-900">Susut (Loss)</TableHead>
+                <TableHead className="text-right font-semibold text-amber-900">Rugi Penyusutan</TableHead>
                 <TableHead className="text-right font-semibold text-amber-900">Masuk Produksi</TableHead>
                 <TableHead className="text-right font-semibold text-amber-900">Koreksi/Hilang</TableHead>
                 <TableHead className="text-right font-semibold text-amber-900 bg-amber-50/50">Sisa Stok (kg)</TableHead>
@@ -111,7 +118,7 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
             </TableHeader>
             <TableBody>
               {filteredRB.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-6">Belum ada data Roasted Bean</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-slate-500 py-6">Belum ada data Roasted Bean</TableCell></TableRow>
               )}
               {filteredRB.map(rb => {
                 const lossPct = rb.producedKg + rb.roastLossKg > 0 ? (rb.roastLossKg / (rb.producedKg + rb.roastLossKg)) * 100 : 0;
@@ -122,6 +129,11 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
                     <TableCell className="text-right text-red-500">
                       {rb.roastLossKg > 0 ? (
                         <span>-{rb.roastLossKg.toLocaleString('id-ID', { maximumFractionDigits: 2 })} kg <span className="text-xs opacity-70">({lossPct.toFixed(1)}%)</span></span>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell className="text-right text-red-600">
+                      {rb.roastLossValue > 0 ? (
+                        <span className="text-xs font-medium">-Rp {rb.roastLossValue.toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                       ) : '-'}
                     </TableCell>
                     <TableCell className="text-right text-orange-600">-{rb.packagedKg.toLocaleString('id-ID', { maximumFractionDigits: 2 })} kg</TableCell>
@@ -148,16 +160,17 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
           <Table>
             <TableHeader className="bg-indigo-50/30">
               <TableRow>
-                <TableHead className="font-semibold text-indigo-900 w-[25%]">Produk</TableHead>
+                <TableHead className="font-semibold text-indigo-900 w-[20%]">Produk</TableHead>
                 <TableHead className="text-right font-semibold text-indigo-900">Total Diproduksi</TableHead>
                 <TableHead className="text-right font-semibold text-indigo-900">Total Terjual</TableHead>
+                <TableHead className="text-right font-semibold text-indigo-900">Laba Penjualan (Kotor)</TableHead>
                 <TableHead className="text-right font-semibold text-indigo-900">Koreksi/Hilang</TableHead>
                 <TableHead className="text-right font-semibold text-indigo-900 bg-indigo-50/50">Sisa Stok (Unit)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredFG.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center text-slate-500 py-6">Belum ada data Finished Goods</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-6">Belum ada data Finished Goods</TableCell></TableRow>
               )}
               {filteredFG.map(fg => (
                 <TableRow key={fg.id} className="hover:bg-indigo-50/20">
@@ -185,6 +198,16 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
                           <ArrowRight size={10}/> {fg.soldEquivalentKg.toLocaleString('id-ID', { maximumFractionDigits: 2 })} kg kopi
                         </span>
                       )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex flex-col items-end">
+                      <span className={fg.grossProfit >= 0 ? "text-emerald-600 font-medium" : "text-red-600 font-medium"}>
+                        {fg.grossProfit >= 0 ? '+' : '-'}Rp {Math.abs(fg.grossProfit).toLocaleString('id-ID', { maximumFractionDigits: 0 })}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        Pndp: Rp{fg.salesRevenue.toLocaleString('id-ID')}
+                      </span>
                     </div>
                   </TableCell>
                   <TableCell className="text-right text-red-500">

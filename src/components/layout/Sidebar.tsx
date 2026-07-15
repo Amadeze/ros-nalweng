@@ -15,6 +15,7 @@ import {
   Package,
   LogOut,
   Users,
+  Settings,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -22,8 +23,6 @@ import { logoutAction } from "@/app/login/actions";
 
 // ─────────────────────────────────────────────
 // Menu definition
-// ─────────────────────────────────────────────
-
 const NAV_ITEMS = [
   { label: "Dashboard",   href: "/dashboard",    icon: LayoutDashboard },
   { label: "Inventory",   href: "/inventory",    icon: PackageSearch   },
@@ -33,6 +32,8 @@ const NAV_ITEMS = [
   { label: "Keuangan",    href: "/keuangan",     icon: BarChart3       },
   { label: "Laporan Finansial", href: "/laporan", icon: FileText       },
   { label: "Data Master", href: "/master-data",  icon: Database        },
+  { label: "Pengaturan",  href: "/settings",     icon: Settings        },
+  { label: "Billing & Plan", href: "/billing",   icon: FileText        },
 ] as const;
 
 // ─────────────────────────────────────────────
@@ -90,7 +91,10 @@ export function Sidebar({ userRole }: { userRole: string }) {
 
   // Role-based access control for sidebar menus
   const filteredNavItems = NAV_ITEMS.filter((item) => {
-    if (userRole === "OWNER" || userRole === "MANAGER") return true;
+    if (userRole === "OWNER") return true;
+    if (userRole === "MANAGER") {
+      return item.href !== "/settings";
+    }
     if (userRole === "OPERATOR") {
       return ["/dashboard", "/inventory", "/roasting", "/produksi"].includes(item.href);
     }

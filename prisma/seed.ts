@@ -46,6 +46,12 @@ function daysFromNow(n: number): Date {
 async function main() {
   console.log("🌱  Starting ROS Nalweng seed...\n");
 
+  let tenant = await prisma.tenant.findUnique({where: {code: 'NALWENG'}});
+  if (!tenant) {
+    tenant = await prisma.tenant.create({data: {name: 'Nalweng Roastery', code: 'NALWENG'}});
+  }
+
+
   // ─────────────────────────────────────────────────────────────────────────
   // 0. SYSTEM USER
   // ─────────────────────────────────────────────────────────────────────────
@@ -53,7 +59,7 @@ async function main() {
   const systemUser = await prisma.user.upsert({
     where:  { email: "system@ros.internal" },
     update: {},
-    create: {
+    create: { tenantId: tenant.id, 
       name:     "System",
       email:    "system@ros.internal",
       password: "system",
@@ -70,7 +76,7 @@ async function main() {
     prisma.supplier.upsert({
       where:  { code: "SUP-202507-001" },
       update: {},
-      create: {
+      create: { tenantId: tenant.id, 
         code:    "SUP-202507-001",
         name:    "Koperasi Kopi Gayo",
         phone:   "0812-0000-0001",
@@ -81,7 +87,7 @@ async function main() {
     prisma.supplier.upsert({
       where:  { code: "SUP-202507-002" },
       update: {},
-      create: {
+      create: { tenantId: tenant.id, 
         code:    "SUP-202507-002",
         name:    "Mitra Robusta Nusantara",
         phone:   "0813-0000-0002",
@@ -100,7 +106,7 @@ async function main() {
     prisma.customer.upsert({
       where:  { code: "CST-202507-001" },
       update: {},
-      create: {
+      create: { tenantId: tenant.id, 
         code:    "CST-202507-001",
         name:    "Kafe A",
         phone:   "021-1111-0001",
@@ -111,7 +117,7 @@ async function main() {
     prisma.customer.upsert({
       where:  { code: "CST-202507-002" },
       update: {},
-      create: {
+      create: { tenantId: tenant.id, 
         code:    "CST-202507-002",
         name:    "Kafe B",
         phone:   "022-2222-0002",
@@ -122,7 +128,7 @@ async function main() {
     prisma.customer.upsert({
       where:  { code: "CST-202507-003" },
       update: {},
-      create: {
+      create: { tenantId: tenant.id, 
         code:    "CST-202507-003",
         name:    "Kafe C",
         phone:   "031-3333-0003",
@@ -141,7 +147,7 @@ async function main() {
     prisma.product.upsert({
       where:  { code: "GB-GAYO" },
       update: {},
-      create: {
+      create: { tenantId: tenant.id, 
         code:        "GB-GAYO",
         name:        "Gayo Mentah",
         type:        "GREEN_BEAN",
@@ -152,7 +158,7 @@ async function main() {
     prisma.product.upsert({
       where:  { code: "GB-ROBUSTA" },
       update: {},
-      create: {
+      create: { tenantId: tenant.id, 
         code:        "GB-ROBUSTA",
         name:        "Robusta Mentah",
         type:        "GREEN_BEAN",
@@ -172,7 +178,7 @@ async function main() {
     prisma.product.upsert({
       where:  { code: "RB-GAYO" },
       update: {},
-      create: {
+      create: { tenantId: tenant.id, 
         code:       "RB-GAYO",
         name:       "RB Gayo",
         type:       "ROASTED_BEAN",
@@ -183,7 +189,7 @@ async function main() {
     prisma.product.upsert({
       where:  { code: "RB-ROBUSTA" },
       update: {},
-      create: {
+      create: { tenantId: tenant.id, 
         code:       "RB-ROBUSTA",
         name:       "RB Robusta",
         type:       "ROASTED_BEAN",
@@ -202,7 +208,7 @@ async function main() {
     prisma.product.upsert({
       where:  { code: "FG-FULL-ARABICA" },
       update: {},
-      create: {
+      create: { tenantId: tenant.id, 
         code:        "FG-FULL-ARABICA",
         name:        "Full Arabica 1KG",
         type:        "FINISHED_GOODS",
@@ -213,7 +219,7 @@ async function main() {
     prisma.product.upsert({
       where:  { code: "FG-BLEND-A" },
       update: {},
-      create: {
+      create: { tenantId: tenant.id, 
         code:        "FG-BLEND-A",
         name:        "Blend A 1KG",
         type:        "FINISHED_GOODS",
@@ -230,7 +236,7 @@ async function main() {
   const pkgPouch1KG = await prisma.packaging.upsert({
     where:  { code: "PKG-POUCH-1KG" },
     update: {},
-    create: {
+    create: { tenantId: tenant.id, 
       code:        "PKG-POUCH-1KG",
       name:        "Pouch 1KG",
       weightGrams: 55,        // berat kemasan kosong 55g
@@ -247,7 +253,7 @@ async function main() {
   const recipeFullArabica = await prisma.recipe.upsert({
     where:  { code: "RCP-FULL-ARABICA" },
     update: {},
-    create: {
+    create: { tenantId: tenant.id, 
       code:        "RCP-FULL-ARABICA",
       name:        "Full Arabica 1KG",
       productId:   fgFullArabica.id,
@@ -260,8 +266,7 @@ async function main() {
   await prisma.recipeItem.upsert({
     where:  { recipeId_productId: { recipeId: recipeFullArabica.id, productId: rbGayo.id } },
     update: {},
-    create: {
-      recipeId:     recipeFullArabica.id,
+    create: { recipeId:     recipeFullArabica.id,
       productId:    rbGayo.id,
       ratioPercent: 100,
       gramsPerUnit: 1000,
@@ -272,7 +277,7 @@ async function main() {
   const recipeBlendA = await prisma.recipe.upsert({
     where:  { code: "RCP-BLEND-A" },
     update: {},
-    create: {
+    create: { tenantId: tenant.id, 
       code:        "RCP-BLEND-A",
       name:        "Blend A 1KG",
       productId:   fgBlendA.id,
@@ -286,8 +291,7 @@ async function main() {
     prisma.recipeItem.upsert({
       where:  { recipeId_productId: { recipeId: recipeBlendA.id, productId: rbGayo.id } },
       update: {},
-      create: {
-        recipeId:     recipeBlendA.id,
+      create: { recipeId:     recipeBlendA.id,
         productId:    rbGayo.id,
         ratioPercent: 50,
         gramsPerUnit: 500,
@@ -296,8 +300,7 @@ async function main() {
     prisma.recipeItem.upsert({
       where:  { recipeId_productId: { recipeId: recipeBlendA.id, productId: rbRobusta.id } },
       update: {},
-      create: {
-        recipeId:     recipeBlendA.id,
+      create: { recipeId:     recipeBlendA.id,
         productId:    rbRobusta.id,
         ratioPercent: 50,
         gramsPerUnit: 500,
@@ -312,7 +315,7 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const purGayo = await prisma.purchase.create({
-    data: {
+    data: { tenantId: tenant.id, 
       code:         "PUR-202507-001",
       type:         "GREEN_BEAN",
       supplierId:   supGayo.id,
@@ -329,7 +332,7 @@ async function main() {
     },
   });
   await prisma.inventoryLedger.create({
-    data: {
+    data: { tenantId: tenant.id, 
       productId:   gbGayo.id,
       entryType:   "IN",
       refType:     "PURCHASE_GB",
@@ -348,7 +351,7 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const purRobusta = await prisma.purchase.create({
-    data: {
+    data: { tenantId: tenant.id, 
       code:         "PUR-202507-002",
       type:         "GREEN_BEAN",
       supplierId:   supRobusta.id,
@@ -365,7 +368,7 @@ async function main() {
     },
   });
   await prisma.inventoryLedger.create({
-    data: {
+    data: { tenantId: tenant.id, 
       productId:   gbRobusta.id,
       entryType:   "IN",
       refType:     "PURCHASE_GB",
@@ -383,7 +386,7 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const purPkg = await prisma.purchase.create({
-    data: {
+    data: { tenantId: tenant.id, 
       code:          "PUR-202507-003",
       type:          "PACKAGING",
       supplierId:    supGayo.id,      // supplier apa saja, pakai supGayo
@@ -400,7 +403,7 @@ async function main() {
     },
   });
   await prisma.inventoryLedger.create({
-    data: {
+    data: { tenantId: tenant.id, 
       packagingId:  pkgPouch1KG.id,
       entryType:    "IN",
       refType:      "PURCHASE_PKG",
@@ -419,7 +422,7 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const rstGayo = await prisma.roastingBatch.create({
-    data: {
+    data: { tenantId: tenant.id, 
       code:             "RST-202507-001",
       inputProductId:   gbGayo.id,
       inputWeightKg:    10,
@@ -436,7 +439,7 @@ async function main() {
   });
   await Promise.all([
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         productId:   gbGayo.id,
         entryType:   "OUT",
         refType:     "ROASTING_GB_OUT",
@@ -448,7 +451,7 @@ async function main() {
       },
     }),
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         productId:   rbGayo.id,
         entryType:   "IN",
         refType:     "ROASTING_RB_IN",
@@ -468,7 +471,7 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const rstRobusta = await prisma.roastingBatch.create({
-    data: {
+    data: { tenantId: tenant.id, 
       code:             "RST-202507-002",
       inputProductId:   gbRobusta.id,
       inputWeightKg:    10,
@@ -485,7 +488,7 @@ async function main() {
   });
   await Promise.all([
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         productId:   gbRobusta.id,
         entryType:   "OUT",
         refType:     "ROASTING_GB_OUT",
@@ -497,7 +500,7 @@ async function main() {
       },
     }),
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         productId:   rbRobusta.id,
         entryType:   "IN",
         refType:     "ROASTING_RB_IN",
@@ -521,7 +524,7 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const prdFullArabica = await prisma.productionBatch.create({
-    data: {
+    data: { tenantId: tenant.id, 
       code:           "PRD-202507-001",
       recipeId:       recipeFullArabica.id,
       outputProductId: fgFullArabica.id,
@@ -539,7 +542,7 @@ async function main() {
   await Promise.all([
     // RB Gayo OUT
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         productId:   rbGayo.id,
         entryType:   "OUT",
         refType:     "PRODUCTION_RB_OUT",
@@ -552,7 +555,7 @@ async function main() {
     }),
     // PKG OUT
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         packagingId:  pkgPouch1KG.id,
         entryType:    "OUT",
         refType:      "PRODUCTION_PKG_OUT",
@@ -565,7 +568,7 @@ async function main() {
     }),
     // FG IN
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         productId:    fgFullArabica.id,
         entryType:    "IN",
         refType:      "PRODUCTION_FG_IN",
@@ -590,7 +593,7 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const prdBlendA = await prisma.productionBatch.create({
-    data: {
+    data: { tenantId: tenant.id, 
       code:            "PRD-202507-002",
       recipeId:        recipeBlendA.id,
       outputProductId: fgBlendA.id,
@@ -608,7 +611,7 @@ async function main() {
   await Promise.all([
     // RB Gayo OUT (2.5kg)
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         productId:   rbGayo.id,
         entryType:   "OUT",
         refType:     "PRODUCTION_RB_OUT",
@@ -621,7 +624,7 @@ async function main() {
     }),
     // RB Robusta OUT (2.5kg)
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         productId:   rbRobusta.id,
         entryType:   "OUT",
         refType:     "PRODUCTION_RB_OUT",
@@ -634,7 +637,7 @@ async function main() {
     }),
     // PKG OUT
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         packagingId:  pkgPouch1KG.id,
         entryType:    "OUT",
         refType:      "PRODUCTION_PKG_OUT",
@@ -647,7 +650,7 @@ async function main() {
     }),
     // FG IN
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         productId:    fgBlendA.id,
         entryType:    "IN",
         refType:      "PRODUCTION_FG_IN",
@@ -670,7 +673,7 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const inv1 = await prisma.invoice.create({
-    data: {
+    data: { tenantId: tenant.id, 
       code:        "INV-202507-001",
       customerId:  custA.id,
       subtotal:    760_000,
@@ -688,8 +691,7 @@ async function main() {
   // Line items
   await Promise.all([
     prisma.invoiceItem.create({
-      data: {
-        invoiceId: inv1.id,
+      data: { invoiceId: inv1.id,
         productId: fgFullArabica.id,
         quantity:  2,
         unitPrice: 200_000,
@@ -699,8 +701,7 @@ async function main() {
       },
     }),
     prisma.invoiceItem.create({
-      data: {
-        invoiceId: inv1.id,
+      data: { invoiceId: inv1.id,
         productId: fgBlendA.id,
         quantity:  2,
         unitPrice: 180_000,
@@ -713,7 +714,7 @@ async function main() {
   // Stok FG OUT
   await Promise.all([
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         productId:    fgFullArabica.id,
         entryType:    "OUT",
         refType:      "SALE_FG_OUT",
@@ -725,7 +726,7 @@ async function main() {
       },
     }),
     prisma.inventoryLedger.create({
-      data: {
+      data: { tenantId: tenant.id, 
         productId:    fgBlendA.id,
         entryType:    "OUT",
         refType:      "SALE_FG_OUT",
@@ -739,7 +740,7 @@ async function main() {
   ]);
   // Payment CASH
   await prisma.payment.create({
-    data: {
+    data: { tenantId: tenant.id, 
       code:        "PAY-202507-001",
       invoiceId:   inv1.id,
       amount:      760_000,
@@ -759,7 +760,7 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const inv2 = await prisma.invoice.create({
-    data: {
+    data: { tenantId: tenant.id, 
       code:        "INV-202507-002",
       customerId:  custB.id,
       subtotal:    200_000,
@@ -776,8 +777,7 @@ async function main() {
     },
   });
   await prisma.invoiceItem.create({
-    data: {
-      invoiceId: inv2.id,
+    data: { invoiceId: inv2.id,
       productId: fgFullArabica.id,
       quantity:  1,
       unitPrice: 200_000,
@@ -787,7 +787,7 @@ async function main() {
     },
   });
   await prisma.inventoryLedger.create({
-    data: {
+    data: { tenantId: tenant.id, 
       productId:    fgFullArabica.id,
       entryType:    "OUT",
       refType:      "SALE_FG_OUT",
@@ -807,7 +807,7 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const inv3 = await prisma.invoice.create({
-    data: {
+    data: { tenantId: tenant.id, 
       code:        "INV-202507-003",
       customerId:  custC.id,
       subtotal:    360_000,
@@ -824,8 +824,7 @@ async function main() {
     },
   });
   await prisma.invoiceItem.create({
-    data: {
-      invoiceId: inv3.id,
+    data: { invoiceId: inv3.id,
       productId: fgBlendA.id,
       quantity:  2,
       unitPrice: 180_000,
@@ -835,7 +834,7 @@ async function main() {
     },
   });
   await prisma.inventoryLedger.create({
-    data: {
+    data: { tenantId: tenant.id, 
       productId:    fgBlendA.id,
       entryType:    "OUT",
       refType:      "SALE_FG_OUT",
@@ -854,7 +853,7 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   await prisma.payment.create({
-    data: {
+    data: { tenantId: tenant.id, 
       code:        "PAY-202507-002",
       invoiceId:   inv2.id,
       amount:      200_000,
@@ -868,7 +867,7 @@ async function main() {
   // Update Invoice status → PAID
   await prisma.invoice.update({
     where: { id: inv2.id },
-    data:  { paidAmount: 200_000, status: "PAID" },
+    data: { tenantId: tenant.id,  paidAmount: 200_000, status: "PAID" },
   });
   console.log("✓  Pembayaran Piutang Kafe B Rp 200.000 Transfer BCA — PAY-202507-002");
 
