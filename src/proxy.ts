@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
 
 const PUBLIC_PATHS = ["/login"];
-const ROOT_DOMAINS = ['localhost', '127.0.0.1', 'ros.com', 'www.ros.com', 'app.ros.com'];
+const ROOT_DOMAINS = ['localhost', '127.0.0.1', 'ros.com', 'www.ros.com', 'app.ros.com', 'beanslab.vercel.app', 'ros-nalweng.vercel.app'];
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl;
@@ -45,7 +45,7 @@ export async function proxy(request: NextRequest) {
       } else if (hostname.endsWith('.ros.com')) {
         newUrl.hostname = 'app.ros.com';
       } else {
-        newUrl.hostname = 'localhost';
+        newUrl.hostname = 'beanslab.vercel.app';
       }
       return NextResponse.redirect(newUrl);
     }
