@@ -66,7 +66,7 @@ export function TenantPortalClient({ tenant }: TenantPortalClientProps) {
   const footerText = tenant.footerText || "All rights reserved.";
 
   // ─── Contact Links ────────────────────────────────────────────────────
-  let waLink = `mailto:hello@${tenant.subdomain}.ros.com`;
+  let waLink = `mailto:hello@${tenant.subdomain}.beanslab.vercel.app`;
   if (tenant.whatsappNumber) {
     let cleanWa = tenant.whatsappNumber.replace(/\D/g, '');
     if (cleanWa.startsWith('0')) cleanWa = '62' + cleanWa.substring(1);

@@ -83,7 +83,7 @@ export default function RootPage() {
             <FeatureCard 
               icon={<Globe className="w-8 h-8 text-amber-400" />}
               title="Custom B2B Portal"
-              description="Get your own branded subdomain (e.g., you.ros.com) for wholesale clients to browse catalogs."
+              description="Get your own branded subdomain (e.g., you.beanslab.vercel.app) for wholesale clients to browse catalogs."
             />
             <FeatureCard 
               icon={<Users className="w-8 h-8 text-amber-400" />}
