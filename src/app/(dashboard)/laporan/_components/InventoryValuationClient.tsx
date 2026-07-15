@@ -18,7 +18,7 @@ const CATEGORY_MAP: Record<string, { label: string, icon: React.ReactNode }> = {
 
 function exportToCSV(report: InventoryValuationReport) {
   const rows = [
-    ["Laporan Valuasi Persediaan", `Nalweng Roastery - ${new Date().toLocaleDateString("id-ID")}`],
+    ["Laporan Valuasi Persediaan", `Beanslab Roastery - ${new Date().toLocaleDateString("id-ID")}`],
     [],
     ["Ringkasan Valuasi", "Nilai (IDR)"],
     ["Green Bean", report.totalGreenBeanValue],

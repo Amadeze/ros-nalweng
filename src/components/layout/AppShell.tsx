@@ -56,7 +56,7 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
             <Menu size={20} />
           </button>
           <div className="flex items-center ml-3">
-            <img src="/logo.png" alt="Nalweng Logo" className="h-10 w-auto object-contain drop-shadow-sm scale-150 origin-left" />
+            <img src="/logo.png" alt="Beanslab Logo" className="h-10 w-auto object-contain drop-shadow-sm scale-150 origin-left" />
           </div>
         </div>
 

@@ -49,7 +49,7 @@ export default async function InvoicePrintPage({
         {/* Invoice Header */}
         <div className="flex justify-between items-start border-b-2 border-slate-200 pb-6 mb-6">
           <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">NALWENG</h1>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900">BEANSLAB</h1>
             <p className="text-xs font-semibold tracking-widest uppercase text-slate-500">Roastery OS</p>
             <div className="mt-2 text-sm text-slate-600">
               <p>Jl. Contoh Alamat No. 123</p>
@@ -153,7 +153,7 @@ export default async function InvoicePrintPage({
 
         <div className="mt-16 text-center text-xs font-medium text-slate-400 print:mt-12">
           <p>Terima kasih atas kepercayaan Anda.</p>
-          <p>Nalweng Roastery OS &copy; {new Date().getFullYear()}</p>
+          <p>Beanslab Roastery OS &copy; {new Date().getFullYear()}</p>
         </div>
       </div>
 

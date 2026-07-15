@@ -78,7 +78,7 @@ export function TenantForm() {
                 <label className="text-xs font-semibold text-slate-300">Outlet Name</label>
                 <input 
                   type="text" required value={name} onChange={e => setName(e.target.value)}
-                  placeholder="Nalweng Roastery"
+                  placeholder="Beanslab Roastery"
                   className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500 text-white placeholder:text-slate-600 outline-none"
                 />
               </div>
@@ -88,7 +88,7 @@ export function TenantForm() {
               <div className="flex">
                 <input 
                   type="text" required value={subdomain} onChange={e => setSubdomain(e.target.value)}
-                  placeholder="nalweng"
+                  placeholder="beanslab"
                   className="w-full h-10 px-3 bg-slate-950 border border-slate-800 border-r-0 rounded-l-xl text-sm focus:border-amber-500 text-white placeholder:text-slate-600 outline-none"
                 />
                 <div className="h-10 px-4 bg-slate-900 border border-slate-800 rounded-r-xl flex items-center text-sm text-slate-500 font-medium">
@@ -114,7 +114,7 @@ export function TenantForm() {
               <label className="text-xs font-semibold text-slate-300">Admin Email</label>
               <input 
                 type="email" required value={adminEmail} onChange={e => setAdminEmail(e.target.value)}
-                placeholder="budi@nalweng.com"
+                placeholder="budi@beanslab.com"
                 className="w-full h-10 px-3 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500 text-white placeholder:text-slate-600 outline-none"
               />
             </div>

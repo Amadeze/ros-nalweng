@@ -38,7 +38,7 @@ function pct(part: number, total: number): string {
 function exportToCSV(report: PnLReport) {
   const { month, year } = report;
   const rows = [
-    ["Laporan Laba Rugi", `Nalweng Roastery - ${MONTHS[month-1]} ${year}`],
+    ["Laporan Laba Rugi", `Beanslab Roastery - ${MONTHS[month-1]} ${year}`],
     [],
     ["Kategori", "Jumlah (IDR)"],
     ["Total Pendapatan", report.revenue],
@@ -369,7 +369,7 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
               </p>
             </div>
             <div className="ml-auto text-right">
-              <p className="text-[11px] text-zinc-400 uppercase tracking-wide">Nalweng Roastery</p>
+              <p className="text-[11px] text-zinc-400 uppercase tracking-wide">Beanslab Roastery</p>
               <p className="text-[11px] text-zinc-400">Dalam Rupiah (IDR)</p>
             </div>
           </div>
@@ -479,7 +479,7 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
         <div className="border-t border-zinc-100 bg-zinc-50/60 px-5 py-3">
           <div className="flex items-center justify-between text-[11px] text-zinc-400">
             <span>
-              Laporan ini digenerate otomatis oleh Roastery OS Â· Nalweng
+              Laporan ini digenerate otomatis oleh Roastery OS Â· Beanslab
             </span>
             <span className="tabular-nums">
               Dicetak: {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}

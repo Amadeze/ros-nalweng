@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Roastery OS - Nalweng",
-  description: "Roastery Operating System by Nalweng Roastery",
+  title: "Roastery OS - Beanslab",
+  description: "Roastery Operating System by Beanslab Roastery",
 };
 
 // 👇 Tambahkan blok kode viewport ini 👇

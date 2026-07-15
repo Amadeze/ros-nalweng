@@ -10,7 +10,7 @@ export interface SessionUser {
 }
 
 export const SESSION_OPTIONS = {
-  password: process.env.SESSION_SECRET ?? "ros-nalweng-super-secret-key-minimum-32-chars!!",
+  password: process.env.SESSION_SECRET ?? "ros-beanslab-super-secret-key-minimum-32-chars!!",
   cookieName: "ros_session",
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",

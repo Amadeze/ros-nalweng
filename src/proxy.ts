@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
 
 const PUBLIC_PATHS = ["/login"];
-const ROOT_DOMAINS = ['localhost', '127.0.0.1', 'ros.com', 'www.ros.com', 'app.ros.com', 'beanslab.vercel.app', 'ros-nalweng.vercel.app'];
+const ROOT_DOMAINS = ['localhost', '127.0.0.1', 'ros.com', 'www.ros.com', 'app.ros.com', 'beanslab.vercel.app', 'ros-beanslab.vercel.app'];
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl;

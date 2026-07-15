@@ -112,7 +112,7 @@ export default async function InvoicePrintPage({
             <div className="flex items-start justify-between mb-8">
               <div>
                 <h1 className="text-2xl font-black tracking-tight text-zinc-900">
-                  NALWENG ROASTERY
+                  BEANSLAB ROASTERY
                 </h1>
                 <p className="mt-1 text-xs text-zinc-500">
                   Artisan Coffee Roaster · Indonesia
@@ -277,12 +277,12 @@ export default async function InvoicePrintPage({
                 <p className="text-xs text-zinc-400">
                   Dokumen ini dicetak dari Roastery Operating System (ROS)
                 </p>
-                <p className="text-xs text-zinc-400">Nalweng Roastery · {new Date().getFullYear()}</p>
+                <p className="text-xs text-zinc-400">Beanslab Roastery · {new Date().getFullYear()}</p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-zinc-400 mb-8">Hormat kami,</p>
                 <div className="mt-4 border-t border-zinc-400 w-40 text-right">
-                  <p className="text-xs text-zinc-500 mt-1">Nalweng Roastery</p>
+                  <p className="text-xs text-zinc-500 mt-1">Beanslab Roastery</p>
                 </div>
               </div>
             </div>

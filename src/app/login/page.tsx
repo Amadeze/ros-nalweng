@@ -132,7 +132,7 @@ export default function LoginPage() {
           <div className="mt-8 p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
             <p className="text-xs text-slate-400 text-center">
               <span className="font-semibold text-slate-300">Demo Access:</span><br/>
-              admin@nalweng.com / admin123
+              admin@beanslab.com / admin123
             </p>
           </div>
 
