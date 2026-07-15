@@ -76,7 +76,7 @@ function RegisterForm() {
             required
           />
           <div className="pr-3 pl-2 py-3 bg-slate-800 text-slate-400 text-sm font-medium border-l border-slate-700">
-            .ros.com
+            .beanslab.vercel.app
           </div>
         </div>
         <p className="text-[10px] text-slate-500">Your dedicated B2B wholesale portal.</p>
