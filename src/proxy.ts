@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
 
 const PUBLIC_PATHS = ["/login"];
-const ROOT_DOMAINS = ['localhost', '127.0.0.1', 'ros.com', 'www.ros.com', 'app.ros.com', 'beanslab.vercel.app', 'ros-nalweng.vercel.app'];
+const ROOT_DOMAINS = ['localhost', '127.0.0.1', 'ros.com', 'www.ros.com', 'app.ros.com'];
 
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl;
@@ -37,17 +37,9 @@ export async function proxy(request: NextRequest) {
       subdomain = hostname.split('.')[0]; 
     }
 
-    // Redirect admin paths to root domain
-    if (pathname.startsWith('/login') || pathname.startsWith('/dashboard')) {
-      const newUrl = new URL(request.url);
-      if (hostname.endsWith('.localhost')) {
-        newUrl.hostname = 'localhost';
-      } else if (hostname.endsWith('.ros.com')) {
-        newUrl.hostname = 'app.ros.com';
-      } else {
-        newUrl.hostname = 'beanslab.vercel.app';
-      }
-      return NextResponse.redirect(newUrl);
+    // Do not rewrite admin and api paths so they can be accessed on any domain
+    if (pathname.startsWith('/login') || pathname.startsWith('/dashboard') || pathname.startsWith('/register') || pathname.startsWith('/api')) {
+      return NextResponse.next();
     }
 
     if (subdomain && subdomain !== 'app' && subdomain !== 'www') {
