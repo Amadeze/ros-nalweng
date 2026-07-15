@@ -8,9 +8,10 @@ export async function registerTenant(data: {
   subdomain: string;
   email: string;
   password: string;
+  tier: "TRIAL" | "BASIC" | "PRO" | "ENTERPRISE";
 }) {
   try {
-    const { roasteryName, subdomain, email, password } = data;
+    const { roasteryName, subdomain, email, password, tier } = data;
 
     // 1. Basic validations
     if (!roasteryName || !subdomain || !email || !password) {
@@ -51,7 +52,7 @@ export async function registerTenant(data: {
           code: subdomain.toUpperCase(), // basic code generation
           name: roasteryName,
           subdomain: subdomain,
-          subscriptionTier: "TRIAL",
+          subscriptionTier: tier,
           trialEndsAt: trialEndsAt,
         },
       });
