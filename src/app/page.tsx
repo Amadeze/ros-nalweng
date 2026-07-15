@@ -3,7 +3,7 @@
 import { ShaderBackground } from "@/components/ShaderBackground";
 import Link from "next/link";
 import { useEffect } from "react";
-import { Menu, Inventory, LocalFireDepartment, Storefront, AccountBalance, Check } from "@mui/icons-material"; // Will use Lucide instead
+
 
 import { Menu as MenuIcon, Package, Flame, Store, Landmark, Check as CheckIcon } from "lucide-react";
 
