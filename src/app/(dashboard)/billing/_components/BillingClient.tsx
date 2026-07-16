@@ -150,6 +150,7 @@ export default function BillingClient({ tenant }: { tenant: Tenant }) {
                     {loadingTier === "PRO" ? "Processing..." : <><CreditCard size={18} /> Subscribe to Pro</>}
                   </button>
                 </div>
+              </div>
             </div>
           )}
 
