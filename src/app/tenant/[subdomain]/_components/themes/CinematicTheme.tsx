@@ -46,7 +46,7 @@ export function CinematicTheme({
           className="flex items-center gap-3 text-sm font-light tracking-[0.2em] uppercase opacity-80 hover:opacity-100 transition-opacity"
         >
           <ShoppingBag size={24} weight="light" />
-          <span>Cart ({cart.items.length})</span>
+          <span>Cart ({(cart.items[tenant.subdomain || ""] || []).length})</span>
         </button>
       </motion.header>
 
@@ -190,7 +190,7 @@ export function CinematicTheme({
                   </div>
                 ))}
                 
-                {cart.items.length > 0 && (
+                {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                   <div className="pt-16">
                     <h3 className="font-light tracking-[0.2em] text-xs uppercase opacity-40 mb-8">Shipping Information</h3>
                     <div className="space-y-6">
@@ -202,7 +202,7 @@ export function CinematicTheme({
                 )}
               </div>
               
-              {cart.items.length > 0 && (
+              {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                 <div className="p-10 border-t border-white/5">
                   <div className="flex justify-between items-end mb-10">
                     <span className="font-light tracking-[0.2em] text-xs uppercase opacity-40">Subtotal</span>

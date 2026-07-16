@@ -9,14 +9,12 @@ import {
   Factory,
   ShoppingCart,
   BarChart3,
-  Coffee,
   Database,
   FileText,
-  Package,
   LogOut,
-  Users,
   Settings,
 } from "lucide-react";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/login/actions";
@@ -108,7 +106,7 @@ export function Sidebar({ userRole }: { userRole: string }) {
     <aside className="flex h-full w-64 shrink-0 flex-col rounded-2xl bg-white/70 backdrop-blur-3xl border border-white/60 text-slate-800 shadow-2xl md:bg-transparent md:backdrop-blur-none md:border-transparent md:shadow-none">
       {/* Brand */}
       <div className="flex h-32 items-center justify-center px-2 pt-6 mb-4 transition-transform duration-500 hover:scale-105">
-        <img src="/logo.png" alt="Beanslab Logo" className="w-full h-auto max-w-[220px] object-contain drop-shadow-sm" />
+        <Image src="/logo.png" alt="Beanslab Logo" width={220} height={100} className="w-full h-auto max-w-[220px] object-contain drop-shadow-sm" unoptimized />
       </div>
 
       <div className="mx-6 h-px bg-white/40 my-2" />

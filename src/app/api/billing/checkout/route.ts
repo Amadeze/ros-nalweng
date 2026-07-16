@@ -16,7 +16,6 @@ export async function POST(req: Request) {
 
     let amount = 0;
     if (tier === "PRO") amount = 299000;
-    if (tier === "ENTERPRISE") amount = 999000; // Assuming a custom enterprise rate
 
     if (amount === 0) {
       return NextResponse.json({ error: "Invalid tier" }, { status: 400 });

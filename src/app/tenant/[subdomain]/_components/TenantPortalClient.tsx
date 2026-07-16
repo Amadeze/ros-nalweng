@@ -97,7 +97,7 @@ export function TenantPortalClient({ tenant }: TenantPortalClientProps) {
 
   // ─── Cart Actions ─────────────────────────────────────────────────────
   const handleAddToCart = (product: Product) => {
-    cart.addItem({
+    cart.addItem(tenant.subdomain || "", {
       id: product.id,
       code: product.code,
       name: product.name,
@@ -118,7 +118,7 @@ export function TenantPortalClient({ tenant }: TenantPortalClientProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerName, customerPhone, customerAddress, shippingMethod, items: cart.items,
+          customerName, customerPhone, customerAddress, shippingMethod, items: cart.items[tenant.subdomain || ""] || [],
         }),
       });
 
@@ -140,10 +140,11 @@ export function TenantPortalClient({ tenant }: TenantPortalClientProps) {
       text += `*Data Pembeli:*\nNama: ${customerName}\nNo. HP: ${customerPhone}\n`;
       text += `Alamat Pengiriman: ${customerAddress}\n`;
       text += `\n*Detail Pesanan:*\n`;
-      cart.items.forEach((item, idx) => {
+      const tenantItems = cart.items[tenant.subdomain || ""] || [];
+      tenantItems.forEach((item: any, idx: number) => {
         text += `${idx + 1}. ${item.name} - ${item.quantity}x @ Rp ${item.price.toLocaleString("id-ID")} = Rp ${(item.quantity * item.price).toLocaleString("id-ID")}\n`;
       });
-      text += `\nTotal Harga: Rp ${cart.getTotalPrice().toLocaleString("id-ID")}\n\nMohon diinformasikan ketersediaan dan ongkos kirim. Terima kasih.`;
+      text += `\nTotal Harga: Rp ${cart.getTotalPrice(tenant.subdomain || "").toLocaleString("id-ID")}\n\nMohon diinformasikan ketersediaan dan ongkos kirim. Terima kasih.`;
       
       let cleanWa = tenant.whatsappNumber?.replace(/\D/g, '') || '';
       if (cleanWa.startsWith('0')) cleanWa = '62' + cleanWa.substring(1);

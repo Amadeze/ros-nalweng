@@ -22,6 +22,7 @@ export function UniversalTheme({
 }: ThemeProps) {
 
   const products = tenant.products || [];
+  const cartItems = cart.items[tenant.subdomain || ""] || [];
 
   const themeProps = {
     tenant, products, cart, isCartOpen, setIsCartOpen, customerName, setCustomerName, customerPhone, setCustomerPhone,
@@ -43,9 +44,9 @@ export function UniversalTheme({
           className="md:hidden fixed bottom-6 right-6 z-[90] w-14 h-14 bg-black text-white rounded-full shadow-2xl flex items-center justify-center border-2 border-white hover:scale-105 active:scale-95 transition-all"
         >
           <ShoppingBag size={24} weight="bold" />
-          {cart?.items?.length > 0 && (
+          {cartItems.length > 0 && (
             <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold w-6 h-6 rounded-full flex items-center justify-center border-2 border-white">
-              {cart.items.length}
+              {cartItems.length}
             </span>
           )}
         </button>
@@ -84,13 +85,13 @@ export function UniversalTheme({
 
               {/* Cart Items */}
               <div className="flex-1 overflow-auto p-5 md:p-6 space-y-5">
-                {cart.items.length === 0 ? (
+                {cartItems.length === 0 ? (
                   <div className="text-center py-16 text-gray-400">
                     <Package size={48} className="mx-auto mb-4 opacity-30" />
                     <p className="text-sm font-medium">Your cart is empty</p>
                   </div>
                 ) : (
-                  cart.items.map((item: any) => (
+                  cartItems.map((item: any) => (
                     <motion.div
                       layout
                       key={item.id}
@@ -114,7 +115,7 @@ export function UniversalTheme({
                         </p>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => cart.updateQuantity(item.id, -1)}
+                            onClick={() => cart.updateQuantity(tenant.subdomain, item.id, -1)}
                             className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold transition-colors border border-gray-200 hover:bg-gray-100 text-gray-700"
                           >
                             −
@@ -123,7 +124,7 @@ export function UniversalTheme({
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => cart.updateQuantity(item.id, 1)}
+                            onClick={() => cart.updateQuantity(tenant.subdomain, item.id, 1)}
                             className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold transition-colors border border-gray-200 hover:bg-gray-100 text-gray-700"
                           >
                             +
@@ -135,7 +136,7 @@ export function UniversalTheme({
                           Rp {(item.price * item.quantity).toLocaleString("id-ID")}
                         </p>
                         <button
-                          onClick={() => cart.removeItem(item.id)}
+                          onClick={() => cart.removeItem(tenant.subdomain, item.id)}
                           className="text-xs mt-1 font-semibold text-red-500 hover:text-red-700"
                         >
                           Remove
@@ -146,7 +147,7 @@ export function UniversalTheme({
                 )}
 
                 {/* Checkout Form */}
-                {cart.items.length > 0 && (
+                {cartItems.length > 0 && (
                   <div className="pt-6 space-y-4 border-t border-gray-100 mt-6">
                     <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-2">
                       Shipping Details
@@ -189,12 +190,12 @@ export function UniversalTheme({
               </div>
 
               {/* Cart Footer */}
-              {cart.items.length > 0 && (
+              {cartItems.length > 0 && (
                 <div className="p-5 md:p-6 flex-shrink-0 border-t border-gray-200 bg-gray-50">
                   <div className="flex justify-between items-center mb-5">
                     <span className="text-sm text-gray-500 font-medium">Total</span>
                     <span className="text-2xl font-black text-gray-900">
-                      Rp {cart.getTotalPrice().toLocaleString("id-ID")}
+                      Rp {cart.getTotalPrice(tenant.subdomain).toLocaleString("id-ID")}
                     </span>
                   </div>
                   <button

@@ -34,7 +34,7 @@ export function VintageTheme({
           onClick={() => setIsCartOpen(true)} 
           className="absolute right-6 top-6 flex items-center gap-2 uppercase tracking-widest text-sm hover:opacity-70 transition-opacity"
         >
-          <Package size={18} /> [<span className="w-4 text-center">{cart.items.length}</span>]
+          <Package size={18} /> [<span className="w-4 text-center">{(cart.items[tenant.subdomain || ""] || []).length}</span>]
         </button>
       </motion.header>
 
@@ -134,7 +134,7 @@ export function VintageTheme({
                   </div>
                 ))}
                 
-                {cart.items.length > 0 && (
+                {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                   <div className="pt-6 space-y-6">
                     <p className="text-sm tracking-widest uppercase opacity-60 border-b border-current pb-2">Consignee Particulars</p>
                     <input type="text" placeholder="Full Name" value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full bg-transparent border-b border-current pb-2 outline-none placeholder-current/40" />
@@ -144,7 +144,7 @@ export function VintageTheme({
                 )}
               </div>
               
-              {cart.items.length > 0 && (
+              {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                 <div className="pt-8 border-t-2 border-dashed border-current mt-4">
                   <div className="flex justify-between font-bold text-xl mb-8 tracking-widest uppercase">
                     <span>Total Sum</span>

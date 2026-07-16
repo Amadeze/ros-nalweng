@@ -147,7 +147,11 @@ function LowStockCard({ items }: { items: LowStockItem[] }) {
           <p className="mt-1.5 mb-3 text-xs text-slate-500">Perlu segera diisi ulang</p>
           <div className="space-y-2">
             {items.slice(0, 4).map((item) => (
-              <div key={item.id} className="flex items-center justify-between gap-2 border-b border-white/30 pb-1.5 last:border-0 last:pb-0">
+              <Link 
+                key={item.id} 
+                href={`/inventory?tab=${item.type === 'GREEN_BEAN' ? 'gb' : item.type === 'ROASTED_BEAN' ? 'rb' : item.type === 'FINISHED_GOODS' ? 'fg' : 'pkg'}`}
+                className="flex items-center justify-between gap-2 border-b border-white/30 pb-1.5 last:border-0 last:pb-0 hover:bg-white/40 rounded px-1 transition-colors"
+              >
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${TYPE_COLOR[item.type]}`}>
                     {TYPE_LABEL[item.type]}
@@ -159,7 +163,7 @@ function LowStockCard({ items }: { items: LowStockItem[] }) {
                     ? formatKg(item.stock)
                     : formatUnit(item.stock)}
                 </span>
-              </div>
+              </Link>
             ))}
             {items.length > 4 && (
               <p className="text-[11px] text-slate-500 font-medium pt-1">+{items.length - 4} lainnya</p>

@@ -56,6 +56,8 @@ export default async function TenantB2BPortal({ params }: TenantPageProps) {
       price: product.price ? Number(product.price) : null,
       priceSilver: product.priceSilver ? Number(product.priceSilver) : null,
       priceGold: product.priceGold ? Number(product.priceGold) : null,
+      lastHpp: product.lastHpp ? Number(product.lastHpp) : null,
+      stockKg: product.stockKg ? Number(product.stockKg) : null,
     }))
   };
 

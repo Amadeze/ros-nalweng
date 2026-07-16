@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { getPnLReport } from "../keuangan/actions";
 import { getSystemUserId, requireTenantPrisma } from "@/lib/auth";
 
+import { z } from "zod";
+
 export async function getMitraData() {
   const partners = await (await requireTenantPrisma()).partner.findMany({
     orderBy: { name: "asc" }
@@ -24,15 +26,33 @@ export async function getMitraData() {
   return { partners, capitalTransactions, profitDistributions };
 }
 
+const CreatePartnerSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  equityShare: z.number().min(0).max(100),
+});
+
 export async function createPartner(data: { name: string; equityShare: number }) {
-  await (await requireTenantPrisma()).partner.create({
-    data: {
-      name: data.name,
-      equityShare: data.equityShare
-    }
-  });
-  revalidatePath("/mitra");
+  try {
+    const parsed = CreatePartnerSchema.parse(data);
+    await (await requireTenantPrisma()).partner.create({
+      data: {
+        name: parsed.name,
+        equityShare: parsed.equityShare
+      }
+    });
+    revalidatePath("/mitra");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 }
+
+const CreateCapTxSchema = z.object({
+  partnerId: z.string().optional(),
+  type: z.enum(["INJECTION", "WITHDRAWAL"]),
+  amount: z.number().positive("Amount must be positive"),
+  notes: z.string().optional(),
+});
 
 export async function createCapitalTransaction(data: {
   partnerId?: string;
@@ -40,17 +60,23 @@ export async function createCapitalTransaction(data: {
   amount: number;
   notes?: string;
 }) {
-  await (await requireTenantPrisma()).capitalTransaction.create({
-    data: {
-      code: `CAP-${Date.now()}`,
-      partnerId: data.partnerId || null,
-      type: data.type,
-      amount: data.amount,
-      notes: data.notes
-    }
-  });
-  revalidatePath("/mitra");
-  revalidatePath("/laporan");
+  try {
+    const parsed = CreateCapTxSchema.parse(data);
+    await (await requireTenantPrisma()).capitalTransaction.create({
+      data: {
+        code: `CAP-${Date.now()}`,
+        partnerId: parsed.partnerId || null,
+        type: parsed.type,
+        amount: parsed.amount,
+        notes: parsed.notes
+      }
+    });
+    revalidatePath("/mitra");
+    revalidatePath("/laporan");
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 }
 
 export async function calculateAndPostFounderSalary(month: number, year: number) {
@@ -86,7 +112,16 @@ export async function calculateAndPostFounderSalary(month: number, year: number)
     salaryPool = 15000000;
   }
 
-  const salaryPerPerson = salaryPool / 3;
+  const partners = await (await requireTenantPrisma()).partner.findMany({
+    orderBy: { name: "asc" }
+  });
+  
+  const partnerCount = partners.length;
+  if (partnerCount === 0) {
+    return { success: false, error: "Tidak ada mitra/partner yang terdaftar." };
+  }
+
+  const salaryPerPerson = salaryPool / partnerCount;
 
   // Delete old salaries for this month to replace them
   if (existingSalaries.length > 0) {
@@ -104,13 +139,7 @@ export async function calculateAndPostFounderSalary(month: number, year: number)
     dateToPost.setTime(endDate.getTime());
   }
 
-  const salaries = [
-    { name: "Anda (Investor)" },
-    { name: "Reza" },
-    { name: "Theo" }
-  ];
-
-  for (const person of salaries) {
+  for (const person of partners) {
     await (await requireTenantPrisma()).expense.create({
       data: {
         date: dateToPost,

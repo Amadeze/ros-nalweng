@@ -2,6 +2,9 @@
 
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
+import { getIronSession } from "iron-session";
+import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
 
 export async function registerTenant(data: {
   roasteryName: string;
@@ -69,6 +72,16 @@ export async function registerTenant(data: {
 
       return { tenant: newTenant, user: newUser };
     });
+
+    const session = await getIronSession<{ user?: SessionUser }>(await cookies(), SESSION_OPTIONS);
+    session.user = {
+      id: result.user.id,
+      email: result.user.email,
+      name: result.user.name,
+      role: result.user.role,
+      tenantId: result.tenant.id,
+    };
+    await session.save();
 
     return { success: true, tenantId: result.tenant.id };
   } catch (error: any) {

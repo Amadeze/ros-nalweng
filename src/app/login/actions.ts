@@ -26,13 +26,8 @@ export async function loginAction(email: string, password: string): Promise<Logi
       return { success: false, error: "Email atau password salah." };
     }
 
-    // Support plain-text password "system" untuk seed user, and bcrypt for others
-    let valid = false;
-    if (user.password === password) {
-      valid = true; // plain text (seed users only)
-    } else {
-      valid = await bcrypt.compare(password, user.password);
-    }
+    // Compare password using bcrypt
+    const valid = await bcrypt.compare(password, user.password);
 
     if (!valid) {
       return { success: false, error: "Email atau password salah." };

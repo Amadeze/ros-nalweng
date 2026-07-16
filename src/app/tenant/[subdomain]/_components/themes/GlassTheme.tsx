@@ -53,7 +53,7 @@ export function GlassTheme({
             onClick={() => setIsCartOpen(true)} 
             className={`px-5 py-2.5 rounded-full text-sm font-medium flex items-center gap-2 hover:scale-105 transition-transform ${isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-black/10 hover:bg-black/20'}`}
           >
-            <Bag size={18} /> {cart.items.length > 0 ? `${cart.items.length} Items` : 'Bag'}
+            <Bag size={18} /> {(cart.items[tenant.subdomain || ""] || []).length > 0 ? `${(cart.items[tenant.subdomain || ""] || []).length} Items` : 'Bag'}
           </button>
         </div>
       </motion.header>
@@ -167,7 +167,7 @@ export function GlassTheme({
                     </div>
                   ))}
                   
-                  {cart.items.length > 0 && (
+                  {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                     <div className="pt-8 space-y-3">
                       <h3 className="font-medium mb-4">Checkout Details</h3>
                       <input type="text" placeholder="Full Name" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full rounded-2xl p-4 outline-none transition-colors ${inputClass}`} />
@@ -177,7 +177,7 @@ export function GlassTheme({
                   )}
                 </div>
                 
-                {cart.items.length > 0 && (
+                {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                   <div className={`p-6 border-t border-current/10 ${isDark ? 'bg-white/5' : 'bg-black/5'}`}>
                     <div className="flex justify-between items-center mb-6">
                       <span className="opacity-60">Total</span>

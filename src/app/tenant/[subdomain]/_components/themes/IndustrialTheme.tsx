@@ -38,7 +38,7 @@ export function IndustrialTheme({
           onClick={() => setIsCartOpen(true)} 
           className={`border-4 ${borderClass} px-8 py-3 uppercase font-black text-lg ${hoverBg} ${hoverText} transition-colors flex items-center gap-3 active:translate-y-1 shadow-[4px_4px_0_0_currentColor] hover:shadow-[0_0_0_0_currentColor]`}
         >
-          <List size={24} weight="bold" /> INVENTORY ({cart.items.length})
+          <List size={24} weight="bold" /> INVENTORY ({(cart.items[tenant.subdomain || ""] || []).length})
         </button>
       </header>
 
@@ -161,7 +161,7 @@ export function IndustrialTheme({
                   </div>
                 ))}
                 
-                {cart.items.length > 0 && (
+                {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                   <div className={`mt-10 border-4 ${borderClass} p-6 space-y-6 bg-inherit shadow-[4px_4px_0_0_currentColor]`}>
                     <h3 className="font-black uppercase text-lg border-b-2 border-current pb-2">&gt; REQ_PARAMS</h3>
                     <input type="text" placeholder="ID_NAME" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full bg-transparent border-2 ${borderClass} p-4 outline-none uppercase font-bold focus:shadow-[4px_4px_0_0_currentColor] transition-shadow`} />
@@ -171,7 +171,7 @@ export function IndustrialTheme({
                 )}
               </div>
               
-              {cart.items.length > 0 && (
+              {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                 <div className={`pt-8 border-t-4 ${borderClass} mt-6`}>
                   <div className="flex justify-between font-black text-2xl mb-8 uppercase">
                     <span>TOT_VAL</span>

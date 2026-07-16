@@ -29,7 +29,7 @@ export function BauhausTheme({
           onClick={() => setIsCartOpen(true)} 
           className={`p-6 md:p-8 text-2xl font-black uppercase hover:bg-[#F4A261] hover:text-[#1a1a1a] transition-colors flex items-center gap-4 group`}
         >
-          CART <span className="w-10 h-10 rounded-full border-[4px] border-current flex items-center justify-center bg-[#2A9D8F] text-[#1a1a1a] group-hover:bg-[#1a1a1a] group-hover:text-[#F4A261] transition-colors">{cart.items.length}</span>
+          CART <span className="w-10 h-10 rounded-full border-[4px] border-current flex items-center justify-center bg-[#2A9D8F] text-[#1a1a1a] group-hover:bg-[#1a1a1a] group-hover:text-[#F4A261] transition-colors">{(cart.items[tenant.subdomain || ""] || []).length}</span>
         </button>
       </header>
 
@@ -155,7 +155,7 @@ export function BauhausTheme({
                   </div>
                 ))}
                 
-                {cart.items.length > 0 && (
+                {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                   <div className={`p-6 border-[4px] ${borderColor} bg-[#F4A261] text-[#1a1a1a] space-y-6 mt-8`}>
                     <h3 className="font-black text-2xl uppercase">DETAILS</h3>
                     <input type="text" placeholder="NAME" value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full bg-transparent border-b-[4px] border-[#1a1a1a] pb-2 text-xl font-bold outline-none placeholder-[#1a1a1a]/50 uppercase" />
@@ -165,7 +165,7 @@ export function BauhausTheme({
                 )}
               </div>
               
-              {cart.items.length > 0 && (
+              {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                 <div className={`border-t-[4px] ${borderColor} p-8 bg-[#2A9D8F] text-[#1a1a1a]`}>
                   <div className="flex justify-between items-end mb-8">
                     <span className="font-black text-3xl uppercase">TOTAL</span>

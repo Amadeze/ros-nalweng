@@ -31,7 +31,7 @@ export function ZenTheme({
           onClick={() => setIsCartOpen(true)} 
           className="flex items-center gap-2 text-xs tracking-widest uppercase hover:opacity-70 transition-opacity"
         >
-          <span>Bag [{cart.items.length}]</span>
+          <span>Bag [{(cart.items[tenant.subdomain || ""] || []).length}]</span>
         </button>
       </header>
 
@@ -129,7 +129,7 @@ export function ZenTheme({
               className={`relative w-full max-w-md h-full ${bgClass} border-l ${borderClass} flex flex-col shadow-2xl`}
             >
               <div className={`p-8 border-b ${borderClass} flex justify-between items-center`}>
-                <h2 className="text-sm font-medium tracking-widest uppercase">Cart [{cart.items.length}]</h2>
+                <h2 className="text-sm font-medium tracking-widest uppercase">Cart [{(cart.items[tenant.subdomain || ""] || []).length}]</h2>
                 <button onClick={() => setIsCartOpen(false)} className="hover:opacity-50 transition-opacity"><X size={20} weight="thin" /></button>
               </div>
               
@@ -151,7 +151,7 @@ export function ZenTheme({
                   </div>
                 ))}
                 
-                {cart.items.length > 0 && (
+                {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                   <div className={`pt-10 border-t ${borderClass} space-y-6 font-sans`}>
                     <input type="text" placeholder="Name" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full bg-transparent border-b ${borderClass} p-3 outline-none focus:border-current text-sm transition-colors`} />
                     <input type="text" placeholder="WhatsApp" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} className={`w-full bg-transparent border-b ${borderClass} p-3 outline-none focus:border-current text-sm transition-colors`} />
@@ -160,7 +160,7 @@ export function ZenTheme({
                 )}
               </div>
               
-              {cart.items.length > 0 && (
+              {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                 <div className={`p-8 border-t ${borderClass}`}>
                   <div className="flex justify-between items-center mb-8">
                     <span className="text-xs tracking-widest uppercase opacity-60">Total</span>

@@ -37,7 +37,7 @@ export function NeoBrutalismTheme({
           className={`flex items-center gap-3 px-6 py-3 border-4 ${borderClass} ${shadowClass} bg-white text-black font-black uppercase hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[12px_12px_0px_0px_rgba(17,17,17,1)] transition-all active:translate-y-2 active:translate-x-2 active:shadow-none`}
         >
           <ShoppingCart size={24} weight="bold" />
-          <span>CART ({cart.items.length})</span>
+          <span>CART ({(cart.items[tenant.subdomain || ""] || []).length})</span>
         </button>
       </header>
 
@@ -164,7 +164,7 @@ export function NeoBrutalismTheme({
                   </div>
                 ))}
                 
-                {cart.items.length > 0 && (
+                {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                   <div className={`p-6 border-4 ${borderClass} bg-white mt-8 shadow-[8px_8px_0px_0px_#111]`}>
                     <h3 className="font-black text-2xl uppercase mb-6 bg-[#FFE873] inline-block px-2 border-2 border-black">CHECKOUT DETAILS</h3>
                     <div className="space-y-4">
@@ -176,7 +176,7 @@ export function NeoBrutalismTheme({
                 )}
               </div>
               
-              {cart.items.length > 0 && (
+              {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                 <div className={`p-6 border-t-8 ${borderClass} bg-white`}>
                   <div className="flex justify-between items-center mb-6">
                     <span className="font-black text-xl uppercase">GRAND TOTAL</span>

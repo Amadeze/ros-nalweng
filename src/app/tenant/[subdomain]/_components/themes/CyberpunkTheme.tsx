@@ -44,7 +44,7 @@ export function CyberpunkTheme({
           onClick={() => setIsCartOpen(true)} 
           className="border border-[#00ffcc] px-6 py-2 hover:bg-[#00ffcc] hover:text-black transition-colors shadow-[0_0_8px_#00ffcc] uppercase text-sm font-bold relative overflow-hidden group"
         >
-          <span className="relative z-10">CART_[{cart.items.length}]</span>
+          <span className="relative z-10">CART_[{(cart.items[tenant.subdomain || ""] || []).length}]</span>
           <div className="absolute inset-0 bg-[#00ffcc] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 z-0"></div>
         </button>
       </motion.header>
@@ -158,7 +158,7 @@ export function CyberpunkTheme({
                   </div>
                 ))}
                 
-                {cart.items.length > 0 && (
+                {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                   <div className="pt-6 space-y-4">
                     <div className="text-xs font-bold uppercase text-[#ff00ff] mb-2 border-b border-[#ff00ff]/30 pb-2">User Parameters</div>
                     <input type="text" placeholder="ID_NAME" value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full bg-[#0a0a20] border border-[#00ffcc]/50 p-4 outline-none focus:border-[#00ffcc] focus:shadow-[0_0_10px_#00ffcc] uppercase text-sm font-bold" />
@@ -168,7 +168,7 @@ export function CyberpunkTheme({
                 )}
               </div>
               
-              {cart.items.length > 0 && (
+              {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                 <div className="pt-8 border-t border-[#00ffcc]/50 mt-4">
                   <div className="flex justify-between font-bold text-xl mb-6 text-[#ff00ff] drop-shadow-[0_0_5px_#ff00ff]">
                     <span>TOTAL_SYS</span>

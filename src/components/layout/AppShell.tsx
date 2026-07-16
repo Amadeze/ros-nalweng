@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { Menu, X } from "lucide-react"; 
+import { Menu } from "lucide-react"; 
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import { PageTransition } from "./PageTransition";
 
 /**
@@ -14,10 +15,13 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
 
+  const [prevPathname, setPrevPathname] = useState(pathname);
+
   // Tutup sidebar mobile secara otomatis jika rute (URL) berubah
-  useEffect(() => {
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setIsMobileMenuOpen(false);
-  }, [pathname]);
+  }
 
   return (
     <div className="relative flex h-[100dvh] w-full overflow-hidden p-0 md:p-8 lg:p-12">
@@ -56,7 +60,7 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
             <Menu size={20} />
           </button>
           <div className="flex items-center ml-3">
-            <img src="/logo.png" alt="Beanslab Logo" className="h-10 w-auto object-contain drop-shadow-sm scale-150 origin-left" />
+            <Image src="/logo.png" alt="Beanslab Logo" width={40} height={40} className="h-10 w-auto object-contain drop-shadow-sm scale-150 origin-left" unoptimized />
           </div>
         </div>
 

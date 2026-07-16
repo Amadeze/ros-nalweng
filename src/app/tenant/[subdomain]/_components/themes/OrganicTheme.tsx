@@ -28,7 +28,7 @@ export function OrganicTheme({
           className={`${cardClass} px-8 py-4 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.04)] font-bold flex items-center gap-3 hover:scale-105 transition-transform duration-300 text-lg`}
         >
           Basket 
-          <span className="bg-[#8A9A5B] text-white w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-inner">{cart.items.length}</span>
+          <span className="bg-[#8A9A5B] text-white w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-inner">{(cart.items[tenant.subdomain || ""] || []).length}</span>
         </motion.button>
       </header>
 
@@ -141,7 +141,7 @@ export function OrganicTheme({
                   </div>
                 ))}
                 
-                {cart.items.length > 0 && (
+                {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                   <div className={`mt-8 p-6 rounded-[2rem] ${cardClass} shadow-sm space-y-5`}>
                     <h3 className="font-bold text-xl mb-2">Details</h3>
                     <input type="text" placeholder="Full Name" value={customerName} onChange={e => setCustomerName(e.target.value)} className={`w-full ${isDark ? 'bg-[#2a3026]' : 'bg-[#F9F7F1]'} rounded-2xl p-4 outline-none focus:ring-2 ring-[#8A9A5B] transition-shadow text-lg`} />
@@ -151,7 +151,7 @@ export function OrganicTheme({
                 )}
               </div>
               
-              {cart.items.length > 0 && (
+              {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                 <div className="pt-8 mt-4 border-t border-current/10">
                   <div className="flex justify-between items-center mb-6 px-2">
                     <span className="opacity-60 font-medium text-lg">Total</span>

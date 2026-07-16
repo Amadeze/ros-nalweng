@@ -30,8 +30,14 @@ export function withTenant(tenantId: string) {
 
           const mArgs = args as any;
 
-          if (['findMany', 'findFirst', 'count', 'aggregate', 'updateMany', 'deleteMany'].includes(operation)) {
+          if (['findMany', 'findFirst', 'findFirstOrThrow', 'count', 'aggregate', 'updateMany', 'deleteMany'].includes(operation)) {
             mArgs.where = { ...mArgs.where, tenantId };
+          } else if (['findUnique', 'findUniqueOrThrow'].includes(operation)) {
+            // Prisma doesn't allow filtering by non-unique fields in findUnique
+            // So we convert it to findFirst under the hood to apply the tenant filter safely
+            mArgs.where = { ...mArgs.where, tenantId };
+            const newOp = operation === 'findUnique' ? 'findFirst' : 'findFirstOrThrow';
+            return (prisma as any)[model!][newOp](mArgs);
           } else if (operation === 'create') {
             mArgs.data = { ...mArgs.data, tenantId };
           } else if (operation === 'createMany') {

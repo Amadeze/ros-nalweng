@@ -1,4 +1,4 @@
-import { prisma, withTenant } from "./prisma";
+import { withTenant } from "./prisma";
 import { getCurrentUser } from "./session";
 import { redirect } from "next/navigation";
 

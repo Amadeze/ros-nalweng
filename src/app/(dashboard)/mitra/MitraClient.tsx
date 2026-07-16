@@ -5,7 +5,7 @@ import { StandardPageLayout } from "@/components/StandardPageLayout";
 import { Wallet } from "lucide-react";
 import { calculateAndPostFounderSalary } from "./actions";
 
-export function MitraClient() {
+export function MitraClient({ partnersCount = 3 }: { partnersCount?: number }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Formulir Gaji Bulanan
@@ -42,7 +42,7 @@ export function MitraClient() {
         {/* KOLOM TUNGGAL: Hitung Gaji */}
         <div className="bg-white/40 p-6 rounded-2xl border border-white/60 shadow-sm backdrop-blur-md">
           <h3 className="font-bold flex items-center gap-2 mb-4 text-lg"><Wallet size={24} className="text-emerald-600"/> Hitung & Posting Gaji Founder</h3>
-          <p className="text-sm text-slate-500 mb-6">Menarik otomatis Laba Bersih bulan terkait (sebelum gaji), mengambil max 40% atau Rp 15.000.000, lalu membaginya bertiga (Anda, Reza, Theo) sebagai pencatatan biaya Pengeluaran.</p>
+          <p className="text-sm text-slate-500 mb-6">Menarik otomatis Laba Bersih bulan terkait (sebelum gaji), mengambil max 40% atau Rp 15.000.000, lalu membaginya secara merata kepada seluruh mitra/partner terdaftar ({partnersCount} orang) sebagai pencatatan Pengeluaran.</p>
           <form onSubmit={handleCalculateSalary} className="space-y-4">
             <div className="flex gap-4">
               <div className="w-1/2">
@@ -71,7 +71,7 @@ export function MitraClient() {
                     <span className="font-bold text-indigo-600 text-base">{formatCurrency(salaryResult.pool)}</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
-                    <span className="font-semibold text-slate-600">Gaji per Orang (dibagi 3)</span>
+                    <span className="font-semibold text-slate-600">Gaji per Orang (dibagi {partnersCount})</span>
                     <span className="font-bold text-emerald-600 text-lg">{formatCurrency(salaryResult.perPerson)}</span>
                   </div>
                 </div>

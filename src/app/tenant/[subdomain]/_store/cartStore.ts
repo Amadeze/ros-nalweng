@@ -11,54 +11,64 @@ export interface CartItem {
 }
 
 interface CartState {
-  items: CartItem[];
-  addItem: (product: { id: string; code: string; name: string; imageUrl: string | null; price: number }) => void;
-  removeItem: (id: string) => void;
-  updateQuantity: (id: string, delta: number) => void;
-  clearCart: () => void;
-  getTotalItems: () => number;
-  getTotalPrice: () => number;
+  items: Record<string, CartItem[]>;
+  addItem: (tenantId: string, product: { id: string; code: string; name: string; imageUrl: string | null; price: number }) => void;
+  removeItem: (tenantId: string, id: string) => void;
+  updateQuantity: (tenantId: string, id: string, delta: number) => void;
+  clearCart: (tenantId: string) => void;
+  getTotalItems: (tenantId: string) => number;
+  getTotalPrice: (tenantId: string) => number;
 }
 
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
-      items: [],
-      addItem: (product) => {
+      items: {},
+      addItem: (tenantId, product) => {
         set((state) => {
-          const existingItem = state.items.find((item) => item.id === product.id);
+          const tenantItems = state.items[tenantId] || [];
+          const existingItem = tenantItems.find((item) => item.id === product.id);
           if (existingItem) {
             return {
-              items: state.items.map((item) =>
-                item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-              ),
+              items: {
+                ...state.items,
+                [tenantId]: tenantItems.map((item) =>
+                  item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+                ),
+              }
             };
           }
-          return { items: [...state.items, { ...product, quantity: 1 }] };
+          return { items: { ...state.items, [tenantId]: [...tenantItems, { ...product, quantity: 1 }] } };
         });
       },
-      removeItem: (id) => {
+      removeItem: (tenantId, id) => {
         set((state) => ({
-          items: state.items.filter((item) => item.id !== id),
+          items: {
+            ...state.items,
+            [tenantId]: (state.items[tenantId] || []).filter((item) => item.id !== id),
+          }
         }));
       },
-      updateQuantity: (id, delta) => {
+      updateQuantity: (tenantId, id, delta) => {
         set((state) => ({
-          items: state.items.map((item) => {
-            if (item.id === id) {
-              const newQty = Math.max(1, item.quantity + delta);
-              return { ...item, quantity: newQty };
-            }
-            return item;
-          }),
+          items: {
+            ...state.items,
+            [tenantId]: (state.items[tenantId] || []).map((item) => {
+              if (item.id === id) {
+                const newQty = Math.max(1, item.quantity + delta);
+                return { ...item, quantity: newQty };
+              }
+              return item;
+            }),
+          }
         }));
       },
-      clearCart: () => set({ items: [] }),
-      getTotalItems: () => {
-        return get().items.reduce((total, item) => total + item.quantity, 0);
+      clearCart: (tenantId) => set((state) => ({ items: { ...state.items, [tenantId]: [] } })),
+      getTotalItems: (tenantId) => {
+        return (get().items[tenantId] || []).reduce((total, item) => total + item.quantity, 0);
       },
-      getTotalPrice: () => {
-        return get().items.reduce((total, item) => total + (item.price * item.quantity), 0);
+      getTotalPrice: (tenantId) => {
+        return (get().items[tenantId] || []).reduce((total, item) => total + (item.price * item.quantity), 0);
       },
     }),
     {

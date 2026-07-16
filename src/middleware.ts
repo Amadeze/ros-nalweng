@@ -3,10 +3,10 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/register", "/about", "/pricing", "/_next", "/favicon.ico", "/images", "/tenant"];
 const ROOT_DOMAINS = ['localhost', '127.0.0.1', 'ros.com', 'www.ros.com', 'app.ros.com', 'beanslab.vercel.app', 'ros-beanslab.vercel.app'];
 
-export async function proxy(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   const url = request.nextUrl;
   const { pathname } = url;
 
@@ -80,6 +80,11 @@ export async function proxy(request: NextRequest) {
     if (!allowed.some(p => pathname.startsWith(p))) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
+  }
+
+  // Superadmin protection
+  if (pathname.startsWith("/superadmin") && role !== "SUPERADMIN") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return res;

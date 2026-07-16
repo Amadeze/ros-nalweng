@@ -29,7 +29,7 @@ export function MagazineTheme({
           onClick={() => setIsCartOpen(true)} 
           className="text-2xl font-bold uppercase border-b-[3px] border-transparent hover:border-current pb-1 hover:text-rose-600 transition-colors"
         >
-          Bag ({cart.items.length})
+          Bag ({(cart.items[tenant.subdomain || ""] || []).length})
         </motion.button>
       </header>
 
@@ -162,7 +162,7 @@ export function MagazineTheme({
                   </div>
                 ))}
                 
-                {cart.items.length > 0 && (
+                {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                   <div className="pt-10 border-t-2 border-current space-y-6">
                     <h3 className="font-serif font-black text-2xl uppercase mb-4">Shipping Details</h3>
                     <input type="text" placeholder="Full Name" value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full bg-transparent border-b-2 border-current pb-3 outline-none font-bold uppercase text-lg placeholder-current/40 focus:border-rose-500 transition-colors" />
@@ -172,7 +172,7 @@ export function MagazineTheme({
                 )}
               </div>
               
-              {cart.items.length > 0 && (
+              {(cart.items[tenant.subdomain || ""] || []).length > 0 && (
                 <div className="pt-10 border-t-[4px] border-current mt-6">
                   <div className="flex justify-between font-black text-3xl mb-8 font-serif uppercase tracking-tighter">
                     <span>Total</span>

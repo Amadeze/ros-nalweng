@@ -3,6 +3,7 @@ import { MitraClient } from "./MitraClient";
 
 export const dynamic = "force-dynamic";
 
-export default function MitraPage() {
-  return <MitraClient />;
+export default async function MitraPage() {
+  const data = await getMitraData();
+  return <MitraClient partnersCount={data.partners.length} />;
 }

@@ -1,10 +1,11 @@
-import { prisma } from "./prisma";
+import { requireTenantPrisma } from "./auth";
 
 /**
  * Hitung stok kopi (kg) untuk satu product dari agregasi InventoryLedger.
  * Digunakan oleh roasting & produksi untuk validasi stok sebelum transaksi.
  */
 export async function computeKgStock(productId: string): Promise<number> {
+  const prisma = await requireTenantPrisma();
   const entries = await prisma.inventoryLedger.findMany({
     where: { productId },
     select: { entryType: true, quantityKg: true },
@@ -19,6 +20,7 @@ export async function computeKgStock(productId: string): Promise<number> {
  * Hitung stok unit (pcs) untuk satu packaging dari agregasi InventoryLedger.
  */
 export async function computeUnitStock(packagingId: string): Promise<number> {
+  const prisma = await requireTenantPrisma();
   const entries = await prisma.inventoryLedger.findMany({
     where: { packagingId },
     select: { entryType: true, quantityUnit: true },
@@ -33,6 +35,7 @@ export async function computeUnitStock(packagingId: string): Promise<number> {
  * FG tracking menggunakan productId + quantityUnit (berbeda dari computeKgStock yang pakai quantityKg).
  */
 export async function computeFGUnitStock(productId: string): Promise<number> {
+  const prisma = await requireTenantPrisma();
   const entries = await prisma.inventoryLedger.findMany({
     where: { productId, quantityUnit: { not: null } },
     select: { entryType: true, quantityUnit: true },

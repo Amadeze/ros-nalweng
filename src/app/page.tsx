@@ -176,62 +176,29 @@ export default function LandingPage() {
               <p className="font-body-lg text-body-lg text-primary-container text-xl">Plans that scale with your roasting volume.</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
-              {/* Basic Plan */}
-              <div className="glass-panel rounded-2xl p-10 flex flex-col gap-8 reveal-on-scroll delay-100">
-                <div>
-                  <h3 className="font-headline-md text-headline-md text-on-background">Starter</h3>
-                  <p className="font-body-md text-body-md text-on-surface-variant mt-2">For micro-roasteries.</p>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-metric-xl text-metric-xl text-on-background">$49</span>
-                  <span className="font-body-md text-body-md text-on-surface-variant">/mo</span>
-                </div>
-                <ul className="flex flex-col gap-5 font-body-md text-body-md text-on-surface-variant flex-grow">
-                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5" /> Up to 500kg/mo</li>
-                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5" /> Basic Inventory</li>
-                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5" /> Manual Roasting Logs</li>
-                </ul>
-                <Link href="/register" className="w-full mt-4 border border-white/10 bg-white/5 text-on-background font-label-caps text-label-caps py-4 rounded-full hover:bg-white/10 transition-all font-semibold block text-center">Start Free Trial</Link>
-              </div>
-              
+            <div className="flex justify-center mt-8">
               {/* Pro Plan */}
-              <div className="glass-panel rounded-2xl p-10 flex flex-col gap-8 border border-primary-container/30 relative transform md:scale-105 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-10 reveal-on-scroll delay-200 bg-surface-variant/40">
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary-container text-on-primary-container font-label-caps text-label-caps px-6 py-1.5 rounded-full shadow-lg">Most Popular</div>
-                <div>
-                  <h3 className="font-headline-md text-headline-md text-primary-container font-semibold">Professional</h3>
-                  <p className="font-body-md text-body-md text-on-surface-variant mt-2">For growing wholesale operations.</p>
+              <div className="glass-panel rounded-2xl p-10 flex flex-col gap-8 border border-primary-container/30 relative shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-10 reveal-on-scroll delay-100 bg-surface-variant/40 max-w-lg w-full">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary-container text-on-primary-container font-label-caps text-label-caps px-6 py-1.5 rounded-full shadow-lg">Premium Access</div>
+                <div className="text-center">
+                  <h3 className="font-headline-md text-headline-md text-primary-container font-semibold">Roastery OS Pro</h3>
+                  <p className="font-body-md text-body-md text-on-surface-variant mt-2">Everything you need to scale your wholesale operations.</p>
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-metric-xl text-metric-xl text-on-background">$129</span>
-                  <span className="font-body-md text-body-md text-on-surface-variant">/mo</span>
+                <div className="flex items-baseline justify-center gap-2">
+                  <span className="font-metric-xl text-metric-xl text-on-background">Rp 299.000</span>
+                  <span className="font-body-md text-body-md text-on-surface-variant">/ bulan</span>
                 </div>
-                <ul className="flex flex-col gap-5 font-body-md text-body-md text-on-surface-variant flex-grow">
-                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5" /> Up to 2,000kg/mo</li>
-                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5" /> Advanced Inventory & Traceability</li>
-                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5" /> Automated Roasting Curves</li>
-                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5" /> B2B Ordering Portal</li>
+                <ul className="flex flex-col gap-5 font-body-md text-body-md text-on-surface-variant flex-grow mt-4">
+                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5 flex-shrink-0" /> Core Inventory & Ledger</li>
+                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5 flex-shrink-0" /> Roasting & Production Logs</li>
+                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5 flex-shrink-0" /> Advanced B2B Ordering Portal</li>
+                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5 flex-shrink-0" /> Custom Domain</li>
+                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5 flex-shrink-0" /> Advanced Analytics & P&L</li>
                 </ul>
-                <Link href="/register" className="w-full mt-4 bg-primary-container text-on-primary-container font-label-caps text-label-caps py-4 rounded-full hover:bg-white transition-all duration-300 font-semibold shadow-[0_4px_20px_rgba(212,163,115,0.25)] block text-center">Start Free Trial</Link>
-              </div>
-              
-              {/* Enterprise Plan */}
-              <div className="glass-panel rounded-2xl p-10 flex flex-col gap-8 reveal-on-scroll delay-300">
-                <div>
-                  <h3 className="font-headline-md text-headline-md text-on-background">Scale</h3>
-                  <p className="font-body-md text-body-md text-on-surface-variant mt-2">For large facilities.</p>
+                <div className="mt-8">
+                  <Link href="/register" className="w-full bg-primary-container text-on-primary-container font-label-caps text-label-caps py-4 rounded-full hover:bg-white transition-all duration-300 font-semibold shadow-[0_4px_20px_rgba(212,163,115,0.25)] block text-center">Mulai 14 Hari Free Trial</Link>
+                  <p className="text-center text-xs text-on-surface-variant mt-4">Tanpa kartu kredit. Batalkan kapan saja.</p>
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-metric-xl text-metric-xl text-on-background">$299</span>
-                  <span className="font-body-md text-body-md text-on-surface-variant">/mo</span>
-                </div>
-                <ul className="flex flex-col gap-5 font-body-md text-body-md text-on-surface-variant flex-grow">
-                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5" /> Unlimited Volume</li>
-                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5" /> Multi-Facility Support</li>
-                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5" /> Accounting API Integrations</li>
-                  <li className="flex items-center gap-4"><CheckIcon className="text-primary-container w-5 h-5" /> Dedicated Success Manager</li>
-                </ul>
-                <button className="w-full mt-4 border border-white/10 bg-white/5 text-on-background font-label-caps text-label-caps py-4 rounded-full hover:bg-white/10 transition-all font-semibold">Contact Sales</button>
               </div>
             </div>
           </div>

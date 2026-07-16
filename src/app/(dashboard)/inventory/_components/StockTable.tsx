@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
   Table,
@@ -101,6 +101,14 @@ interface StockTableProps {
 export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTableProps) {
   const [activeTab, setActiveTab] = useState<"gb" | "rb" | "fg" | "pkg">("gb");
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab === "gb" || tab === "rb" || tab === "fg" || tab === "pkg") {
+      setActiveTab(tab as "gb" | "rb" | "fg" | "pkg");
+    }
+  }, []);
+
   const tabs = [
     { id: "gb", label: "Green Bean", count: gbStocks.length, icon: "🌱" },
     { id: "rb", label: "Roasted Bean", count: rbStocks.length, icon: "☕" },
@@ -152,6 +160,7 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
                   <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Nama / Asal</TableHead>
                   <TableHead className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Stok</TableHead>
                   <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">HPP /kg</TableHead>
+                  <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">Nilai (Rp)</TableHead>
                   <TableHead className="w-24 text-center text-xs font-bold uppercase tracking-widest text-slate-500">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -175,6 +184,11 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
                       <TableCell  className="text-right text-sm font-semibold text-slate-600 tabular-nums">
                         {row.latestHppPerKg != null
                           ? formatRupiah(row.latestHppPerKg)
+                          : <span className="text-slate-300">-</span>}
+                      </TableCell>
+                      <TableCell  className="text-right text-sm font-black text-slate-900 tabular-nums">
+                        {row.latestHppPerKg != null
+                          ? formatRupiah(row.latestHppPerKg * Number(row.stockKg))
                           : <span className="text-slate-300">-</span>}
                       </TableCell>
                       <TableCell className="text-center">
@@ -223,6 +237,7 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
                   <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Nama / Roast Level</TableHead>
                   <TableHead className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Stok</TableHead>
                   <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">HPP /kg</TableHead>
+                  <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">Nilai (Rp)</TableHead>
                   <TableHead className="w-24 text-center text-xs font-bold uppercase tracking-widest text-slate-500">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -246,6 +261,11 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
                       <TableCell  className="text-right text-sm font-semibold text-slate-600 tabular-nums">
                         {row.latestHppPerKg != null
                           ? formatRupiah(row.latestHppPerKg)
+                          : <span className="text-slate-300">-</span>}
+                      </TableCell>
+                      <TableCell  className="text-right text-sm font-black text-slate-900 tabular-nums">
+                        {row.latestHppPerKg != null
+                          ? formatRupiah(row.latestHppPerKg * Number(row.stockKg))
                           : <span className="text-slate-300">-</span>}
                       </TableCell>
                       <TableCell className="text-center">
@@ -294,6 +314,7 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
                   <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Produk</TableHead>
                   <TableHead className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Stok (Unit)</TableHead>
                   <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">HPP /unit</TableHead>
+                  <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">Nilai (Rp)</TableHead>
                   <TableHead className="w-24 text-center text-xs font-bold uppercase tracking-widest text-slate-500">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -314,6 +335,11 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
                       <TableCell  className="text-right text-sm font-semibold text-slate-600 tabular-nums">
                         {row.latestHppPerUnit != null
                           ? formatRupiah(row.latestHppPerUnit)
+                          : <span className="text-slate-300">-</span>}
+                      </TableCell>
+                      <TableCell  className="text-right text-sm font-black text-slate-900 tabular-nums">
+                        {row.latestHppPerUnit != null
+                          ? formatRupiah(row.latestHppPerUnit * Number(row.stockUnit))
                           : <span className="text-slate-300">-</span>}
                       </TableCell>
                       <TableCell className="text-center">
@@ -358,6 +384,7 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
                   <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">Berat Kemasan</TableHead>
                   <TableHead className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Stok</TableHead>
                   <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">HPP /unit</TableHead>
+                  <TableHead className=" text-right text-xs font-bold uppercase tracking-widest text-slate-500">Nilai (Rp)</TableHead>
                   <TableHead className="w-24 text-center text-xs font-bold uppercase tracking-widest text-slate-500">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -376,6 +403,9 @@ export function StockTable({ gbStocks, rbStocks, fgStocks, pkgStocks }: StockTab
                       </TableCell>
                       <TableCell  className="text-right text-sm font-semibold text-slate-600 tabular-nums">
                         {formatRupiah(row.costPerUnit)}
+                      </TableCell>
+                      <TableCell  className="text-right text-sm font-black text-slate-900 tabular-nums">
+                        {formatRupiah(row.costPerUnit * Number(row.stockUnit))}
                       </TableCell>
                       <TableCell className="text-center">
                         <StatusBadge status={getPackagingStatus(row.stockUnit)} />

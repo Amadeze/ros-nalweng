@@ -24,9 +24,7 @@ export default async function SuperadminDashboard() {
   tenants.forEach(t => {
     if (t.isActive && t.subscriptionStatus === "ACTIVE") {
       activeCount++;
-      if (t.subscriptionTier === "BASIC") mrr += 49;
-      if (t.subscriptionTier === "PRO") mrr += 129;
-      if (t.subscriptionTier === "ENTERPRISE") mrr += 299;
+      if (t.subscriptionTier === "PRO") mrr += 299000;
     }
   });
 

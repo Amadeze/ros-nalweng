@@ -23,17 +23,12 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleNextStep = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!roasteryName || !subdomain || !email || !password) {
       setError("All fields are required");
       return;
     }
-    setError("");
-    setStep(2);
-  };
-
-  const handleSubmit = async () => {
     setError("");
     setLoading(true);
 
@@ -50,8 +45,8 @@ function RegisterForm() {
         setStep(1); // Go back if error is from fields
         return;
       }
-      // Pendaftaran berhasil, arahkan ke login
-      router.push("/login?registered=true");
+      // Pendaftaran berhasil dan auto-login, arahkan ke dashboard
+      router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred");
       setStep(1);
@@ -60,118 +55,8 @@ function RegisterForm() {
     }
   };
 
-  if (step === 2) {
-    return (
-      <div className="space-y-6 animate-fade-up">
-        <div className="text-center">
-          <h2 className="font-headline-md text-headline-md text-on-background mb-2">Select your plan</h2>
-          <p className="font-body-md text-body-md text-on-surface-variant">Start your 14-day free trial. No credit card required.</p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4">
-          {/* Starter Plan */}
-          <button 
-            type="button"
-            onClick={() => setSelectedPlan("BASIC")}
-            className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
-              selectedPlan === "BASIC" 
-                ? "bg-primary-container/10 border-primary-container shadow-[0_0_15px_rgba(212,163,115,0.15)]" 
-                : "bg-surface-variant/30 border-white/5 hover:border-white/20"
-            }`}
-          >
-            <div className="text-left">
-              <h3 className="font-headline-md text-xl text-on-background">Starter</h3>
-              <p className="font-body-md text-sm text-on-surface-variant">Up to 500kg/mo</p>
-            </div>
-            <div className="text-right flex items-center gap-4">
-              <div>
-                <span className="font-headline-md text-2xl text-on-background">$49</span>
-                <span className="font-body-md text-sm text-on-surface-variant">/mo</span>
-              </div>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${selectedPlan === "BASIC" ? "border-primary-container bg-primary-container" : "border-white/20"}`}>
-                {selectedPlan === "BASIC" && <CheckCircle2 className="w-4 h-4 text-on-primary-container" />}
-              </div>
-            </div>
-          </button>
-
-          {/* Professional Plan */}
-          <button 
-            type="button"
-            onClick={() => setSelectedPlan("PRO")}
-            className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 relative ${
-              selectedPlan === "PRO" 
-                ? "bg-primary-container/10 border-primary-container shadow-[0_0_15px_rgba(212,163,115,0.15)]" 
-                : "bg-surface-variant/30 border-white/5 hover:border-white/20"
-            }`}
-          >
-            <div className="absolute -top-3 left-4 bg-primary-container text-on-primary-container text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-              Most Popular
-            </div>
-            <div className="text-left mt-1">
-              <h3 className="font-headline-md text-xl text-primary-container font-semibold">Professional</h3>
-              <p className="font-body-md text-sm text-on-surface-variant">Up to 2,000kg/mo</p>
-            </div>
-            <div className="text-right flex items-center gap-4">
-              <div>
-                <span className="font-headline-md text-2xl text-on-background">$129</span>
-                <span className="font-body-md text-sm text-on-surface-variant">/mo</span>
-              </div>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${selectedPlan === "PRO" ? "border-primary-container bg-primary-container" : "border-white/20"}`}>
-                {selectedPlan === "PRO" && <CheckCircle2 className="w-4 h-4 text-on-primary-container" />}
-              </div>
-            </div>
-          </button>
-
-          {/* Scale Plan */}
-          <button 
-            type="button"
-            onClick={() => setSelectedPlan("ENTERPRISE")}
-            className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
-              selectedPlan === "ENTERPRISE" 
-                ? "bg-primary-container/10 border-primary-container shadow-[0_0_15px_rgba(212,163,115,0.15)]" 
-                : "bg-surface-variant/30 border-white/5 hover:border-white/20"
-            }`}
-          >
-            <div className="text-left">
-              <h3 className="font-headline-md text-xl text-on-background">Scale</h3>
-              <p className="font-body-md text-sm text-on-surface-variant">Unlimited Volume</p>
-            </div>
-            <div className="text-right flex items-center gap-4">
-              <div>
-                <span className="font-headline-md text-2xl text-on-background">$299</span>
-                <span className="font-body-md text-sm text-on-surface-variant">/mo</span>
-              </div>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center border ${selectedPlan === "ENTERPRISE" ? "border-primary-container bg-primary-container" : "border-white/20"}`}>
-                {selectedPlan === "ENTERPRISE" && <CheckCircle2 className="w-4 h-4 text-on-primary-container" />}
-              </div>
-            </div>
-          </button>
-        </div>
-
-        <div className="pt-6 flex gap-4">
-          <button 
-            type="button" 
-            onClick={() => setStep(1)}
-            disabled={loading}
-            className="flex-1 border border-white/10 bg-white/5 text-on-background font-label-caps text-label-caps h-12 rounded-full hover:bg-white/10 transition-all font-semibold"
-          >
-            Back
-          </button>
-          <button 
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading}
-            className="flex-[2] bg-primary-container text-on-primary-container font-label-caps text-label-caps h-12 rounded-full hover:bg-white transition-all duration-300 font-semibold shadow-[0_4px_20px_rgba(212,163,115,0.25)] flex items-center justify-center"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Complete Registration"}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <form onSubmit={handleNextStep} className="space-y-5 animate-fade-up">
+    <form onSubmit={handleSubmit} className="space-y-5 animate-fade-up">
       <div className="space-y-1.5">
         <label className="text-xs font-semibold text-on-surface-variant tracking-wider uppercase">Roastery Name</label>
         <div className="relative">
@@ -262,7 +147,7 @@ function RegisterForm() {
           type="submit"
           className="w-full h-12 bg-primary-container text-on-primary-container font-label-caps text-label-caps rounded-full hover:bg-white transition-all duration-300 font-semibold shadow-[0_4px_20px_rgba(212,163,115,0.25)] flex items-center justify-center"
         >
-          Continue to Plan Selection
+          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Start 14-Day Free Trial"}
         </button>
       </div>
     </form>

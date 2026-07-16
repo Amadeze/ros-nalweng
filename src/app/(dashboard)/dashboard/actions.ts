@@ -108,6 +108,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     topCustomersRaw,
     totalKopiTerjualRaw,
     roastYieldRaw,
+    marginRaw,
   ] = await Promise.all([
 
     // 1. Revenue hari ini (nota PAID yang diterbitkan hari ini)
@@ -266,6 +267,16 @@ export async function getDashboardData(): Promise<DashboardData> {
       _avg: { roastLossPercent: true },
       where: { status: "COMPLETED" }
     }),
+
+    // 15. Gross Margin (All time)
+    (await requireTenantPrisma()).$queryRaw<{ totalRevenue: number, totalCogs: number }[]>`
+      SELECT 
+        COALESCE(SUM(ii."subtotal"), 0)::float as "totalRevenue",
+        COALESCE(SUM(ii."hpp" * ii."quantity"), 0)::float as "totalCogs"
+      FROM "invoice_items" ii
+      JOIN "invoices" i ON ii."invoiceId" = i.id
+      WHERE i."tenantId" = ${tenantId} AND i."status" IN ('PAID', 'PARTIAL', 'ISSUED')
+    `,
   ]);
 
   // ── KPI calculations ──
@@ -280,8 +291,10 @@ export async function getDashboardData(): Promise<DashboardData> {
   const avgLoss = Number(roastYieldRaw._avg.roastLossPercent ?? 0);
   const averageRoastYield = avgLoss > 0 ? 100 - avgLoss : 0;
   
-  // Dummy gross margin for now since COGS requires deeper calculation
-  const averageGrossMargin = 45.5; 
+  // Calculate Gross Margin
+  const totalRev = marginRaw[0]?.totalRevenue || 0;
+  const totalCogs = marginRaw[0]?.totalCogs || 0;
+  const averageGrossMargin = totalRev > 0 ? ((totalRev - totalCogs) / totalRev) * 100 : 0;
 
   // ── Build stock maps ──
   const gbRbMap  = new Map(gbRbAgg.map((r) => [r.productId, r.stockKg]));

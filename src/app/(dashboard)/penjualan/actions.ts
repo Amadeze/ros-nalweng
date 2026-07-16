@@ -1,5 +1,5 @@
 "use server";
-import { requireTenantPrisma } from "@/lib/auth";
+import { requireTenantPrisma, getSystemUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { appendLedger, computeFGUnitStock } from "@/lib/stock";
 
@@ -184,16 +184,7 @@ export async function getSalesPageData(): Promise<SalesPageData> {
 export async function createInvoice(input: CreateInvoiceInput): Promise<SalesActionResult> {
   try {
     // ── System user ──
-    const user = await (await requireTenantPrisma()).user.upsert({
-      where: { email: "system@ros.internal" },
-      update: {},
-      create: {
-        name: "System",
-        email: "system@ros.internal",
-        password: "system",
-        role: "OWNER",
-      },
-    });
+    const userId = await getSystemUserId();
 
     // ── Validate stock for every item ──
     for (const item of input.items) {
@@ -226,8 +217,8 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
     // ── Generate invoice code ──
     const now = new Date();
     const prefix = `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const count = await (await requireTenantPrisma()).invoice.count({ where: { code: { startsWith: prefix } } });
-    const invoiceCode = `${prefix}-${String(count + 1).padStart(3, "0")}`;
+    const randStr = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const invoiceCode = `${prefix}-${randStr}`;
 
     // ── Compute totals ──
     const enrichedItems = input.items.map((item) => {
@@ -254,7 +245,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
           issuedAt: now,
           dueDate: input.dueDate ? new Date(input.dueDate) : null,
           notes: input.notes,
-          createdById: user.id,
+          createdById: userId,
         },
       });
 
@@ -283,7 +274,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
             refId: inv.id,
             quantityUnit: item.quantity,
             notes: `Penjualan ${invoiceCode}`,
-            createdById: user.id,
+            createdById: userId,
           },
         });
       }
@@ -302,7 +293,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
             method: input.paymentMethod,
             paidAt: now,
             notes: "Lunas saat nota diterbitkan",
-            createdById: user.id,
+            createdById: userId,
           },
         });
       }
@@ -395,11 +386,7 @@ export async function voidInvoice(
   reason: string
 ): Promise<VoidResult> {
   try {
-    const user = await (await requireTenantPrisma()).user.upsert({
-      where: { email: "system@ros.internal" },
-      update: {},
-      create: { name: "System", email: "system@ros.internal", password: "system", role: "OWNER" },
-    });
+    const userId = await getSystemUserId();
 
     const inv = await (await requireTenantPrisma()).invoice.findUnique({
       where: { id: invoiceId },
@@ -421,7 +408,7 @@ export async function voidInvoice(
             refId:        invoiceId,
             quantityUnit: item.quantity,
             notes:        `VOID reversal: ${inv.code}`,
-            createdById:  user.id,
+            createdById: userId,
           },
         });
       }

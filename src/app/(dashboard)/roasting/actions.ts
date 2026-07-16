@@ -67,10 +67,8 @@ export type RoastingActionResult =
 async function generateBatchCode(): Promise<string> {
   const now = new Date();
   const prefix = `RST-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const count = await (await requireTenantPrisma()).roastingBatch.count({
-    where: { code: { startsWith: prefix } },
-  });
-  return `${prefix}-${String(count + 1).padStart(3, "0")}`;
+  const randStr = Math.random().toString(36).substring(2, 7).toUpperCase();
+  return `${prefix}-${randStr}`;
 }
 
 async function generateRBCode(name: string): Promise<string> {

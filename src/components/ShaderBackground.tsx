@@ -124,7 +124,7 @@ export function ShaderBackground() {
     const uRes = gl.getUniformLocation(prog, 'u_resolution');
     const uMouse = gl.getUniformLocation(prog, 'u_mouse');
 
-    let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+    const mouse = { x: canvas.width / 2, y: canvas.height / 2 };
     const onMouseMove = (event: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       if (rect.width && rect.height) {

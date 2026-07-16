@@ -109,10 +109,10 @@ export function KeuanganClient({ data, expenses, purchases }: KeuanganClientProp
           />
           <KpiCard
             label="Lewat Jatuh Tempo"
-            value={`${kpi.overdueCount} nota`}
+            value={formatRupiah(kpi.overdueTotal)}
             sub={
               kpi.overdueCount > 0
-                ? `${formatRupiah(kpi.overdueTotal)} belum terbayar`
+                ? `${kpi.overdueCount} nota belum terbayar`
                 : "Semua tepat waktu"
             }
             accent={kpi.overdueCount > 0 ? "red" : "default"}
