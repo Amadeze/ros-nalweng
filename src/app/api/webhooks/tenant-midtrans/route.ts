@@ -66,9 +66,8 @@ export async function POST(req: Request) {
             code: `PAY-${invoice.tenant.code}-${Date.now()}-${paymentCount + 1}`,
             invoiceId: invoice.id,
             amount: grossAmount,
-            method: data.payment_type?.toUpperCase() || "MIDTRANS",
-            reference: transactionStatus,
-            status: "COMPLETED",
+            method: data.payment_type?.toLowerCase().includes('qris') ? "QRIS" : "TRANSFER",
+            reference: `Midtrans: ${transactionStatus}`,
             tenantId: invoice.tenantId,
             createdById: invoice.createdById, 
           }
