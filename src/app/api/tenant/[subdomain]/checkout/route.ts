@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import midtransClient from "midtrans-client";
 
 export async function POST(
   req: NextRequest,
@@ -18,15 +19,14 @@ export async function POST(
     // 1. Dapatkan tenant
     const tenant = await prisma.tenant.findUnique({
       where: { subdomain },
-      include: { users: { take: 1, orderBy: { createdAt: 'asc' } } } // get default user for createdById
+      include: { users: { take: 1, orderBy: { createdAt: 'asc' } } }
     });
 
     if (!tenant) {
       return NextResponse.json({ error: "Tenant tidak ditemukan" }, { status: 404 });
     }
 
-    // Default admin user for creation
-    const createdById = tenant.users[0]?.id || "admin"; // Should be a valid user ID if possible
+    const createdById = tenant.users[0]?.id || "admin";
 
     // 2. Cari atau Buat Customer
     let customer = await prisma.customer.findFirst({
@@ -49,6 +49,7 @@ export async function POST(
     // 3. Kalkulasi Subtotal & Buat Items Array
     let subtotal = 0;
     const invoiceItemsData = [];
+    const midtransItemDetails = [];
     
     for (const item of items) {
       const unitPrice = Number(item.price);
@@ -62,27 +63,78 @@ export async function POST(
         unitPrice: unitPrice,
         discount: 0,
         subtotal: itemSub,
-        hpp: 0, // Placeholder
+        hpp: 0, 
+      });
+
+      midtransItemDetails.push({
+        id: item.id,
+        price: Math.round(unitPrice),
+        quantity: qty,
+        name: item.name.substring(0, 50)
       });
     }
 
-    // 4. Buat Invoice
+    const grandTotal = subtotal; // Assuming no tax or shipping for now
+
+    // 4. Midtrans Integration Check
+    const hasMidtrans = tenant.midtransServerKey && tenant.midtransClientKey;
+    let midtransOrderId = null;
+    let paymentUrl = null;
+    let snapToken = null;
+
     const countInv = await prisma.invoice.count({ where: { tenantId: tenant.id } });
-    
+    const invoiceCode = `INV-${tenant.code}-${new Date().getFullYear()}-${countInv + 1}`;
+
+    if (hasMidtrans) {
+      midtransOrderId = `${invoiceCode}-${Date.now().toString().slice(-6)}`;
+      const snap = new midtransClient.Snap({
+        isProduction: tenant.midtransIsProduction,
+        serverKey: tenant.midtransServerKey || "",
+        clientKey: tenant.midtransClientKey || "",
+      });
+
+      const parameter = {
+        transaction_details: {
+          order_id: midtransOrderId,
+          gross_amount: Math.round(grandTotal),
+        },
+        customer_details: {
+          first_name: customerName,
+          phone: customerPhone,
+          email: `${customerPhone}@roasteryos.local`,
+        },
+        item_details: midtransItemDetails
+      };
+
+      try {
+        const transaction = await snap.createTransaction(parameter);
+        snapToken = transaction.token;
+        paymentUrl = transaction.redirect_url;
+      } catch (err: any) {
+        console.error("Failed to create Midtrans Snap for Tenant:", err);
+        // Fallback to manual if Midtrans fails
+        midtransOrderId = null;
+        paymentUrl = null;
+      }
+    }
+
+    // 5. Buat Invoice
     const invoice = await prisma.invoice.create({
       data: {
-        code: `INV-${tenant.code}-${new Date().getFullYear()}-${countInv + 1}`,
+        code: invoiceCode,
         customerId: customer.id,
         tenantId: tenant.id,
         createdById: createdById,
-        status: "DRAFT",
+        status: hasMidtrans && midtransOrderId ? "PENDING" : "DRAFT",
         subtotal: subtotal,
         discount: 0,
         tax: 0,
-        shippingCost: 0, // default, admin updates later
+        shippingCost: 0, 
         shippingMethod: shippingMethod || "PICKUP",
         shippingAddress: customerAddress || null,
-        grandTotal: subtotal,
+        grandTotal: grandTotal,
+        midtransOrderId: midtransOrderId,
+        paymentUrl: paymentUrl,
         items: {
           create: invoiceItemsData
         }
@@ -91,7 +143,12 @@ export async function POST(
 
     revalidatePath("/penjualan");
 
-    return NextResponse.json({ success: true, invoice });
+    return NextResponse.json({ 
+      success: true, 
+      invoice,
+      snapToken,
+      paymentUrl
+    });
   } catch (error: any) {
     console.error("Checkout Error:", error);
     return NextResponse.json({ error: "Terjadi kesalahan sistem: " + error.message }, { status: 500 });

@@ -571,6 +571,10 @@ model Invoice {
   tenantId  String        @default("default")
   tenant    Tenant        @relation(fields: [tenantId], references: [id])
 
+  midtransOrderId String? @unique
+  paymentUrl      String?
+  paymentMethod   String?
+
   @@map("invoices")
 }
 
