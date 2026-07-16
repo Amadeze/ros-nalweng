@@ -180,9 +180,32 @@ model Tenant {
   partners            Partner[]
   capitalTransactions CapitalTransaction[]
   profitDistributions ProfitDistribution[]
+  subscriptionPayments SubscriptionPayment[]
 
   @@map("tenants")
 }
+
+// =============================================================================
+// TABLE 0.5 · SubscriptionPayment (SaaS Billing)
+// =============================================================================
+
+model SubscriptionPayment {
+  id              String           @id @default(cuid())
+  tenantId        String
+  amount          Decimal          @db.Decimal(12, 2)
+  status          String           // "PENDING", "SUCCESS", "FAILED"
+  midtransOrderId String           @unique
+  paymentUrl      String?
+  tier            SubscriptionTier
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+
+  @@map("subscription_payments")
+}
+
 
 // =============================================================================
 // TABLE 1 · User
