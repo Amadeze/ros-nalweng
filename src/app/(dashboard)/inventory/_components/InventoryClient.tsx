@@ -61,7 +61,7 @@ export function InventoryClient({
                     const doc = new jsPDF();
                     doc.text("Laporan Stok Green Bean", 14, 15);
                     const tableData = gbStocks.map(i => [
-                      i.name, i.stockKg, i.hppPerKg
+                      i.name, i.stockKg, i.latestHppPerKg || 0
                     ]);
                     autoTable(doc, {
                       head: [['Nama Green Bean', 'Stok (Kg)', 'HPP/Kg']],
@@ -84,7 +84,7 @@ export function InventoryClient({
                   const ws = XLSX.utils.json_to_sheet(gbStocks.map(i => ({
                     'Nama': i.name,
                     'Stok (Kg)': i.stockKg,
-                    'HPP/Kg': i.hppPerKg
+                    'HPP/Kg': i.latestHppPerKg || 0
                   })));
                   const wb = XLSX.utils.book_new();
                   XLSX.utils.book_append_sheet(wb, ws, "Stok GB");
