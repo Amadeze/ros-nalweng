@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import midtransClient from "midtrans-client";
+import { sendInvoiceEmail } from "@/lib/notifications";
 
 export async function POST(
   req: NextRequest,
@@ -142,6 +143,12 @@ export async function POST(
     });
 
     revalidatePath("/penjualan");
+
+    // Kirim Notifikasi Email
+    // Kita asumsikan customerPhone bisa berupa email di sistem B2B atau dikembangkan nanti
+    // Untuk saat ini, kirim dummy email atau email admin/customer jika tersedia.
+    const customerEmail = `${customerPhone}@roasteryos.local`; // Placeholder email, adjust according to actual data
+    await sendInvoiceEmail(customerEmail, invoiceCode, paymentUrl);
 
     return NextResponse.json({ 
       success: true, 

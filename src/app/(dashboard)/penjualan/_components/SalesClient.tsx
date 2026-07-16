@@ -61,14 +61,65 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
         title="Penjualan"
         description={`${kpi.paidCount} nota lunas Â· ${kpi.unpaidCount} nota tempo`}
         actionButton={
-          <Button
-            size="default"
-            className="gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg rounded-xl font-semibold px-5 transition-all group"
-            onClick={() => setDrawerOpen(true)}
-          >
-            <ReceiptText size={16} className="group-hover:scale-110 transition-transform" />
-            Nota Baru
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="default"
+              variant="outline"
+              className="gap-2 rounded-xl font-semibold px-4"
+              onClick={() => {
+                import('jspdf').then(({ jsPDF }) => {
+                  import('jspdf-autotable').then(({ default: autoTable }) => {
+                    const doc = new jsPDF();
+                    doc.text("Laporan Penjualan", 14, 15);
+                    const tableData = invoices.map(i => [
+                      i.code,
+                      i.customerName,
+                      new Date(i.issuedAt).toLocaleDateString(),
+                      i.status,
+                      formatRupiah(i.grandTotal)
+                    ]);
+                    autoTable(doc, {
+                      head: [['Kode Invoice', 'Pelanggan', 'Tanggal', 'Status', 'Total']],
+                      body: tableData,
+                      startY: 20
+                    });
+                    doc.save("Laporan_Penjualan.pdf");
+                  });
+                });
+              }}
+            >
+              Export PDF
+            </Button>
+            <Button
+              size="default"
+              variant="outline"
+              className="gap-2 rounded-xl font-semibold px-4"
+              onClick={() => {
+                import('xlsx').then((XLSX) => {
+                  const ws = XLSX.utils.json_to_sheet(invoices.map(i => ({
+                    'Kode Invoice': i.code,
+                    'Pelanggan': i.customerName,
+                    'Tanggal': new Date(i.issuedAt).toLocaleDateString(),
+                    'Status': i.status,
+                    'Total': i.grandTotal
+                  })));
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, "Penjualan");
+                  XLSX.writeFile(wb, "Laporan_Penjualan.xlsx");
+                });
+              }}
+            >
+              Export Excel
+            </Button>
+            <Button
+              size="default"
+              className="gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg rounded-xl font-semibold px-5 transition-all group"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <ReceiptText size={16} className="group-hover:scale-110 transition-transform" />
+              Nota Baru
+            </Button>
+          </div>
         }
       >
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">

@@ -54,6 +54,49 @@ export function InventoryClient({
             <Button
               size="sm"
               variant="outline"
+              className="gap-2 bg-white/50 border-white/60 text-slate-700 shadow-sm backdrop-blur-md hover:bg-white/70"
+              onClick={() => {
+                import('jspdf').then(({ jsPDF }) => {
+                  import('jspdf-autotable').then(({ default: autoTable }) => {
+                    const doc = new jsPDF();
+                    doc.text("Laporan Stok Green Bean", 14, 15);
+                    const tableData = gbStocks.map(i => [
+                      i.name, i.stockKg, i.hppPerKg
+                    ]);
+                    autoTable(doc, {
+                      head: [['Nama Green Bean', 'Stok (Kg)', 'HPP/Kg']],
+                      body: tableData,
+                      startY: 20
+                    });
+                    doc.save("Laporan_Stok.pdf");
+                  });
+                });
+              }}
+            >
+              Export PDF
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-white/50 border-white/60 text-slate-700 shadow-sm backdrop-blur-md hover:bg-white/70"
+              onClick={() => {
+                import('xlsx').then((XLSX) => {
+                  const ws = XLSX.utils.json_to_sheet(gbStocks.map(i => ({
+                    'Nama': i.name,
+                    'Stok (Kg)': i.stockKg,
+                    'HPP/Kg': i.hppPerKg
+                  })));
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, "Stok GB");
+                  XLSX.writeFile(wb, "Laporan_Stok.xlsx");
+                });
+              }}
+            >
+              Export Excel
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               className="bg-orange-50/50 border-orange-200 text-orange-700 shadow-sm backdrop-blur-md hover:bg-orange-100"
               onClick={() => setAdjDrawerOpen(true)}
             >
