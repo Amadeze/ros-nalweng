@@ -125,7 +125,7 @@ export async function POST(
         customerId: customer.id,
         tenantId: tenant.id,
         createdById: createdById,
-        status: hasMidtrans && midtransOrderId ? "PENDING" : "DRAFT",
+        status: hasMidtrans && midtransOrderId ? "ISSUED" : "DRAFT",
         subtotal: subtotal,
         discount: 0,
         tax: 0,
