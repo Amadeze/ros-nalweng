@@ -69,3 +69,29 @@ export async function createTenant(data: {
     return { success: false, error: error.message || "Gagal membuat tenant." };
   }
 }
+
+export async function updateTenantAdmin(data: {
+  id: string;
+  isActive: boolean;
+  subscriptionTier: "TRIAL" | "BASIC" | "PRO" | "ENTERPRISE";
+  subscriptionStatus: "ACTIVE" | "PAST_DUE" | "CANCELED" | "EXPIRED";
+}) {
+  try {
+    if (!data.id) return { success: false, error: "Tenant ID is required." };
+
+    await prisma.tenant.update({
+      where: { id: data.id },
+      data: {
+        isActive: data.isActive,
+        subscriptionTier: data.subscriptionTier,
+        subscriptionStatus: data.subscriptionStatus,
+      },
+    });
+
+    revalidatePath("/superadmin/tenants");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Update Tenant Error:", error);
+    return { success: false, error: error.message || "Gagal mengupdate tenant." };
+  }
+}

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { TenantForm } from "./_components/TenantForm";
+import { EditTenantDialog } from "./_components/EditTenantDialog";
 import { Coffee, ExternalLink } from "lucide-react";
 
 export default async function TenantsPage() {
@@ -18,7 +19,7 @@ export default async function TenantsPage() {
   });
 
   return (
-    <div className="p-8 space-y-8 max-w-6xl mx-auto">
+    <div className="p-8 space-y-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Tenants (Outlets)</h2>
@@ -35,8 +36,9 @@ export default async function TenantsPage() {
                 <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Outlet Info</th>
                 <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Admin Contact</th>
                 <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Subdomain</th>
-                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Total Orders</th>
+                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Subscription</th>
                 <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Status</th>
+                <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
@@ -72,7 +74,10 @@ export default async function TenantsPage() {
                     </a>
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-slate-300 font-medium">{t.invoices.length} invoices</p>
+                    <p className="font-medium text-slate-300">{t.subscriptionTier}</p>
+                    <p className={`text-xs ${t.subscriptionStatus === 'ACTIVE' ? 'text-emerald-400' : 'text-amber-500'}`}>
+                      {t.subscriptionStatus}
+                    </p>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase border ${
@@ -83,12 +88,24 @@ export default async function TenantsPage() {
                       {t.isActive ? "ACTIVE" : "INACTIVE"}
                     </span>
                   </td>
+                  <td className="px-6 py-4 text-right">
+                    <EditTenantDialog 
+                      tenant={{
+                        id: t.id,
+                        name: t.name,
+                        code: t.code,
+                        isActive: t.isActive,
+                        subscriptionTier: t.subscriptionTier,
+                        subscriptionStatus: t.subscriptionStatus
+                      }}
+                    />
+                  </td>
                 </tr>
               ))}
               
               {tenants.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                     Belum ada outlet terdaftar.
                   </td>
                 </tr>
