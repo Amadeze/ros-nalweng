@@ -6,6 +6,7 @@ import { CreditCard, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 import { formatRupiah } from "@/lib/format";
 import Script from "next/script";
 import { toast } from "sonner";
+import { PLAN_CATALOG } from "@/lib/plans";
 
 export default function BillingClient({ tenant }: { tenant: Tenant }) {
   const isTrial = tenant.subscriptionTier === "TRIAL";
@@ -121,13 +122,34 @@ export default function BillingClient({ tenant }: { tenant: Tenant }) {
           {tenant.subscriptionTier !== "PRO" && (
             <div className="mt-12">
               <h3 className="text-lg font-bold text-slate-800 mb-6">Upgrade your plan</h3>
-              <div className="grid md:grid-cols-1 max-w-2xl gap-6">
+              <div className="grid gap-6 md:grid-cols-2">
+                {tenant.subscriptionTier === "TRIAL" && (
+                  <div className="border border-slate-200 bg-white p-6 shadow-sm">
+                    <h4 className="text-lg font-bold text-slate-800 mb-2">Roastery OS Basic</h4>
+                    <div className="mb-4">
+                      <span className="text-3xl font-extrabold text-slate-900">{formatRupiah(PLAN_CATALOG.BASIC.monthlyPrice)}</span>
+                      <span className="text-slate-500 text-sm">/mo</span>
+                    </div>
+                    <ul className="mb-8 mt-6 space-y-3">
+                      <li className="text-slate-600 text-sm flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-500"/> Inventory, roasting, production, sales</li>
+                      <li className="text-slate-600 text-sm flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-500"/> Tenant storefront</li>
+                      <li className="text-slate-600 text-sm flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-500"/> PDF and Excel exports</li>
+                    </ul>
+                    <button
+                      onClick={() => handleSubscribe("BASIC")}
+                      disabled={loadingTier !== null}
+                      className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold transition-colors flex items-center justify-center gap-2"
+                    >
+                      {loadingTier === "BASIC" ? "Processing..." : <><CreditCard size={18} /> Subscribe to Basic</>}
+                    </button>
+                  </div>
+                )}
                 
                 <div className="bg-amber-50/50 rounded-2xl border border-amber-200 p-6 shadow-sm hover:shadow-md transition-all relative overflow-hidden">
                   <div className="absolute top-0 right-0 bg-amber-500 text-amber-950 text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider">Premium Access</div>
                   <h4 className="text-lg font-bold text-amber-700 mb-2">Roastery OS Pro</h4>
                   <div className="mb-4">
-                    <span className="text-3xl font-extrabold text-slate-900">{formatRupiah(299000)}</span>
+                    <span className="text-3xl font-extrabold text-slate-900">{formatRupiah(PLAN_CATALOG.PRO.monthlyPrice)}</span>
                     <span className="text-slate-500 text-sm">/mo</span>
                   </div>
                   <div className="grid sm:grid-cols-2 gap-4 mb-8 mt-6">

@@ -20,6 +20,7 @@ export interface ThemeProps {
   setShippingMethod: (val: string) => void;
   handleAddToCart: (product: any) => void;
   handleCheckout: () => void;
+  isCheckingOut?: boolean;
   mounted: boolean;
   // Common computed properties
   heroGreeting: string;

@@ -89,6 +89,24 @@ export interface ThemeConfig {
   layout: ThemeLayout;
 }
 
+export const THEME_PRESET_ALIASES: Record<string, string> = {
+  heritage: 'vintage',
+  neomodern: 'bauhaus',
+  cyber: 'cyberpunk',
+  botanical: 'organic',
+  editorial: 'magazine',
+  liquid: 'glass',
+  industrial: 'industrial',
+  club: 'organic',
+  luxury: 'cinematic',
+  playful: 'neobrutalism',
+  classic: 'cinematic',
+  futuristic: 'cyberpunk',
+  minimalist: 'bauhaus',
+  modern: 'bauhaus',
+  bento: 'bauhaus',
+};
+
 // =============================================================================
 // PRESET CONFIGURATIONS — 10 Premium Themes
 // =============================================================================
@@ -369,3 +387,9 @@ export const THEME_PRESETS: Record<string, ThemeConfig> = {
 // DEFAULT CONFIG
 // =============================================================================
 export const DEFAULT_THEME_CONFIG: ThemeConfig = THEME_PRESETS.glass;
+
+export function getThemePreset(layoutStyle?: string | null): ThemeConfig {
+  const normalized = layoutStyle?.toLowerCase() || 'neomodern';
+  const presetId = THEME_PRESET_ALIASES[normalized] || normalized;
+  return THEME_PRESETS[presetId] || THEME_PRESETS.bauhaus;
+}

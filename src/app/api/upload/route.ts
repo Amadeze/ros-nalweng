@@ -1,17 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
 import { getCurrentUser } from "@/lib/session";
+import {
+  enforceRateLimit,
+  RateLimitError,
+  requestIdentifier,
+} from "@/lib/rate-limit";
+import { hasValidImageSignature, uploadImage } from "@/lib/storage";
+import {
+  getRequestId,
+  internalErrorResponse,
+  logServerError,
+} from "@/lib/api-observability";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"];
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export async function POST(req: NextRequest) {
+  const requestId = getRequestId(req.headers);
   try {
     const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user || !["OWNER", "MANAGER"].includes(user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    await enforceRateLimit({
+      scope: "upload",
+      identifier: `${user.tenantId}:${requestIdentifier(req.headers)}`,
+      limit: 20,
+      windowSeconds: 60 * 60,
+    });
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -39,30 +55,27 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-
-    // Make sure public/uploads exists
-    const uploadDir = join(process.cwd(), "public", "uploads");
-    try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (e) {
-      // directory exists
+    if (!hasValidImageSignature(buffer, file.type)) {
+      return NextResponse.json(
+        { error: "File content does not match its image type." },
+        { status: 400 },
+      );
     }
-
-    // Generate unique filename
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const filename = uniqueSuffix + "-" + file.name.replace(/[^a-zA-Z0-9.\-]/g, "");
-    
-    const path = join(uploadDir, filename);
-    await writeFile(path, buffer);
-
-    const imageUrl = `/uploads/${filename}`;
+    const imageUrl = await uploadImage({
+      tenantId: user.tenantId,
+      buffer,
+      mimeType: file.type,
+    });
     
     return NextResponse.json({ url: imageUrl, success: true });
-  } catch (e: any) {
-    console.error("Upload error:", e);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+  } catch (e) {
+    if (e instanceof RateLimitError) {
+      return NextResponse.json(
+        { error: e.message },
+        { status: 429, headers: { "Retry-After": String(e.retryAfter) } },
+      );
+    }
+    logServerError("upload", e, { requestId });
+    return internalErrorResponse(requestId, "Upload gagal diproses.");
   }
 }

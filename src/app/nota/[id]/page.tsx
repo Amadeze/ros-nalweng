@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { formatRupiah, formatDate } from "@/lib/format";
-import { prisma } from "@/lib/prisma";
+import { requireTenantPrisma } from "@/lib/auth";
 import { PrintTrigger } from "./PrintTrigger";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export default async function InvoicePrintPage({
 }) {
   const { id } = await params;
   
-  const invoice = await prisma.invoice.findUnique({
+  const invoice = await (await requireTenantPrisma()).invoice.findUnique({
     where: { id },
     include: {
       customer: true,

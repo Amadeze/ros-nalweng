@@ -9,8 +9,14 @@ export interface SessionUser {
   tenantId: string;
 }
 
+const sessionPassword = process.env.SESSION_SECRET;
+
+if (process.env.NODE_ENV === "production" && !sessionPassword) {
+  throw new Error("SESSION_SECRET must be configured in production.");
+}
+
 export const SESSION_OPTIONS = {
-  password: process.env.SESSION_SECRET ?? "ros-beanslab-super-secret-key-minimum-32-chars!!",
+  password: sessionPassword ?? "ros-development-session-secret-minimum-32-characters",
   cookieName: "ros_session",
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",

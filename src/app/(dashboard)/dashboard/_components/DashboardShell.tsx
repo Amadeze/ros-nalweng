@@ -222,6 +222,9 @@ const ACTIVITY_STATUS_CLS: Record<string, string> = {
 };
 
 function ActivityFeed({ items }: { items: ActivityItem[] }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-12 text-center bg-white/20">
@@ -233,9 +236,6 @@ function ActivityFeed({ items }: { items: ActivityItem[] }) {
       </div>
     );
   }
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
 
   return (
     <div className="bg-white/10">

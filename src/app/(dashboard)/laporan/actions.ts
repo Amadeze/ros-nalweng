@@ -1,7 +1,8 @@
 "use server";
 
 import { getPnLReport } from "../keuangan/actions";
-import { getSystemUserId, requireTenantPrisma } from "@/lib/auth";
+import { getSystemUserId, requireFeature, requireTenantPrisma } from "@/lib/auth";
+import { getPayableAgingBucket } from "@/lib/purchase-payments";
 import { revalidatePath } from "next/cache";
 
 export type ValuationRow = {
@@ -31,11 +32,11 @@ export type InventoryValuationReport = {
 };
 
 export async function getInventoryValuationReport(): Promise<InventoryValuationReport> {
+  await requireFeature("ADVANCED_REPORTS");
   // 1. Fetch GB and RB
   const products = await (await requireTenantPrisma()).product.findMany({
     where: { isActive: true },
     include: {
-      ledgerEntries: { select: { entryType: true, quantityKg: true, quantityUnit: true } },
       purchases: {
         where: { status: "COMPLETED" },
         orderBy: { receivedAt: "desc" },
@@ -52,14 +53,41 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
     orderBy: [{ type: "asc" }, { name: "asc" }],
   });
 
+  const roastedBeanIds = products
+    .filter((product) => product.type === "ROASTED_BEAN")
+    .map((product) => product.id);
+  const latestRoasts = roastedBeanIds.length
+    ? await (await requireTenantPrisma()).parentRoastingBatch.findMany({
+        where: {
+          outputProductId: { in: roastedBeanIds },
+          status: "COMPLETED",
+        },
+        orderBy: { createdAt: "desc" },
+        include: {
+          inputProduct: {
+            include: {
+              purchases: {
+                where: { status: "COMPLETED" },
+                orderBy: { receivedAt: "desc" },
+                take: 1,
+              },
+            },
+          },
+        },
+      })
+    : [];
+  const latestRoastByOutput = new Map<string, (typeof latestRoasts)[number]>();
+  for (const roast of latestRoasts) {
+    if (!latestRoastByOutput.has(roast.outputProductId)) {
+      latestRoastByOutput.set(roast.outputProductId, roast);
+    }
+  }
+
   const items: ValuationRow[] = [];
 
   for (const p of products) {
     if (p.type === "GREEN_BEAN" || p.type === "ROASTED_BEAN") {
-      const stockKg = p.ledgerEntries.reduce((sum, e) => {
-        const qty = Number(e.quantityKg ?? 0);
-        return e.entryType === "IN" ? sum + qty : sum - qty;
-      }, 0);
+      const stockKg = Number(p.stockKg);
 
       let unitCost = 0;
       if (p.type === "GREEN_BEAN" && p.purchases[0]) {
@@ -69,22 +97,7 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
           unitCost = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
         }
       } else if (p.type === "ROASTED_BEAN") {
-        // Cari harga GB terakhir yang di-roast menjadi RB ini
-        const lastRoast = await (await requireTenantPrisma()).roastingBatch.findFirst({
-          where: { outputProductId: p.id, status: "COMPLETED" },
-          orderBy: { roastedAt: "desc" },
-          include: {
-            inputProduct: {
-              include: {
-                purchases: {
-                  where: { status: "COMPLETED" },
-                  orderBy: { receivedAt: "desc" },
-                  take: 1
-                }
-              }
-            }
-          }
-        });
+        const lastRoast = latestRoastByOutput.get(p.id);
 
         if (lastRoast && lastRoast.inputProduct.purchases[0]) {
           const pur = lastRoast.inputProduct.purchases[0];
@@ -92,8 +105,8 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
           let gbCost = 0;
           if (wKg > 0) gbCost = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
           
-          const inputW = Number(lastRoast.inputWeightKg);
-          const outputW = Number(lastRoast.outputWeightKg);
+          const inputW = Number(lastRoast.targetWeightKg);
+          const outputW = Number(lastRoast.actualOutputKg);
           if (outputW > 0) {
             unitCost = gbCost * (inputW / outputW);
           } else {
@@ -121,10 +134,7 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
         });
       }
     } else if (p.type === "FINISHED_GOODS") {
-      const stockUnit = p.ledgerEntries.reduce((sum, e) => {
-        const qty = Number(e.quantityUnit ?? 0);
-        return e.entryType === "IN" ? sum + qty : sum - qty;
-      }, 0);
+      const stockUnit = p.stockUnit;
 
       const unitCost = p.productionBatches[0] ? Number(p.productionBatches[0].hppPerUnit) : 0;
       const retailPrice = Number(p.price || 0);
@@ -150,17 +160,11 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
   // 2. Fetch Packaging
   const packagings = await (await requireTenantPrisma()).packaging.findMany({
     where: { isActive: true },
-    include: {
-      ledgerEntries: { select: { entryType: true, quantityUnit: true } },
-    },
     orderBy: { name: "asc" },
   });
 
   for (const pkg of packagings) {
-    const stockUnit = pkg.ledgerEntries.reduce((sum, e) => {
-      const qty = e.quantityUnit ?? 0;
-      return e.entryType === "IN" ? sum + qty : sum - qty;
-    }, 0);
+    const stockUnit = pkg.stockUnit;
 
     if (stockUnit > 0) {
       const unitCost = Number(pkg.costPerUnit);
@@ -219,15 +223,25 @@ export type BalanceSheetReport = {
   liabilities: {
     accountsPayable: number;
     totalLiabilities: number;
+    aging: {
+      current: number;
+      overdue1To30: number;
+      overdue31To60: number;
+      overdue61Plus: number;
+    };
+    trackingNote: string;
   };
   equity: {
-    retainedEarnings: number; 
+    contributedCapital: number;
+    retainedEarnings: number;
+    distributedProfit: number;
     totalEquity: number;
   };
 };
 
 export async function getBalanceSheetReport(inventoryValue?: number): Promise<BalanceSheetReport> {
-  // Cash & Bank (Kas) = Total Paid Invoices - Total Expenses - Total Completed Purchases
+  await requireFeature("ADVANCED_REPORTS");
+  // Cash & Bank = customer receipts - operating expenses - actual supplier payments.
   const paidInvoices = await (await requireTenantPrisma()).invoice.aggregate({
     where: { status: "PAID" },
     _sum: { paidAmount: true }
@@ -237,31 +251,20 @@ export async function getBalanceSheetReport(inventoryValue?: number): Promise<Ba
     _sum: { paidAmount: true }
   });
   const expenses = await (await requireTenantPrisma()).expense.aggregate({
+    where: { voidAt: null },
     _sum: { amount: true }
   });
-  const purchases = await (await requireTenantPrisma()).purchase.aggregate({
-    where: { status: "COMPLETED" },
-    _sum: { totalCost: true }
-  });
-
-  const capitalInjections = await (await requireTenantPrisma()).capitalTransaction.aggregate({
-    where: { type: "INJECTION" },
-    _sum: { amount: true }
-  });
-  const capitalWithdrawals = await (await requireTenantPrisma()).capitalTransaction.aggregate({
-    where: { type: "WITHDRAWAL" },
-    _sum: { amount: true }
-  });
-  const profitDistributions = await (await requireTenantPrisma()).profitDistribution.aggregate({
+  const supplierPayments = await (await requireTenantPrisma()).supplierPayment.aggregate({
+    where: { voidAt: null },
     _sum: { amount: true }
   });
 
-  const totalInjected = Number(capitalInjections._sum.amount || 0);
-  const totalWithdrawn = Number(capitalWithdrawals._sum.amount || 0);
-  const totalDistributed = Number(profitDistributions._sum.amount || 0);
+  const totalInjected = 0;
+  const totalWithdrawn = 0;
+  const totalDistributed = 0;
 
   const cashIn = (Number(paidInvoices._sum.paidAmount) || 0) + (Number(partialInvoices._sum.paidAmount) || 0);
-  const cashOut = (Number(expenses._sum.amount) || 0) + (Number(purchases._sum.totalCost) || 0);
+  const cashOut = (Number(expenses._sum.amount) || 0) + (Number(supplierPayments._sum.amount) || 0);
   
   // Kas = Uang Masuk Penjualan - Uang Keluar Operasional + Suntikan Modal - Penarikan Prive - Bagi Hasil
   const cashAndBank = cashIn - cashOut + totalInjected - totalWithdrawn - totalDistributed;
@@ -282,13 +285,35 @@ export async function getBalanceSheetReport(inventoryValue?: number): Promise<Ba
 
   const totalAssets = cashAndBank + accountsReceivable + inventory;
 
-  // Liabilities (Not tracked in current system, all purchases assumed paid in cash)
-  const accountsPayable = 0; 
+  const payablePurchases = await (await requireTenantPrisma()).purchase.findMany({
+    where: {
+      status: "COMPLETED",
+      paymentStatus: { in: ["UNPAID", "PARTIAL"] },
+    },
+    select: { totalCost: true, paidAmount: true, dueDate: true },
+  });
+  const aging = {
+    current: 0,
+    overdue1To30: 0,
+    overdue31To60: 0,
+    overdue61Plus: 0,
+  };
+  for (const purchase of payablePurchases) {
+    const balance = Math.max(0, Number(purchase.totalCost) - Number(purchase.paidAmount));
+    const bucket = getPayableAgingBucket(purchase.dueDate);
+    if (bucket === "CURRENT") aging.current += balance;
+    if (bucket === "OVERDUE_1_30") aging.overdue1To30 += balance;
+    if (bucket === "OVERDUE_31_60") aging.overdue31To60 += balance;
+    if (bucket === "OVERDUE_61_PLUS") aging.overdue61Plus += balance;
+  }
+  const accountsPayable =
+    aging.current + aging.overdue1To30 + aging.overdue31To60 + aging.overdue61Plus;
   const totalLiabilities = accountsPayable;
 
   // Equity
   const totalEquity = totalAssets - totalLiabilities;
-  const retainedEarnings = totalEquity;
+  const contributedCapital = totalInjected - totalWithdrawn;
+  const retainedEarnings = totalEquity - contributedCapital;
 
   return {
     assets: {
@@ -299,10 +324,16 @@ export async function getBalanceSheetReport(inventoryValue?: number): Promise<Ba
     },
     liabilities: {
       accountsPayable,
-      totalLiabilities
+      totalLiabilities,
+      aging,
+      trackingNote: payablePurchases.length > 0
+        ? `${payablePurchases.length} pembelian supplier masih memiliki saldo hutang.`
+        : "Tidak ada hutang supplier aktif.",
     },
     equity: {
+      contributedCapital,
       retainedEarnings,
+      distributedProfit: totalDistributed,
       totalEquity
     }
   };
@@ -353,6 +384,7 @@ export type CoffeeFlowReport = {
 };
 
 export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
+  await requireFeature("ADVANCED_REPORTS");
   const products = await (await requireTenantPrisma()).product.findMany({
     where: { isActive: true },
     include: {
@@ -443,9 +475,9 @@ export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
   }
 
   // Calculate Roast Loss for RBs based on actual roasting batches
-  const roastingBatches = await (await requireTenantPrisma()).roastingBatch.findMany({
+  const roastingBatches = await (await requireTenantPrisma()).parentRoastingBatch.findMany({
     where: { status: "COMPLETED" },
-    select: { outputProductId: true, inputProductId: true, inputWeightKg: true, outputWeightKg: true }
+    select: { outputProductId: true, inputProductId: true, targetWeightKg: true, actualOutputKg: true }
   });
   
   for (const rb of roastedBeans) {
@@ -454,8 +486,8 @@ export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
     let totalOutput = 0;
     let totalLossValue = 0;
     for (const b of batches) {
-      const inW = Number(b.inputWeightKg);
-      const outW = Number(b.outputWeightKg);
+      const inW = Number(b.targetWeightKg);
+      const outW = Number(b.actualOutputKg);
       totalInput += inW;
       totalOutput += outW;
       const lossKg = inW - outW;

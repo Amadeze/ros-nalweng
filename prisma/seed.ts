@@ -16,6 +16,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import bcrypt from "bcryptjs";
 
 // ── Env sudah di-load oleh tsx --env-file=.env.local ──
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? "" });
@@ -56,13 +57,14 @@ async function main() {
   // 0. SYSTEM USER
   // ─────────────────────────────────────────────────────────────────────────
 
+  const systemPassword = await bcrypt.hash("system", 10);
   const systemUser = await prisma.user.upsert({
     where:  { email: "system@ros.internal" },
-    update: {},
+    update: { password: systemPassword },
     create: { tenantId: tenant.id, 
       name:     "System",
       email:    "system@ros.internal",
-      password: "system",
+      password: systemPassword,
       role:     "OWNER",
     },
   });
@@ -74,7 +76,7 @@ async function main() {
 
   const [supGayo, supRobusta] = await Promise.all([
     prisma.supplier.upsert({
-      where:  { code: "SUP-202507-001" },
+      where:  { tenantId_code: { tenantId: tenant.id, code: "SUP-202507-001" } },
       update: {},
       create: { tenantId: tenant.id, 
         code:    "SUP-202507-001",
@@ -85,7 +87,7 @@ async function main() {
       },
     }),
     prisma.supplier.upsert({
-      where:  { code: "SUP-202507-002" },
+      where:  { tenantId_code: { tenantId: tenant.id, code: "SUP-202507-002" } },
       update: {},
       create: { tenantId: tenant.id, 
         code:    "SUP-202507-002",
@@ -104,7 +106,7 @@ async function main() {
 
   const [custA, custB, custC] = await Promise.all([
     prisma.customer.upsert({
-      where:  { code: "CST-202507-001" },
+      where:  { tenantId_code: { tenantId: tenant.id, code: "CST-202507-001" } },
       update: {},
       create: { tenantId: tenant.id, 
         code:    "CST-202507-001",
@@ -115,7 +117,7 @@ async function main() {
       },
     }),
     prisma.customer.upsert({
-      where:  { code: "CST-202507-002" },
+      where:  { tenantId_code: { tenantId: tenant.id, code: "CST-202507-002" } },
       update: {},
       create: { tenantId: tenant.id, 
         code:    "CST-202507-002",
@@ -126,7 +128,7 @@ async function main() {
       },
     }),
     prisma.customer.upsert({
-      where:  { code: "CST-202507-003" },
+      where:  { tenantId_code: { tenantId: tenant.id, code: "CST-202507-003" } },
       update: {},
       create: { tenantId: tenant.id, 
         code:    "CST-202507-003",
@@ -145,7 +147,7 @@ async function main() {
 
   const [gbGayo, gbRobusta] = await Promise.all([
     prisma.product.upsert({
-      where:  { code: "GB-GAYO" },
+      where:  { tenantId_code: { tenantId: tenant.id, code: "GB-GAYO" } },
       update: {},
       create: { tenantId: tenant.id, 
         code:        "GB-GAYO",
@@ -156,7 +158,7 @@ async function main() {
       },
     }),
     prisma.product.upsert({
-      where:  { code: "GB-ROBUSTA" },
+      where:  { tenantId_code: { tenantId: tenant.id, code: "GB-ROBUSTA" } },
       update: {},
       create: { tenantId: tenant.id, 
         code:        "GB-ROBUSTA",
@@ -176,7 +178,7 @@ async function main() {
 
   const [rbGayo, rbRobusta] = await Promise.all([
     prisma.product.upsert({
-      where:  { code: "RB-GAYO" },
+      where:  { tenantId_code: { tenantId: tenant.id, code: "RB-GAYO" } },
       update: {},
       create: { tenantId: tenant.id, 
         code:       "RB-GAYO",
@@ -187,7 +189,7 @@ async function main() {
       },
     }),
     prisma.product.upsert({
-      where:  { code: "RB-ROBUSTA" },
+      where:  { tenantId_code: { tenantId: tenant.id, code: "RB-ROBUSTA" } },
       update: {},
       create: { tenantId: tenant.id, 
         code:       "RB-ROBUSTA",
@@ -206,7 +208,7 @@ async function main() {
 
   const [fgFullArabica, fgBlendA] = await Promise.all([
     prisma.product.upsert({
-      where:  { code: "FG-FULL-ARABICA" },
+      where:  { tenantId_code: { tenantId: tenant.id, code: "FG-FULL-ARABICA" } },
       update: {},
       create: { tenantId: tenant.id, 
         code:        "FG-FULL-ARABICA",
@@ -217,7 +219,7 @@ async function main() {
       },
     }),
     prisma.product.upsert({
-      where:  { code: "FG-BLEND-A" },
+      where:  { tenantId_code: { tenantId: tenant.id, code: "FG-BLEND-A" } },
       update: {},
       create: { tenantId: tenant.id, 
         code:        "FG-BLEND-A",
@@ -234,7 +236,7 @@ async function main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   const pkgPouch1KG = await prisma.packaging.upsert({
-    where:  { code: "PKG-POUCH-1KG" },
+    where:  { tenantId_code: { tenantId: tenant.id, code: "PKG-POUCH-1KG" } },
     update: {},
     create: { tenantId: tenant.id, 
       code:        "PKG-POUCH-1KG",
@@ -251,7 +253,7 @@ async function main() {
 
   // Recipe: Full Arabica — 100% RB Gayo, 1000g/unit
   const recipeFullArabica = await prisma.recipe.upsert({
-    where:  { code: "RCP-FULL-ARABICA" },
+    where:  { tenantId_code: { tenantId: tenant.id, code: "RCP-FULL-ARABICA" } },
     update: {},
     create: { tenantId: tenant.id, 
       code:        "RCP-FULL-ARABICA",
@@ -275,7 +277,7 @@ async function main() {
 
   // Recipe: Blend A — 50% Gayo + 50% Robusta, 1000g/unit
   const recipeBlendA = await prisma.recipe.upsert({
-    where:  { code: "RCP-BLEND-A" },
+    where:  { tenantId_code: { tenantId: tenant.id, code: "RCP-BLEND-A" } },
     update: {},
     create: { tenantId: tenant.id, 
       code:        "RCP-BLEND-A",
@@ -421,17 +423,15 @@ async function main() {
   //     RB Gayo HPP/kg = 100.000 / 0.85 ≈ 117.647
   // ─────────────────────────────────────────────────────────────────────────
 
-  const rstGayo = await prisma.roastingBatch.create({
+  const rstGayo = await prisma.parentRoastingBatch.create({
     data: { tenantId: tenant.id, 
       code:             "RST-202507-001",
       inputProductId:   gbGayo.id,
-      inputWeightKg:    10,
+      targetWeightKg:    10,
       outputProductId:  rbGayo.id,
-      outputWeightKg:   8.5,
-      roastLossPercent: 15.00,
-      roastDurationMin: 14,
+      actualOutputKg:   8.5,
+      totalShrinkagePercent: 15.00,
       status:           "COMPLETED",
-      roastedAt:        daysAgo(4),
       notes:            "Batch pertama — profile medium, development 22%",
       createdById:      systemUser.id,
       createdAt:        daysAgo(4),
@@ -470,17 +470,15 @@ async function main() {
   //     RB Robusta HPP/kg = 80.000 / 0.87 ≈ 91.954
   // ─────────────────────────────────────────────────────────────────────────
 
-  const rstRobusta = await prisma.roastingBatch.create({
+  const rstRobusta = await prisma.parentRoastingBatch.create({
     data: { tenantId: tenant.id, 
       code:             "RST-202507-002",
       inputProductId:   gbRobusta.id,
-      inputWeightKg:    10,
+      targetWeightKg:    20,
       outputProductId:  rbRobusta.id,
-      outputWeightKg:   8.7,
-      roastLossPercent: 13.00,
-      roastDurationMin: 13,
+      actualOutputKg:   16.4,
+      totalShrinkagePercent: 18.00,
       status:           "COMPLETED",
-      roastedAt:        daysAgo(4),
       notes:            "Profile medium-dark, body tebal",
       createdById:      systemUser.id,
       createdAt:        daysAgo(4),

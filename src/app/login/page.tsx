@@ -7,12 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, AlertCircle, Loader2, Coffee } from "lucide-react";
+import Link from "next/link";
 
 // 1. PISAHKAN LOGIKA FORM KE KOMPONEN TERSENDIRI
 function LoginForm() {
   const router       = useRouter();
   const searchParams = useSearchParams();
-  const from         = searchParams.get("from") ?? "/dashboard";
+  const requestedFrom = searchParams.get("from");
+  const from =
+    requestedFrom?.startsWith("/") && !requestedFrom.startsWith("//")
+      ? requestedFrom
+      : "/dashboard";
 
   const [email,      setEmail]      = useState("");
   const [password,   setPassword]   = useState("");
@@ -57,7 +62,12 @@ function LoginForm() {
       </div>
 
       <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-white/90">Password</Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-medium text-white/90">Password</Label>
+          <Link href="/forgot-password" className="text-xs font-medium text-amber-400 hover:text-amber-300">
+            Lupa password?
+          </Link>
+        </div>
         <div className="relative">
           <Input
             type={showPass ? "text" : "password"}

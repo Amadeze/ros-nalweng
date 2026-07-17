@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ThemeProps } from "../ThemeProps";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, CheckCircle, Target, Fingerprint, Star, Clock, Zap, Plus, Minus } from "lucide-react";
+import { TenantBrand } from "../TenantBrand";
 
 // =============================================================================
 // TEMA 2: NEO-MODERNIST (SLEEK & MINIMALIST)
@@ -67,9 +68,9 @@ export function NeoModernTheme({
       {/* 1. ABOVE THE FOLD (HERO) */}
       <motion.section initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ duration: 0.8, ease: "easeOut" }} className="relative w-full min-h-screen flex flex-col justify-between px-4 md:px-6 py-8 md:px-16 md:py-12">
         <header className="flex justify-between items-center w-full relative z-20">
-          <div className="text-xl font-bold tracking-tighter">{tenant?.name || "Neo Roastery"}</div>
+          <div className="text-xl font-bold tracking-tighter"><TenantBrand tenant={tenant} fallback="Neo Roastery" /></div>
           <button onClick={() => setIsCartOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-zinc-100 rounded-[var(--theme-radius)] text-sm font-bold hover:bg-zinc-200 transition-colors">
-            Cart ({cart?.items?.length || 0})
+            Cart ({cart.getTotalItems(tenant.subdomain || "")})
           </button>
         </header>
 
@@ -208,7 +209,7 @@ export function NeoModernTheme({
                   <p className="text-sm text-zinc-500 mb-6 leading-relaxed flex-1">{item.description || "Precisely profiled for optimal extraction."}</p>
                   <div className="mt-auto flex justify-between items-center pt-4 border-t border-zinc-100">
                     <span className="font-bold text-lg">Rp {Number(item.price).toLocaleString('id-ID')}</span>
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="px-4 py-2 rounded-[var(--theme-radius)] bg-[var(--theme-primary)] text-white text-sm font-bold hover:bg-zinc-700 transition-colors">
+                    <motion.button aria-label={`Add ${item.name} to cart`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="px-4 py-2 rounded-[var(--theme-radius)] bg-[var(--theme-primary)] text-white text-sm font-bold hover:bg-zinc-700 transition-colors">
                       Add to Cart
                     </motion.button>
                   </div>

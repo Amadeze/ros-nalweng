@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -18,41 +18,216 @@ export const prisma = globalForPrisma.prisma_v3 ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma_v3 = prisma;
 
+const tenantScopedModels = new Set(
+  Prisma.dmmf.datamodel.models
+    .filter((model) => model.fields.some((field) => field.name === "tenantId"))
+    .map((model) => model.name),
+);
+
+type OwnedRelation = {
+  foreignKey: string;
+  relation: string;
+  delegate: string;
+};
+
+const ownedRelations: Record<string, OwnedRelation[]> = {
+  Recipe: [
+    { foreignKey: "packagingId", relation: "packaging", delegate: "packaging" },
+  ],
+  RecipeItem: [
+    { foreignKey: "productId", relation: "product", delegate: "product" },
+  ],
+  Purchase: [
+    { foreignKey: "supplierId", relation: "supplier", delegate: "supplier" },
+    { foreignKey: "productId", relation: "product", delegate: "product" },
+    { foreignKey: "packagingId", relation: "packaging", delegate: "packaging" },
+    { foreignKey: "createdById", relation: "createdBy", delegate: "user" },
+  ],
+  ParentRoastingBatch: [
+    { foreignKey: "inputProductId", relation: "inputProduct", delegate: "product" },
+    { foreignKey: "outputProductId", relation: "outputProduct", delegate: "product" },
+    { foreignKey: "createdById", relation: "createdBy", delegate: "user" },
+  ],
+  ProductionBatch: [
+    { foreignKey: "recipeId", relation: "recipe", delegate: "recipe" },
+    { foreignKey: "outputProductId", relation: "outputProduct", delegate: "product" },
+    { foreignKey: "packagingId", relation: "packaging", delegate: "packaging" },
+    { foreignKey: "createdById", relation: "createdBy", delegate: "user" },
+  ],
+  Invoice: [
+    { foreignKey: "customerId", relation: "customer", delegate: "customer" },
+    { foreignKey: "createdById", relation: "createdBy", delegate: "user" },
+  ],
+  InvoiceItem: [
+    { foreignKey: "productId", relation: "product", delegate: "product" },
+  ],
+  Payment: [
+    { foreignKey: "createdById", relation: "createdBy", delegate: "user" },
+  ],
+  SupplierPayment: [
+    { foreignKey: "createdById", relation: "createdBy", delegate: "user" },
+  ],
+  InventoryLedger: [
+    { foreignKey: "productId", relation: "product", delegate: "product" },
+    { foreignKey: "packagingId", relation: "packaging", delegate: "packaging" },
+    { foreignKey: "createdById", relation: "createdBy", delegate: "user" },
+  ],
+  Expense: [
+    { foreignKey: "createdById", relation: "createdBy", delegate: "user" },
+  ],
+  AuditLog: [
+    { foreignKey: "userId", relation: "user", delegate: "user" },
+  ],
+  ReminderDelivery: [
+    { foreignKey: "invoiceId", relation: "invoice", delegate: "invoice" },
+  ],
+};
+
+const nestedOwnedRelations: Record<
+  string,
+  Array<{ path: string; relation: OwnedRelation }>
+> = {
+  Invoice: [
+    {
+      path: "items.create",
+      relation: { foreignKey: "productId", relation: "product", delegate: "product" },
+    },
+  ],
+  Recipe: [
+    {
+      path: "items.create",
+      relation: { foreignKey: "productId", relation: "product", delegate: "product" },
+    },
+  ],
+};
+
+function getRelatedParentId(data: Record<string, any>, relation: string, foreignKey: string) {
+  return data[foreignKey] ?? data[relation]?.connect?.id;
+}
+
+function getPath(value: Record<string, any>, path: string) {
+  return path.split(".").reduce<any>((current, key) => current?.[key], value);
+}
+
+async function assertOwnedRelationsBelongToTenant(
+  model: string,
+  data: Record<string, any> | Record<string, any>[],
+  tenantId: string,
+) {
+  const rows = Array.isArray(data) ? data : [data];
+  const relations = ownedRelations[model] ?? [];
+
+  for (const relation of relations) {
+    const ids = [
+      ...new Set(
+        rows
+          .map((row) =>
+            getRelatedParentId(row, relation.relation, relation.foreignKey),
+          )
+          .filter((id): id is string => typeof id === "string" && id.length > 0),
+      ),
+    ];
+    if (ids.length === 0) continue;
+
+    const matching = await (prisma as any)[relation.delegate].count({
+      where: { id: { in: ids }, tenantId },
+    });
+    if (matching !== ids.length) {
+      throw new Error(`Cross-tenant ${model}.${relation.foreignKey} write rejected.`);
+    }
+  }
+
+  for (const nested of nestedOwnedRelations[model] ?? []) {
+    const nestedRows = rows.flatMap((row) => {
+      const value = getPath(row, nested.path);
+      if (!value) return [];
+      return Array.isArray(value) ? value : [value];
+    });
+    if (nestedRows.length === 0) continue;
+
+    const ids = [
+      ...new Set(
+        nestedRows
+          .map((row) =>
+            getRelatedParentId(
+              row,
+              nested.relation.relation,
+              nested.relation.foreignKey,
+            ),
+          )
+          .filter((id): id is string => typeof id === "string" && id.length > 0),
+      ),
+    ];
+    if (ids.length === 0) continue;
+
+    const matching = await (prisma as any)[nested.relation.delegate].count({
+      where: { id: { in: ids }, tenantId },
+    });
+    if (matching !== ids.length) {
+      throw new Error(`Cross-tenant nested ${model} write rejected.`);
+    }
+  }
+}
+
 export function withTenant(tenantId: string) {
   return prisma.$extends({
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
-          // Filter models that actually have tenantId
-          if (['Tenant', 'Session', 'Account', 'VerificationToken'].includes(model!)) {
+          const mArgs = args as any;
+          const isDirectTenantModel = tenantScopedModels.has(model);
+
+          if (!isDirectTenantModel) {
             return query(args);
           }
 
-          const mArgs = args as any;
+          const filteredOperations = [
+            "findMany",
+            "findFirst",
+            "findFirstOrThrow",
+            "findUnique",
+            "findUniqueOrThrow",
+            "count",
+            "aggregate",
+            "groupBy",
+            "updateMany",
+            "deleteMany",
+            "update",
+            "delete",
+            "upsert",
+          ];
 
-          if (['findMany', 'findFirst', 'findFirstOrThrow', 'count', 'aggregate', 'updateMany', 'deleteMany'].includes(operation)) {
+          if (filteredOperations.includes(operation)) {
             mArgs.where = { ...mArgs.where, tenantId };
-          } else if (['findUnique', 'findUniqueOrThrow'].includes(operation)) {
-            // Prisma doesn't allow filtering by non-unique fields in findUnique
-            // So we convert it to findFirst under the hood to apply the tenant filter safely
-            mArgs.where = { ...mArgs.where, tenantId };
-            const newOp = operation === 'findUnique' ? 'findFirst' : 'findFirstOrThrow';
-            return (prisma as any)[model!][newOp](mArgs);
-          } else if (operation === 'create') {
+          }
+
+          if (operation === "create") {
             mArgs.data = { ...mArgs.data, tenantId };
-          } else if (operation === 'createMany') {
+          } else if (operation === "createMany") {
             if (Array.isArray(mArgs.data)) {
               mArgs.data = mArgs.data.map((d: any) => ({ ...d, tenantId }));
             } else {
               mArgs.data = { ...mArgs.data, tenantId };
             }
-          } else if (['update', 'upsert', 'delete'].includes(operation)) {
-            mArgs.where = { ...mArgs.where, tenantId };
+          } else if (operation === "update") {
+            mArgs.data = { ...mArgs.data, tenantId };
+          } else if (operation === "upsert") {
+            mArgs.create = { ...mArgs.create, tenantId };
+            mArgs.update = { ...mArgs.update, tenantId };
+          }
+
+          if (operation === "create" || operation === "createMany") {
+            await assertOwnedRelationsBelongToTenant(model, mArgs.data, tenantId);
+          } else if (operation === "update") {
+            await assertOwnedRelationsBelongToTenant(model, mArgs.data, tenantId);
+          } else if (operation === "upsert") {
+            await assertOwnedRelationsBelongToTenant(model, mArgs.create, tenantId);
+            await assertOwnedRelationsBelongToTenant(model, mArgs.update, tenantId);
           }
 
           return query(mArgs);
-        }
-      }
-    }
+        },
+      },
+    },
   });
 }

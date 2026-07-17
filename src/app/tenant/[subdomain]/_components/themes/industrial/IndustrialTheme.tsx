@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ThemeProps } from "../ThemeProps";
 import { motion, AnimatePresence } from "framer-motion";
 import { Wrench, Flame, Zap, Package, Shield, Settings, ChevronDown, Check, ArrowRight, Plus, Minus } from "lucide-react";
+import { TenantBrand } from "../TenantBrand";
 
 // =============================================================================
 // TEMA 7: INDUSTRIAL ALCHEMY (GRITTY & BOLD)
@@ -71,11 +72,11 @@ export function IndustrialTheme({
       {/* Navigation - Stencil/Industrial */}
       <header className="fixed top-0 w-full bg-[#1F1F1F] flex justify-between items-center border-b-4 border-[#333] z-40 px-4 md:px-6 py-4">
         <div className="text-2xl md:text-3xl font-black tracking-tighter uppercase  text-[var(--theme-primary,#F5B041)]">
-          {tenant?.name || "STEEL ROASTERS"}
+          <TenantBrand tenant={tenant} fallback="STEEL ROASTERS" />
         </div>
         <div className="flex gap-4 items-center">
           <button onClick={() => setIsCartOpen(true)} className="text-sm uppercase font-black tracking-widest text-[var(--theme-primary,#F5B041)] border-2 border-[var(--theme-primary,#F5B041)] px-4 py-2 hover:bg-[var(--theme-primary,#F5B041)] hover:text-[#1F1F1F] transition-colors">
-            CART ({cart?.items?.length || 0})
+            CART ({cart.getTotalItems(tenant.subdomain || "")})
           </button>
         </div>
       </header>
@@ -210,7 +211,7 @@ export function IndustrialTheme({
                   <h3 className="text-sm md:text-sm md:text-base font-black uppercase tracking-tighter mb-2 text-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)]">{item.name}</h3>
                   <div className="flex justify-between items-end mt-auto pt-6">
                     <span className=" text-lg font-bold text-[#888]">Rp {Number(item.price).toLocaleString('id-ID')}</span>
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="bg-[#333] text-white w-10 h-10 flex items-center justify-center font-black text-xl hover:bg-[var(--theme-primary,#F5B041)] hover:text-[#1F1F1F] transition-colors">
+                    <motion.button aria-label={`Add ${item.name} to cart`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="bg-[#333] text-white w-10 h-10 flex items-center justify-center font-black text-xl hover:bg-[var(--theme-primary,#F5B041)] hover:text-[#1F1F1F] transition-colors">
                       <Plus className="w-6 h-6" strokeWidth={iconStroke || 2} />
                     </motion.button>
                   </div>

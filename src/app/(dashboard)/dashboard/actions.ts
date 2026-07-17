@@ -14,7 +14,7 @@ export type DashboardKpi = {
   piutangCount:    number;
   lowStockCount:   number;
   totalKopiTerjual: number;
-  averageRoastYield: number; // calculated from roastLossPercent
+  averageRoastYield: number; // calculated from totalShrinkagePercent
   averageGrossMargin: number; // (revenue - cogs) / revenue * 100
 };
 
@@ -129,35 +129,22 @@ export async function getDashboardData(): Promise<DashboardData> {
       select: { grandTotal: true, paidAmount: true },
     }),
 
-    // 4a. Stok kg: GB + RB — agregasi via raw SQL (GROUP BY)
-    (await requireTenantPrisma()).$queryRaw<KgAggRow[]>`
-      SELECT il."productId",
-        SUM(CASE WHEN il."entryType" = 'IN' THEN il."quantityKg"
-                 ELSE -il."quantityKg" END)::float AS "stockKg"
-      FROM inventory_ledger il
-      WHERE il."tenantId" = ${tenantId} AND il."productId" IS NOT NULL AND il."quantityKg" IS NOT NULL
-      GROUP BY il."productId"
-    `,
+    // 4a. Stok kg: GB + RB — fetch dari Product cache
+    (await requireTenantPrisma()).product.findMany({
+      where: { type: { in: ["GREEN_BEAN", "ROASTED_BEAN"] } },
+      select: { id: true, stockKg: true },
+    }).then(rows => rows.map(r => ({ productId: r.id, stockKg: Number(r.stockKg) }))),
 
-    // 4b. Stok FG (unit) — productId + quantityUnit
-    (await requireTenantPrisma()).$queryRaw<UnitAggRow[]>`
-      SELECT il."productId" AS "refId",
-        SUM(CASE WHEN il."entryType" = 'IN' THEN il."quantityUnit"
-                 ELSE -il."quantityUnit" END)::int AS "stockUnit"
-      FROM inventory_ledger il
-      WHERE il."tenantId" = ${tenantId} AND il."productId" IS NOT NULL AND il."quantityUnit" IS NOT NULL
-      GROUP BY il."productId"
-    `,
+    // 4b. Stok FG (unit) — fetch dari Product cache
+    (await requireTenantPrisma()).product.findMany({
+      where: { type: "FINISHED_GOODS" },
+      select: { id: true, stockUnit: true },
+    }).then(rows => rows.map(r => ({ refId: r.id, stockUnit: Number(r.stockUnit) }))),
 
-    // 4c. Stok Packaging (unit)
-    (await requireTenantPrisma()).$queryRaw<UnitAggRow[]>`
-      SELECT il."packagingId" AS "refId",
-        SUM(CASE WHEN il."entryType" = 'IN' THEN il."quantityUnit"
-                 ELSE -il."quantityUnit" END)::int AS "stockUnit"
-      FROM inventory_ledger il
-      WHERE il."tenantId" = ${tenantId} AND il."packagingId" IS NOT NULL AND il."quantityUnit" IS NOT NULL
-      GROUP BY il."packagingId"
-    `,
+    // 4c. Stok Packaging (unit) — fetch dari Packaging cache
+    (await requireTenantPrisma()).packaging.findMany({
+      select: { id: true, stockUnit: true },
+    }).then(rows => rows.map(r => ({ refId: r.id, stockUnit: Number(r.stockUnit) }))),
 
     // 5a. Master produk aktif (GB+RB+FG)
     (await requireTenantPrisma()).product.findMany({
@@ -186,13 +173,13 @@ export async function getDashboardData(): Promise<DashboardData> {
       },
     }),
 
-    // 7. Activity: 8 RoastingBatch terbaru
-    (await requireTenantPrisma()).roastingBatch.findMany({
+    // 7. Activity: 8 ParentRoastingBatch terbaru
+    (await requireTenantPrisma()).parentRoastingBatch.findMany({
       take: 8,
       orderBy: { createdAt: "desc" },
       select: {
         id: true, code: true, status: true, createdAt: true,
-        inputWeightKg: true, outputWeightKg: true, roastLossPercent: true,
+        targetWeightKg: true, actualOutputKg: true, totalShrinkagePercent: true,
         inputProduct:  { select: { name: true } },
         outputProduct: { select: { name: true } },
       },
@@ -263,8 +250,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     `,
 
     // 14. Average Roast Yield
-    (await requireTenantPrisma()).roastingBatch.aggregate({
-      _avg: { roastLossPercent: true },
+    (await requireTenantPrisma()).parentRoastingBatch.aggregate({
+      _avg: { totalShrinkagePercent: true },
       where: { status: "COMPLETED" }
     }),
 
@@ -288,7 +275,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const totalKopiTerjual = totalKopiTerjualRaw[0]?.totalSoldKg ?? 0;
   
   // Calculate Roasting Yield (100% - Average Loss %)
-  const avgLoss = Number(roastYieldRaw._avg.roastLossPercent ?? 0);
+  const avgLoss = Number(roastYieldRaw._avg.totalShrinkagePercent ?? 0);
   const averageRoastYield = avgLoss > 0 ? 100 - avgLoss : 0;
   
   // Calculate Gross Margin
@@ -386,7 +373,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       id:          r.id,
       type:        "ROASTING" as const,
       code:        r.code,
-      description: `${r.inputProduct.name} → ${r.outputProduct.name} · ${Number(r.roastLossPercent).toFixed(1)}% susut`,
+      description: `${r.inputProduct.name} → ${r.outputProduct.name} · ${Number(r.totalShrinkagePercent).toFixed(1)}% susut`,
       amount:      null,
       status:      STATUS_TX[r.status] ?? r.status,
       timestamp:   r.createdAt.toISOString(),

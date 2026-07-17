@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { formatKg } from "@/lib/format";
 import {
-  createRoastingBatch,
+  createParentRoastingBatch,
   type GBStockOption,
   type RBProductOption,
 } from "../actions";
@@ -39,15 +39,15 @@ const ROAST_LEVEL_LABELS: Record<string, string> = {
 
 const schema = z
   .object({
+    mode: z.enum(["ARTISAN", "MANUAL"]),
     inputProductId: z.string().min(1, "Wajib pilih Green Bean"),
-    inputWeightKg: z.number().positive("Harus lebih dari 0"),
+    targetWeightKg: z.number().positive("Harus lebih dari 0"),
     outputMode: z.enum(["existing", "new"]),
     outputProductId: z.string().optional(),
     outputProductName: z.string().optional(),
     outputProductOrigin: z.string().optional(),
     outputRoastLevel: z.string().optional(),
-    outputWeightKg: z.number().positive("Harus lebih dari 0"),
-    roastDurationMin: z.number().int().positive().optional().or(z.literal(0)),
+    actualOutputKg: z.number().optional(),
     notes: z.string().optional(),
   })
   .superRefine((data, ctx) => {
@@ -59,12 +59,16 @@ const schema = z
         ctx.addIssue({ code: "custom", path: ["outputProductName"], message: "Nama minimal 2 karakter" });
       }
     }
-    if (data.outputWeightKg >= data.inputWeightKg) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["outputWeightKg"],
-        message: "Berat keluar harus lebih kecil dari berat masuk",
-      });
+    if (data.mode === "MANUAL") {
+      if (!data.actualOutputKg || data.actualOutputKg <= 0) {
+        ctx.addIssue({ code: "custom", path: ["actualOutputKg"], message: "Wajib diisi untuk mode manual" });
+      } else if (data.actualOutputKg >= data.targetWeightKg) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["actualOutputKg"],
+          message: "Berat keluar harus lebih kecil dari berat masuk",
+        });
+      }
     }
   });
 
@@ -158,38 +162,33 @@ export function RoastingForm({
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
+      mode: "ARTISAN",
       inputProductId: "",
-      inputWeightKg: 0,
+      targetWeightKg: 0,
       outputMode: rbOptions.length > 0 ? "existing" : "new",
       outputProductId: "",
       outputProductName: "",
       outputProductOrigin: "",
       outputRoastLevel: "",
-      outputWeightKg: 0,
-      roastDurationMin: 0,
+      actualOutputKg: 0,
       notes: "",
     },
   });
 
-  const [inputProductId, inputWeightKg, outputWeightKg, outputMode] = watch([
+  const [mode, inputProductId, targetWeightKg, actualOutputKg, outputMode] = watch([
+    "mode",
     "inputProductId",
-    "inputWeightKg",
-    "outputWeightKg",
+    "targetWeightKg",
+    "actualOutputKg",
     "outputMode",
   ]);
 
-  // Stok GB yang dipilih (untuk hint)
   const selectedGB = gbOptions.find((g) => g.id === inputProductId);
 
-  // Filter RB berdasarkan origin GB yang dipilih
   const filteredRbOptions = rbOptions.filter((rb) => {
     if (!selectedGB || !selectedGB.origin) return true;
-    
-    // Jika RB punya origin, cocokkan secara persis
     if (rb.origin) return rb.origin === selectedGB.origin;
     
-    // Fallback: Jika RB tidak punya origin, pastikan namanya mengandung kata kunci dari GB
-    // (misalnya GB "Robusta Malang" -> RB harus mengandung "Robusta" atau "Malang")
     const gbName = selectedGB.name.toLowerCase();
     const rbName = rb.name.toLowerCase();
     const gbWords = gbName.split(" ").filter(w => w.length > 3 && !['green', 'bean'].includes(w));
@@ -197,7 +196,6 @@ export function RoastingForm({
     return gbWords.some(w => rbName.includes(w));
   });
 
-  // Jika GB diubah dan RB yang sebelumnya dipilih tidak valid lagi, reset nilainya
   useEffect(() => {
     const currentRbId = watch("outputProductId");
     if (currentRbId && !filteredRbOptions.some(r => r.id === currentRbId)) {
@@ -205,24 +203,20 @@ export function RoastingForm({
     }
   }, [inputProductId, filteredRbOptions, watch, reset]);
 
-  // ── Submit ──
   const onSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
     onPendingChange(true);
     try {
-      const result = await createRoastingBatch({
+      const result = await createParentRoastingBatch({
+        mode: values.mode,
         inputProductId: values.inputProductId,
-        inputWeightKg: values.inputWeightKg,
+        targetWeightKg: values.targetWeightKg,
         outputMode: values.outputMode,
         outputProductId: values.outputMode === "existing" ? values.outputProductId : undefined,
         outputProductName: values.outputMode === "new" ? values.outputProductName : undefined,
         outputProductOrigin: values.outputMode === "new" ? values.outputProductOrigin : undefined,
         outputRoastLevel: values.outputRoastLevel || undefined,
-        outputWeightKg: values.outputWeightKg,
-        roastDurationMin:
-          values.roastDurationMin && values.roastDurationMin > 0
-            ? values.roastDurationMin
-            : undefined,
+        actualOutputKg: values.actualOutputKg,
         notes: values.notes,
       });
 
@@ -231,7 +225,11 @@ export function RoastingForm({
         return;
       }
 
-      toast.success(`Batch roasting dicatat — ${result.batchCode}`);
+      toast.success(
+        values.mode === "ARTISAN"
+          ? `Sesi roasting dimulai — ${result.batchCode}`
+          : `Batch roasting dicatat — ${result.batchCode}`
+      );
       reset();
       onSuccess();
     } catch {
@@ -244,6 +242,44 @@ export function RoastingForm({
 
   return (
     <form id={id} onSubmit={handleSubmit(onSubmit)} className="space-y-5 relative">
+
+      {/* ── Mode Toggle ── */}
+      <div>
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-2 block">
+          Pilih Metode Pencatatan
+        </Label>
+        <Controller
+          control={control}
+          name="mode"
+          render={({ field }) => (
+            <div className="flex gap-2 bg-white/30 p-1 rounded-xl shadow-sm border border-white/60 backdrop-blur-md">
+              {(["ARTISAN", "MANUAL"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => field.onChange(m)}
+                  className={cn(
+                    "flex-1 rounded-lg py-2 text-xs font-bold transition-all",
+                    field.value === m
+                      ? m === "ARTISAN" ? "bg-indigo-500 text-white shadow-md" : "bg-emerald-500 text-white shadow-md"
+                      : "text-slate-500 hover:bg-white/50"
+                  )}
+                >
+                  {m === "ARTISAN" ? "Mulai Sesi (Zero-Touch)" : "Catat Manual Cepat"}
+                </button>
+              ))}
+            </div>
+          )}
+        />
+        <p className="text-[10.5px] mt-2 font-medium text-slate-500 leading-tight">
+          {mode === "ARTISAN"
+            ? "Pilih ini di pagi hari. Target stok akan di-lock, dan Anda tinggal menunggu Webhook Artisan masuk."
+            : "Pilih ini untuk mencatat hasil akhir secara instan tanpa perlu koneksi ke aplikasi Artisan."}
+        </p>
+      </div>
+
+      <Separator className="bg-white/50" />
+
       {/* ── Pilih Green Bean ── */}
       <FieldGroup>
         <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
@@ -299,14 +335,14 @@ export function RoastingForm({
           min="0"
           placeholder="0.000"
           className={cn("h-9 tabular-nums font-semibold", glassInput)}
-          {...register("inputWeightKg", { valueAsNumber: true })}
+          {...register("targetWeightKg", { valueAsNumber: true })}
         />
-        {selectedGB && Number(inputWeightKg) > selectedGB.stockKg && (
+        {selectedGB && Number(targetWeightKg) > selectedGB.stockKg && (
           <p className="text-[10px] font-medium text-red-500">
             Melebihi stok tersedia ({formatKg(selectedGB.stockKg)})
           </p>
         )}
-        <FieldError message={errors.inputWeightKg?.message} />
+        <FieldError message={errors.targetWeightKg?.message} />
       </FieldGroup>
 
       <Separator className="bg-white/50" />
@@ -314,26 +350,26 @@ export function RoastingForm({
       {/* ── Output RB mode toggle ── */}
       <div>
         <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-2 block">
-          Roasted Bean Output <span className="text-red-500">*</span>
+          Target Roasted Bean <span className="text-red-500">*</span>
         </Label>
         <Controller
           control={control}
           name="outputMode"
           render={({ field }) => (
             <div className="flex gap-2">
-              {(["existing", "new"] as const).map((mode) => (
+              {(["existing", "new"] as const).map((m) => (
                 <button
-                  key={mode}
+                  key={m}
                   type="button"
-                  onClick={() => field.onChange(mode)}
+                  onClick={() => field.onChange(m)}
                   className={cn(
                     "flex-1 rounded-xl border py-2 text-xs font-bold transition-all shadow-sm",
-                    field.value === mode
+                    field.value === m
                       ? "border-blue-500 bg-blue-500 text-white shadow-md ring-2 ring-blue-500/20 ring-offset-1"
                       : "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60"
                   )}
                 >
-                  {mode === "existing" ? "Produk Existing" : "+ Produk Baru"}
+                  {m === "existing" ? "Produk Existing" : "+ Produk Baru"}
                 </button>
               ))}
             </div>
@@ -431,43 +467,32 @@ export function RoastingForm({
         </div>
       )}
 
-      <Separator className="bg-white/50" />
+      {/* ── MANUAL MODE ONLY: Berat Keluar ── */}
+      {mode === "MANUAL" && (
+        <>
+          <Separator className="bg-white/50" />
+          <FieldGroup>
+            <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+              Berat Keluar / Matang (kg) <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              type="number"
+              step="0.001"
+              min="0"
+              placeholder="0.000"
+              className={cn("h-9 tabular-nums font-semibold", glassInput)}
+              {...register("actualOutputKg", { valueAsNumber: true })}
+            />
+            <FieldError message={errors.actualOutputKg?.message} />
+          </FieldGroup>
 
-      {/* ── Berat Keluar ── */}
-      <div className="grid grid-cols-2 gap-4">
-        <FieldGroup>
-          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-            Berat Keluar / Matang (kg) <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            type="number"
-            step="0.001"
-            min="0"
-            placeholder="0.000"
-            className={cn("h-9 tabular-nums font-semibold", glassInput)}
-            {...register("outputWeightKg", { valueAsNumber: true })}
+          {/* ── Shrinkage kalkulasi realtime ── */}
+          <ShrinkageDisplay
+            input={Number(targetWeightKg) || 0}
+            output={Number(actualOutputKg) || 0}
           />
-          <FieldError message={errors.outputWeightKg?.message} />
-        </FieldGroup>
-
-        <FieldGroup>
-          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Durasi (menit)</Label>
-          <Input
-            type="number"
-            step="1"
-            min="0"
-            placeholder="0"
-            className={cn("h-9 tabular-nums", glassInput)}
-            {...register("roastDurationMin", { valueAsNumber: true })}
-          />
-        </FieldGroup>
-      </div>
-
-      {/* ── Shrinkage kalkulasi realtime ── */}
-      <ShrinkageDisplay
-        input={Number(inputWeightKg) || 0}
-        output={Number(outputWeightKg) || 0}
-      />
+        </>
+      )}
 
       {/* ── Catatan ── */}
       <FieldGroup>

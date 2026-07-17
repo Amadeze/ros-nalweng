@@ -1,26 +1,98 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { StandardPageLayout } from "@/components/StandardPageLayout";
 import { PnLReportClient } from "./PnLReportClient";
 import { InventoryValuationClient } from "./InventoryValuationClient";
 import { BalanceSheetClient } from "./BalanceSheetClient";
 import type { PnLReport } from "../../keuangan/actions";
-import type { InventoryValuationReport, BalanceSheetReport } from "../actions";
+import {
+  getBalanceSheetReport,
+  getCoffeeFlowReport,
+  getInventoryValuationReport,
+  type BalanceSheetReport,
+  type CoffeeFlowReport,
+  type InventoryValuationReport,
+} from "../actions";
 import { cn } from "@/lib/utils";
 import { FileText, Database, Scale, Activity } from "lucide-react";
 import { CoffeeFlowClient } from "./CoffeeFlowClient";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface SuperDashboardClientProps {
   pnlReport: PnLReport;
-  inventoryReport: InventoryValuationReport;
-  balanceSheetReport: BalanceSheetReport;
-  flowReport: any;
-  userRole: string;
 }
 
-export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetReport, flowReport, userRole }: SuperDashboardClientProps) {
+type ReportTab = "pnl" | "inventory" | "balanceSheet" | "flow";
+
+function ReportPanelSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="rounded-2xl border border-white/60 bg-white/50 p-4">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="mt-3 h-7 w-32" />
+            <Skeleton className="mt-2 h-3 w-20" />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-3xl border border-white/60 bg-white/70 p-5">
+        <Skeleton className="h-5 w-44" />
+        <div className="mt-5 space-y-3">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <Skeleton key={index} className="h-8 w-full" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
   const [activeTab, setActiveTab] = useState<"pnl" | "inventory" | "balanceSheet" | "flow">("pnl");
+  const [isPending, startTransition] = useTransition();
+  const [inventoryReport, setInventoryReport] = useState<InventoryValuationReport | null>(null);
+  const [balanceSheetReport, setBalanceSheetReport] = useState<BalanceSheetReport | null>(null);
+  const [flowReport, setFlowReport] = useState<CoffeeFlowReport | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const openTab = (tab: ReportTab) => {
+    setActiveTab(tab);
+    setLoadError(null);
+
+    if (tab === "inventory" && !inventoryReport) {
+      startTransition(async () => {
+        try {
+          setInventoryReport(await getInventoryValuationReport());
+        } catch {
+          setLoadError("Gagal memuat valuasi aset.");
+        }
+      });
+    }
+
+    if (tab === "balanceSheet" && !balanceSheetReport) {
+      startTransition(async () => {
+        try {
+          const inventory = inventoryReport ?? await getInventoryValuationReport();
+          setInventoryReport(inventory);
+          setBalanceSheetReport(await getBalanceSheetReport(inventory.grandTotalValue));
+        } catch {
+          setLoadError("Gagal memuat neraca.");
+        }
+      });
+    }
+
+    if (tab === "flow" && !flowReport) {
+      startTransition(async () => {
+        try {
+          setFlowReport(await getCoffeeFlowReport());
+        } catch {
+          setLoadError("Gagal memuat arus kopi.");
+        }
+      });
+    }
+  };
 
   return (
     <StandardPageLayout
@@ -29,7 +101,7 @@ export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetR
     >
       <div className="flex bg-white/40 p-1 rounded-xl border border-white/60 shadow-sm backdrop-blur-md mb-6 w-fit mx-auto md:mx-0">
         <button
-          onClick={() => setActiveTab("pnl")}
+          onClick={() => openTab("pnl")}
           className={cn(
             "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
             activeTab === "pnl" 
@@ -40,7 +112,7 @@ export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetR
           <FileText size={18} /> Laba Rugi
         </button>
         <button
-          onClick={() => setActiveTab("inventory")}
+          onClick={() => openTab("inventory")}
           className={cn(
             "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
             activeTab === "inventory" 
@@ -51,7 +123,7 @@ export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetR
           <Database size={18} /> Valuasi Aset
         </button>
         <button
-          onClick={() => setActiveTab("balanceSheet")}
+          onClick={() => openTab("balanceSheet")}
           className={cn(
             "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
             activeTab === "balanceSheet" 
@@ -62,7 +134,7 @@ export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetR
           <Scale size={18} /> Neraca
         </button>
         <button
-          onClick={() => setActiveTab("flow")}
+          onClick={() => openTab("flow")}
           className={cn(
             "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
             activeTab === "flow" 
@@ -75,6 +147,11 @@ export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetR
       </div>
 
       <div className="h-full flex flex-col">
+        {loadError && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {loadError}
+          </div>
+        )}
         {activeTab === "pnl" && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
             <PnLReportClient report={pnlReport} hideLayout />
@@ -82,17 +159,29 @@ export function SuperDashboardClient({ pnlReport, inventoryReport, balanceSheetR
         )}
         {activeTab === "inventory" && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <InventoryValuationClient report={inventoryReport} hideLayout />
+            {inventoryReport && !isPending ? (
+              <InventoryValuationClient report={inventoryReport} hideLayout />
+            ) : (
+              <ReportPanelSkeleton />
+            )}
           </div>
         )}
         {activeTab === "balanceSheet" && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <BalanceSheetClient report={balanceSheetReport} />
+            {balanceSheetReport && !isPending ? (
+              <BalanceSheetClient report={balanceSheetReport} />
+            ) : (
+              <ReportPanelSkeleton />
+            )}
           </div>
         )}
         {activeTab === "flow" && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <CoffeeFlowClient report={flowReport} />
+            {flowReport && !isPending ? (
+              <CoffeeFlowClient report={flowReport} />
+            ) : (
+              <ReportPanelSkeleton />
+            )}
           </div>
         )}
       </div>

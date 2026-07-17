@@ -6,6 +6,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import type { PurchaseRow } from "../actions";
+import { Button } from "@/components/ui/button";
+import { Trash2, WalletCards } from "lucide-react";
+import { getPayableAgingBucket } from "@/lib/purchase-payments";
 
 const CATEGORY_LABEL: Record<string, string> = {
   GREEN_BEAN: "Bahan Baku (Kopi)",
@@ -19,9 +22,11 @@ const CATEGORY_COLOR: Record<string, string> = {
 
 interface PurchaseTableProps {
   rows: PurchaseRow[];
+  onVoid: (row: PurchaseRow) => void;
+  onPay: (row: PurchaseRow) => void;
 }
 
-export function PurchaseTable({ rows }: PurchaseTableProps) {
+export function PurchaseTable({ rows, onVoid, onPay }: PurchaseTableProps) {
   if (rows.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-16 text-center">
@@ -32,16 +37,42 @@ export function PurchaseTable({ rows }: PurchaseTableProps) {
   }
 
   const total = rows.reduce((s, r) => s + r.totalCost, 0);
+  const totalPaid = rows.reduce((s, r) => s + r.paidAmount, 0);
+  const outstanding = rows.reduce((s, r) => s + r.balance, 0);
+  const aging = rows.reduce(
+    (totals, row) => {
+      if (row.balance <= 0) return totals;
+      const bucket = getPayableAgingBucket(row.dueDate ? new Date(row.dueDate) : null);
+      totals[bucket] += row.balance;
+      return totals;
+    },
+    {
+      CURRENT: 0,
+      OVERDUE_1_30: 0,
+      OVERDUE_31_60: 0,
+      OVERDUE_61_PLUS: 0,
+    },
+  );
 
   return (
     <div className="space-y-3">
       {/* Summary */}
       <div className="flex items-center justify-between rounded-xl border border-white/60 bg-white/30 backdrop-blur-xl px-4 py-2.5 shadow-sm">
         <p className="text-xs text-zinc-500">{rows.length} pembelian tercatat</p>
-        <p className="font-mono text-sm font-bold text-red-600">
-          Total Keluar: {formatRupiah(total)}
-        </p>
+        <div className="flex gap-4 font-mono text-xs font-bold">
+          <span className="text-slate-600">Nilai: {formatRupiah(total)}</span>
+          <span className="text-red-600">Dibayar: {formatRupiah(totalPaid)}</span>
+          <span className="text-amber-700">Hutang: {formatRupiah(outstanding)}</span>
+        </div>
       </div>
+      {outstanding > 0 && (
+        <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+          <div className="px-3 py-2 text-slate-600">Belum tempo <strong className="block font-mono">{formatRupiah(aging.CURRENT)}</strong></div>
+          <div className="px-3 py-2 text-amber-700">1-30 hari <strong className="block font-mono">{formatRupiah(aging.OVERDUE_1_30)}</strong></div>
+          <div className="px-3 py-2 text-orange-700">31-60 hari <strong className="block font-mono">{formatRupiah(aging.OVERDUE_31_60)}</strong></div>
+          <div className="px-3 py-2 text-red-700">&gt;60 hari <strong className="block font-mono">{formatRupiah(aging.OVERDUE_61_PLUS)}</strong></div>
+        </div>
+      )}
 
       <div className="hidden md:block overflow-hidden rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl shadow-lg shadow-slate-200/30">
         <Table>
@@ -51,7 +82,8 @@ export function PurchaseTable({ rows }: PurchaseTableProps) {
               <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Kategori</TableHead>
               <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Item & Qty</TableHead>
               <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Supplier</TableHead>
-              <TableHead className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Nominal Keluar</TableHead>
+              <TableHead className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Pembayaran</TableHead>
+              <TableHead className="w-24" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -76,8 +108,40 @@ export function PurchaseTable({ rows }: PurchaseTableProps) {
                 <TableCell className="text-sm text-zinc-500">
                   {row.supplierName}
                 </TableCell>
-                <TableCell className="text-right font-mono text-sm font-semibold text-red-600">
-                  {formatRupiah(row.totalCost)}
+                <TableCell className="text-right">
+                  <div className="font-mono text-sm font-semibold text-slate-800">{formatRupiah(row.totalCost)}</div>
+                  <div className={`text-xs font-medium ${row.isOverdue ? "text-red-600" : row.balance > 0 ? "text-amber-700" : "text-emerald-700"}`}>
+                    {row.balance > 0 ? `Sisa ${formatRupiah(row.balance)}` : "Lunas"}
+                  </div>
+                  {row.dueDate && row.balance > 0 && (
+                    <div className="text-[10px] text-slate-400">Tempo {formatDate(row.dueDate)}</div>
+                  )}
+                </TableCell>
+                <TableCell className="flex gap-1">
+                  {row.balance > 0 && (
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      variant="ghost"
+                      title="Bayar supplier"
+                      aria-label={`Bayar ${row.code}`}
+                      className="text-blue-600 hover:bg-blue-50"
+                      onClick={() => onPay(row)}
+                    >
+                      <WalletCards size={14} />
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    title="Void pembelian"
+                    aria-label={`Void ${row.code}`}
+                    className="text-slate-400 hover:bg-red-50 hover:text-red-600"
+                    onClick={() => onVoid(row)}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -105,8 +169,27 @@ export function PurchaseTable({ rows }: PurchaseTableProps) {
               {row.supplierName} • {row.code}
             </div>
             <div className="text-right">
-              <span className="font-mono text-base font-bold text-red-600">{formatRupiah(row.totalCost)}</span>
+              <span className="font-mono text-base font-bold text-slate-800">{formatRupiah(row.totalCost)}</span>
+              <div className={row.isOverdue ? "text-xs text-red-600" : "text-xs text-amber-700"}>
+                {row.balance > 0 ? `Sisa ${formatRupiah(row.balance)}` : "Lunas"}
+              </div>
             </div>
+            {row.balance > 0 && (
+              <Button type="button" size="sm" className="mt-3 w-full gap-2" onClick={() => onPay(row)}>
+                <WalletCards size={14} />
+                Bayar Supplier
+              </Button>
+            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-3 w-full gap-2 border-red-200 text-red-600"
+              onClick={() => onVoid(row)}
+            >
+              <Trash2 size={14} />
+              Void Pembelian
+            </Button>
           </div>
         ))}
       </div>

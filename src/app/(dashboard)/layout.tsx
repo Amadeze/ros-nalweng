@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
 import { AppShell } from "@/components/layout/AppShell";
-import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
+import { requireCurrentUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Layout untuk semua halaman yang memerlukan sidebar (route group dashboard).
@@ -12,8 +11,18 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getIronSession<{ user?: SessionUser }>(await cookies(), SESSION_OPTIONS);
-  const role = session.user?.role || "OPERATOR";
+  const user = await requireCurrentUser();
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: user.tenantId },
+    select: { subscriptionTier: true },
+  });
 
-  return <AppShell userRole={role}>{children}</AppShell>;
+  return (
+    <AppShell
+      userRole={user.role}
+      subscriptionTier={tenant?.subscriptionTier || "TRIAL"}
+    >
+      {children}
+    </AppShell>
+  );
 }

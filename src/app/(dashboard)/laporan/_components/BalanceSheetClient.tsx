@@ -65,16 +65,43 @@ export function BalanceSheetClient({ report }: BalanceSheetClientProps) {
               <span className="text-slate-600">Hutang Usaha</span>
               <span className="font-semibold text-slate-800">{formatCurrency(liabilities.accountsPayable)}</span>
             </div>
+            <div className="space-y-1 border-t border-white/50 pt-3 text-xs">
+              <div className="flex justify-between text-slate-500">
+                <span>Belum jatuh tempo</span>
+                <span>{formatCurrency(liabilities.aging.current)}</span>
+              </div>
+              <div className="flex justify-between text-amber-700">
+                <span>Lewat 1-30 hari</span>
+                <span>{formatCurrency(liabilities.aging.overdue1To30)}</span>
+              </div>
+              <div className="flex justify-between text-orange-700">
+                <span>Lewat 31-60 hari</span>
+                <span>{formatCurrency(liabilities.aging.overdue31To60)}</span>
+              </div>
+              <div className="flex justify-between text-red-700">
+                <span>Lewat &gt;60 hari</span>
+                <span>{formatCurrency(liabilities.aging.overdue61Plus)}</span>
+              </div>
+            </div>
             <div className="pt-4 mt-2 border-t border-slate-200/50 flex justify-between items-center">
               <span className="font-bold text-slate-800">Total Kewajiban</span>
               <span className="font-bold text-red-500">{formatCurrency(liabilities.totalLiabilities)}</span>
             </div>
+            <p className="text-xs leading-relaxed text-amber-700">{liabilities.trackingNote}</p>
           </div>
 
           <div className="p-5 bg-white/40 backdrop-blur-md border-white/60 shadow-sm space-y-4 rounded-2xl">
             <div className="flex justify-between items-center">
-              <span className="text-slate-600">Modal Bersih & Laba Ditahan</span>
+              <span className="text-slate-600">Modal Disetor Bersih</span>
+              <span className="font-semibold text-slate-800">{formatCurrency(equity.contributedCapital)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600">Laba Ditahan</span>
               <span className="font-semibold text-slate-800">{formatCurrency(equity.retainedEarnings)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600">Bagi Hasil Terdistribusi</span>
+              <span className="font-semibold text-slate-800">{formatCurrency(equity.distributedProfit)}</span>
             </div>
             <div className="pt-4 mt-2 border-t border-slate-200/50 flex justify-between items-center">
               <span className="font-bold text-slate-800">Total Ekuitas</span>

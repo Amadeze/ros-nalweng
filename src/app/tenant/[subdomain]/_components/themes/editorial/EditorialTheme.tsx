@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ThemeProps } from "../ThemeProps";
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, PenTool, Globe, Award, Quote, ArrowRight, Plus, Minus } from "lucide-react";
+import { TenantBrand } from "../TenantBrand";
 
 // =============================================================================
 // TEMA 5: THE ROASTER'S DIARY (EDITORIAL & STORYTELLING)
@@ -70,12 +71,12 @@ export function EditorialTheme({
           </div>
           <div className="flex-2 text-center">
             <div className="text-2xl md:text-4xl md:text-5xl font-black tracking-tighter uppercase ">
-              {tenant?.name || "THE DIARY"}
+              <TenantBrand tenant={tenant} fallback="THE DIARY" />
             </div>
           </div>
           <div className="flex-1 text-right flex justify-end items-center gap-4">
             <button onClick={() => setIsCartOpen(true)} className="text-xs uppercase tracking-widest  font-bold hover:text-gray-500 transition-colors">
-              Cart ({cart?.items?.length || 0})
+              Cart ({cart.getTotalItems(tenant.subdomain || "")})
             </button>
           </div>
         </div>
@@ -202,7 +203,7 @@ export function EditorialTheme({
                   <p className="text-xs  text-gray-500 uppercase tracking-widest mb-4">{item.origin || "Origin"}</p>
                   <div className="flex justify-between items-center  text-sm italic mt-auto pt-4 border-t border-gray-200">
                     <span>Rp {Number(item.price).toLocaleString('id-ID')}</span>
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="hover:underline  not-italic text-xs font-bold uppercase tracking-widest">Add to Cart</motion.button>
+                    <motion.button aria-label={`Add ${item.name} to cart`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="hover:underline  not-italic text-xs font-bold uppercase tracking-widest">Add to Cart</motion.button>
                   </div>
                 </div>
               </motion.div>

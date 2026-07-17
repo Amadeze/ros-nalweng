@@ -6,6 +6,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import type { ExpenseRow } from "../actions";
+import { Button } from "@/components/ui/button";
+import { Trash2 } from "lucide-react";
 
 const CATEGORY_LABEL: Record<string, string> = {
   GAJI:        "Gaji & Tunjangan",
@@ -23,9 +25,10 @@ const CATEGORY_COLOR: Record<string, string> = {
 
 interface ExpenseTableProps {
   rows: ExpenseRow[];
+  onVoid: (row: ExpenseRow) => void;
 }
 
-export function ExpenseTable({ rows }: ExpenseTableProps) {
+export function ExpenseTable({ rows, onVoid }: ExpenseTableProps) {
   if (rows.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-16 text-center">
@@ -55,6 +58,7 @@ export function ExpenseTable({ rows }: ExpenseTableProps) {
               <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Kategori</TableHead>
               <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Keterangan</TableHead>
               <TableHead className="text-right text-xs font-bold uppercase tracking-widest text-slate-500">Nominal</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -76,6 +80,19 @@ export function ExpenseTable({ rows }: ExpenseTableProps) {
                 </TableCell>
                 <TableCell  className="text-right font-mono text-sm font-semibold text-red-600">
                   {formatRupiah(row.amount)}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    title="Void pengeluaran"
+                    aria-label={`Void pengeluaran ${row.id}`}
+                    className="text-slate-400 hover:bg-red-50 hover:text-red-600"
+                    onClick={() => onVoid(row)}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -102,6 +119,16 @@ export function ExpenseTable({ rows }: ExpenseTableProps) {
             <div className="text-right">
               <span className="font-mono text-base font-bold text-red-600">{formatRupiah(row.amount)}</span>
             </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-3 w-full gap-2 border-red-200 text-red-600"
+              onClick={() => onVoid(row)}
+            >
+              <Trash2 size={14} />
+              Void Pengeluaran
+            </Button>
           </div>
         ))}
       </div>

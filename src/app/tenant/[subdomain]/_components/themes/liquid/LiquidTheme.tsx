@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { ThemeProps } from "../ThemeProps";
 import { motion, AnimatePresence } from "framer-motion";
 import { Droplet, Activity, FlaskConical, Beaker, Fingerprint, Star, Plus, Minus, CheckCircle2 } from "lucide-react";
+import { TenantBrand } from "../TenantBrand";
 
 // =============================================================================
 // TEMA 6: LIQUID SYMPHONY (INTERACTIVE & SENSORY-FOCUSED)
@@ -43,6 +44,7 @@ export function LiquidTheme({
 
   const title = catalogTitle || "Tasting Menu";
   const subtitle = catalogSubtitle || "Hover over our selections to reveal their unique sensory profiles.";
+  const bgImage = tenant?.backgroundImageUrl || "https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&q=80&w=2000";
   const footer = footerText || tenant?.footerText || "Crafted for the senses. © 2024 Liquid Symphony.";
   
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -86,11 +88,11 @@ export function LiquidTheme({
       {/* Navigation */}
       <header className="fixed top-0 w-full px-4 md:px-6 py-6 flex justify-between items-center bg-[#0d0714]/50 backdrop-blur-md z-50 border-b border-white/5">
         <div className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-[#FF9A44] via-[#FF3B7C] to-[#722F9E]">
-          {tenant?.name || "Liquid Symphony"}
+          <TenantBrand tenant={tenant} fallback="Liquid Symphony" />
         </div>
         <div className="flex gap-4 items-center">
           <button onClick={() => setIsCartOpen(true)} className="text-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)] hover:text-white transition-colors text-xs font-bold tracking-widest uppercase bg-white/5 px-4 py-2 rounded-[var(--theme-radius)] border border-white/10">
-            Cart ({cart?.items?.length || 0})
+            Cart ({cart.getTotalItems(tenant.subdomain || "")})
           </button>
         </div>
       </header>
@@ -98,8 +100,12 @@ export function LiquidTheme({
       <main className="relative z-10 pt-20">
         
         {/* 1. ABOVE THE FOLD (Hero) */}
-        <motion.section initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ duration: 0.8, ease: "easeOut" }} className="min-h-screen flex flex-col items-center justify-center px-4 md:px-6 -mt-20">
-          <div className="text-center max-w-4xl relative">
+        <motion.section initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ duration: 0.8, ease: "easeOut" }} className="relative min-h-screen flex flex-col items-center justify-center px-4 md:px-6 -mt-20 overflow-hidden">
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-15 mix-blend-luminosity pointer-events-none"
+            style={{ backgroundImage: `url(${bgImage})` }}
+          />
+          <div className="text-center max-w-4xl relative z-10">
             <motion.div initial={{ opacity: 0, y: 50, filter: "blur(20px)" }} animate={{ opacity: 1, y: 0, filter: "blur(0px)" }} transition={{ duration: 1.5, ease: "easeOut" }}>
               <h1 className="text-2xl md:text-3xl md:text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] mb-8 bg-clip-text text-transparent bg-gradient-to-br from-white via-[#FFD3E8] to-[#FF3B7C]">
                 {heroText}
@@ -224,7 +230,7 @@ export function LiquidTheme({
                   
                   {/* Hidden Add button that slides up */}
                   <div className="absolute bottom-0 left-0 w-full p-4 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="w-full py-3 bg-gradient-to-r from-[#FF3B7C] to-[#722F9E] text-white font-black uppercase tracking-widest rounded-[var(--theme-radius)] text-xs hover:shadow-[0_0_20px_color-mix(in_srgb,var(--theme-primary)_40%,transparent)] transition-all">
+                    <motion.button aria-label={`Add ${item.name} to cart`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="w-full py-3 bg-gradient-to-r from-[#FF3B7C] to-[#722F9E] text-white font-black uppercase tracking-widest rounded-[var(--theme-radius)] text-xs hover:shadow-[0_0_20px_color-mix(in_srgb,var(--theme-primary)_40%,transparent)] transition-all">
                       Add to Cart
                     </motion.button>
                   </div>

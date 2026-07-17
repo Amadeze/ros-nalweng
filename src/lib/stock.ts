@@ -6,14 +6,11 @@ import { requireTenantPrisma } from "./auth";
  */
 export async function computeKgStock(productId: string): Promise<number> {
   const prisma = await requireTenantPrisma();
-  const entries = await prisma.inventoryLedger.findMany({
-    where: { productId },
-    select: { entryType: true, quantityKg: true },
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { stockKg: true },
   });
-  return entries.reduce((sum, e) => {
-    const qty = Number(e.quantityKg ?? 0);
-    return e.entryType === "IN" ? sum + qty : sum - qty;
-  }, 0);
+  return Number(product?.stockKg ?? 0);
 }
 
 /**
@@ -21,13 +18,11 @@ export async function computeKgStock(productId: string): Promise<number> {
  */
 export async function computeUnitStock(packagingId: string): Promise<number> {
   const prisma = await requireTenantPrisma();
-  const entries = await prisma.inventoryLedger.findMany({
-    where: { packagingId },
-    select: { entryType: true, quantityUnit: true },
+  const packaging = await prisma.packaging.findUnique({
+    where: { id: packagingId },
+    select: { stockUnit: true },
   });
-  return entries.reduce((sum, e) => {
-    return e.entryType === "IN" ? sum + (e.quantityUnit ?? 0) : sum - (e.quantityUnit ?? 0);
-  }, 0);
+  return packaging?.stockUnit ?? 0;
 }
 
 /**
@@ -36,13 +31,11 @@ export async function computeUnitStock(packagingId: string): Promise<number> {
  */
 export async function computeFGUnitStock(productId: string): Promise<number> {
   const prisma = await requireTenantPrisma();
-  const entries = await prisma.inventoryLedger.findMany({
-    where: { productId, quantityUnit: { not: null } },
-    select: { entryType: true, quantityUnit: true },
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { stockUnit: true },
   });
-  return entries.reduce((sum, e) => {
-    return e.entryType === "IN" ? sum + (e.quantityUnit ?? 0) : sum - (e.quantityUnit ?? 0);
-  }, 0);
+  return product?.stockUnit ?? 0;
 }
 
 /**
@@ -50,27 +43,111 @@ export async function computeFGUnitStock(productId: string): Promise<number> {
  * Harus dijalankan di dalam transaksi (tx).
  */
 export async function appendLedger(tx: any, data: any) {
-  const ledger = await tx.inventoryLedger.create({ data });
-  
-  const diffUnit = ledger.entryType === 'IN' ? (ledger.quantityUnit || 0) : -(ledger.quantityUnit || 0);
-  const diffKg = ledger.entryType === 'IN' ? Number(ledger.quantityKg || 0) : -Number(ledger.quantityKg || 0);
+  const payload = data?.data ?? data;
+  const quantityUnit = Number(payload.quantityUnit ?? 0);
+  const quantityKg = Number(payload.quantityKg ?? 0);
 
-  if (ledger.productId) {
-    await tx.product.update({
-      where: { id: ledger.productId },
-      data: {
-        stockUnit: { increment: diffUnit },
-        stockKg: { increment: diffKg }
-      }
-    });
-  } else if (ledger.packagingId) {
-    await tx.packaging.update({
-      where: { id: ledger.packagingId },
-      data: {
-        stockUnit: { increment: diffUnit }
-      }
-    });
+  if (Boolean(payload.productId) === Boolean(payload.packagingId)) {
+    throw new Error("Ledger entry must target exactly one product or packaging item.");
+  }
+  if (quantityUnit < 0 || quantityKg < 0 || (quantityUnit === 0 && quantityKg === 0)) {
+    throw new Error("Ledger quantity must be greater than zero.");
   }
 
-  return ledger;
+  const isInbound = payload.entryType === "IN";
+  if (!isInbound && payload.entryType !== "OUT") {
+    throw new Error("Ledger entry type must be IN or OUT.");
+  }
+
+  // Calculate moving average cost if incomingPrice is provided
+  let newAvgCostKg: number | undefined;
+  let newAvgCostUnit: number | undefined;
+  if (isInbound && payload.incomingPrice !== undefined) {
+    const incPrice = Number(payload.incomingPrice);
+    if (payload.productId) {
+      const product = await tx.product.findUnique({
+        where: { id: payload.productId },
+        select: { stockKg: true, stockUnit: true, avgCostPerKg: true },
+      });
+      if (product && quantityKg > 0) {
+        const oldStock = Number(product.stockKg);
+        const oldAvg = Number(product.avgCostPerKg ?? 0);
+        newAvgCostKg = (oldStock * oldAvg + quantityKg * incPrice) / (oldStock + quantityKg);
+      }
+      if (product && quantityUnit > 0) {
+        const oldStock = Number(product.stockUnit);
+        const oldAvg = Number(product.avgCostPerKg ?? 0); // Reusing avgCostPerKg field for FG avg cost if needed, or we just leave it for lastHpp logic in produksi
+        newAvgCostUnit = (oldStock * oldAvg + quantityUnit * incPrice) / (oldStock + quantityUnit);
+      }
+    } else if (payload.packagingId) {
+      const pkg = await tx.packaging.findUnique({
+        where: { id: payload.packagingId },
+        select: { stockUnit: true, avgCostPerUnit: true },
+      });
+      if (pkg && quantityUnit > 0) {
+        const oldStock = Number(pkg.stockUnit);
+        const oldAvg = Number(pkg.avgCostPerUnit ?? 0);
+        newAvgCostUnit = (oldStock * oldAvg + quantityUnit * incPrice) / (oldStock + quantityUnit);
+      }
+    }
+  }
+
+  if (payload.productId) {
+    if (quantityUnit > 0) {
+      const result = await tx.product.updateMany({
+        where: {
+          id: payload.productId,
+          ...(isInbound ? {} : { stockUnit: { gte: quantityUnit } }),
+        },
+        data: {
+          stockUnit: isInbound
+            ? { increment: quantityUnit }
+            : { decrement: quantityUnit },
+          ...(newAvgCostUnit !== undefined ? { avgCostPerKg: newAvgCostUnit } : {}),
+        },
+      });
+      if (result.count !== 1) {
+        throw new Error("Stok produk tidak cukup untuk menyelesaikan transaksi.");
+      }
+    }
+
+    if (quantityKg > 0) {
+      const result = await tx.product.updateMany({
+        where: {
+          id: payload.productId,
+          ...(isInbound ? {} : { stockKg: { gte: quantityKg } }),
+        },
+        data: {
+          stockKg: isInbound
+            ? { increment: quantityKg }
+            : { decrement: quantityKg },
+          ...(newAvgCostKg !== undefined ? { avgCostPerKg: newAvgCostKg } : {}),
+        },
+      });
+      if (result.count !== 1) {
+        throw new Error("Stok kopi tidak cukup untuk menyelesaikan transaksi.");
+      }
+    }
+  } else {
+    const result = await tx.packaging.updateMany({
+      where: {
+        id: payload.packagingId,
+        ...(isInbound ? {} : { stockUnit: { gte: quantityUnit } }),
+      },
+      data: {
+        stockUnit: isInbound
+          ? { increment: quantityUnit }
+          : { decrement: quantityUnit },
+        ...(newAvgCostUnit !== undefined ? { avgCostPerUnit: newAvgCostUnit } : {}),
+      },
+    });
+    if (result.count !== 1) {
+      throw new Error("Stok kemasan tidak cukup untuk menyelesaikan transaksi.");
+    }
+  }
+
+  const dataToSave = { ...payload };
+  delete dataToSave.incomingPrice; // Ensure incomingPrice is not saved to InventoryLedger
+  
+  return tx.inventoryLedger.create({ data: dataToSave });
 }

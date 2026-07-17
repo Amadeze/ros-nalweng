@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ThemeProps } from "../ThemeProps";
 import { motion, AnimatePresence } from "framer-motion";
 import { Smile, Zap, Sparkles, Heart, Star, Plus, Minus, ArrowRight } from "lucide-react";
+import { TenantBrand } from "../TenantBrand";
 
 // =============================================================================
 // TEMA 10: PLAYFUL BREW (VIBRANT & POP ART)
@@ -65,14 +66,14 @@ export function PlayfulTheme({
       {/* Navigation - Chunky & Playful */}
       <header className="fixed top-6 left-6 right-6 bg-white border-4 border-black rounded-[var(--theme-radius)] p-4 flex justify-between items-center z-50 shadow-[8px_8px_0px_0px_color-mix(in_srgb,var(--theme-primary)_100%,transparent)]">
         <div className="text-xl md:text-2xl font-black tracking-tighter uppercase transform -rotate-2 text-[var(--theme-primary,#FF3366)]">
-          {tenant?.name || "POP ROAST"}
+          <TenantBrand tenant={tenant} fallback="POP ROAST" />
         </div>
         <nav className="hidden md:flex gap-6 font-bold text-black uppercase">
           <a href="#about" className="hover:text-[var(--theme-primary,#FF3366)] hover:-translate-y-1 transition-all">Vibes</a>
           <a href="#catalog" className="hover:text-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)] hover:-translate-y-1 transition-all">Shop</a>
         </nav>
         <button onClick={() => setIsCartOpen(true)} className="bg-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)] border-4 border-black text-black px-4 md:px-6 py-2 rounded-[var(--theme-radius)] font-black uppercase shadow-[4px_4px_0px_0px_color-mix(in_srgb,var(--theme-primary)_100%,transparent)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all text-sm md:text-base">
-          Cart ({cart?.items?.length || 0})
+          Cart ({cart.getTotalItems(tenant.subdomain || "")})
         </button>
       </header>
 
@@ -253,7 +254,7 @@ export function PlayfulTheme({
                   </p>
                   <div className="flex justify-between items-center mt-auto border-t-4 border-dashed border-gray-200 pt-4">
                     <span className="font-black text-2xl">Rp {Number(item.price).toLocaleString('id-ID')}</span>
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="bg-[#FFCC00] text-black border-4 border-black w-12 h-12 rounded-[var(--theme-radius)] font-black text-2xl shadow-[4px_4px_0px_0px_color-mix(in_srgb,var(--theme-primary)_100%,transparent)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex items-center justify-center">
+                    <motion.button aria-label={`Add ${item.name} to cart`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="bg-[#FFCC00] text-black border-4 border-black w-12 h-12 rounded-[var(--theme-radius)] font-black text-2xl shadow-[4px_4px_0px_0px_color-mix(in_srgb,var(--theme-primary)_100%,transparent)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex items-center justify-center">
                       <Plus strokeWidth={4} />
                     </motion.button>
                   </div>

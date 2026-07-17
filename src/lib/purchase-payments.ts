@@ -1,0 +1,53 @@
+export type PurchasePaymentState = "UNPAID" | "PARTIAL" | "PAID";
+export type PayableAgingBucket =
+  | "CURRENT"
+  | "OVERDUE_1_30"
+  | "OVERDUE_31_60"
+  | "OVERDUE_61_PLUS";
+
+export function resolveInitialPurchasePayment(
+  totalCost: number,
+  requestedStatus: PurchasePaymentState | undefined,
+  requestedPaidAmount: number | undefined,
+) {
+  if (!Number.isFinite(totalCost) || totalCost <= 0) {
+    throw new Error("Total pembelian harus lebih dari 0.");
+  }
+
+  const paymentStatus = requestedStatus ?? "PAID";
+  if (paymentStatus === "PAID") {
+    return { paymentStatus, paidAmount: totalCost };
+  }
+  if (paymentStatus === "UNPAID") {
+    return { paymentStatus, paidAmount: 0 };
+  }
+
+  const paidAmount = requestedPaidAmount ?? 0;
+  if (!Number.isFinite(paidAmount) || paidAmount <= 0 || paidAmount >= totalCost - 0.01) {
+    throw new Error("Uang muka harus lebih dari 0 dan lebih kecil dari total pembelian.");
+  }
+  return { paymentStatus, paidAmount };
+}
+
+export function getPurchasePaymentStatus(
+  paidAmount: number,
+  totalCost: number,
+): PurchasePaymentState {
+  if (paidAmount <= 0.01) return "UNPAID";
+  if (paidAmount >= totalCost - 0.01) return "PAID";
+  return "PARTIAL";
+}
+
+export function getPayableAgingBucket(
+  dueDate: Date | null,
+  asOf = new Date(),
+): PayableAgingBucket {
+  if (!dueDate || dueDate >= asOf) return "CURRENT";
+  const daysOverdue = Math.max(
+    1,
+    Math.ceil((asOf.getTime() - dueDate.getTime()) / 86_400_000),
+  );
+  if (daysOverdue <= 30) return "OVERDUE_1_30";
+  if (daysOverdue <= 60) return "OVERDUE_31_60";
+  return "OVERDUE_61_PLUS";
+}

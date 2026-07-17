@@ -481,11 +481,14 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
                             </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
-                            {rawMaterials.map((rm) => (
-                              <SelectItem key={rm.id} value={rm.id}>
-                                {rm.name} {rm.type === "GREEN_BEAN" ? "(GB)" : "(RB)"}
-                              </SelectItem>
-                            ))}
+                            {rawMaterials.map((rm) => {
+                              const isSelected = recipeItems.some((item, i) => i !== index && item.rbProductId === rm.id);
+                              return (
+                                <SelectItem key={rm.id} value={rm.id} disabled={isSelected}>
+                                  {rm.name} {rm.type === "GREEN_BEAN" ? "(GB)" : "(RB)"}
+                                </SelectItem>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
                       )}

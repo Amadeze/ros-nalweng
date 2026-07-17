@@ -1,36 +1,171 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Roastery Operating System
 
-## Getting Started
+ROS is a multi-tenant SaaS operations platform for coffee roasteries. It covers inventory ledger, purchasing, roasting, production, sales, payments, financial reporting, tenant storefronts, subscription billing, and hardware/payment webhooks.
 
-First, run the development server:
+## Requirements
+
+- Node.js 22+
+- pnpm 11.9+
+- PostgreSQL
+- Chromium for Playwright E2E tests
+
+## Local Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+cp .env.local.example .env.local
+pnpm prisma generate
+pnpm prisma migrate deploy
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verification
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+pnpm typecheck
+pnpm lint --quiet
+pnpm test
+pnpm test:e2e
+pnpm build
+pnpm audit --prod
+pnpm audit:stock
+pnpm audit:integrity
+pnpm audit:tenant-isolation
+```
 
-## Learn More
+`pnpm verify` runs the core non-E2E release gate.
 
-To learn more about Next.js, take a look at the following resources:
+## Database Rules
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `InventoryLedger` is the source of truth for stock.
+- Product and packaging stock columns are transactional caches.
+- Business codes are unique per tenant.
+- All dashboard database access must use `requireTenantPrisma()`.
+- Cross-tenant foreign keys are rejected by the Prisma tenant extension.
+- Corrections use reversal entries or explicit VOID workflows.
+- Never edit an applied migration. Create a new migration for every schema change.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Migration Workflow
 
-## Deploy on Vercel
+```bash
+pnpm prisma migrate status
+pnpm prisma migrate dev --name descriptive_change
+pnpm prisma migrate deploy
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Production deployment must run `prisma migrate deploy` before starting the new application version. Verify afterward with:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+pnpm prisma migrate status
+pnpm preflight:production
+pnpm audit:integrity
+pnpm audit:stock
+```
+
+## Security
+
+- Session cookies use `iron-session`; production requires `SESSION_SECRET`.
+- Midtrans tenant server keys are encrypted with AES-256-GCM.
+- Use a dedicated `CREDENTIAL_ENCRYPTION_KEY` in production.
+- Login, registration, uploads, billing, and public checkout are rate-limited.
+- Server actions enforce role permissions independently of the UI.
+- Storefront and settings payloads never serialize server keys or Artisan tokens.
+- Password reset tokens are hashed, expire after 30 minutes, and are single-use.
+
+To encrypt legacy plaintext credentials:
+
+```bash
+pnpm security:encrypt-credentials
+```
+
+If credentials were originally encrypted with `SESSION_SECRET`, set a new
+`CREDENTIAL_ENCRYPTION_KEY` and rotate them before deployment:
+
+```bash
+pnpm security:rotate-credential-key
+```
+
+For a later dedicated-key rotation, temporarily set
+`OLD_CREDENTIAL_ENCRYPTION_KEY` to the previous key. The rotation validates
+every ciphertext before applying updates in one database transaction.
+
+## Operational Endpoints
+
+- `GET /api/health` checks database and required production configuration.
+- `GET /api/health/live` is the process liveness probe.
+- `/audit` shows tenant audit events and webhook processing state.
+
+Periodic maintenance:
+
+```bash
+pnpm maintenance:cleanup
+pnpm maintenance:subscriptions
+```
+
+Configure the deployment scheduler to call `POST /api/cron/subscriptions` at
+least daily with `Authorization: Bearer <CRON_SECRET>`. It marks expired trials
+as `EXPIRED` and paid subscriptions past their billing date as `PAST_DUE`.
+
+Call `POST /api/cron/overdue-reminders` daily with the same authorization.
+Each overdue invoice is sent at most once per channel per UTC day. Email uses
+Resend, while WhatsApp uses `WA_API_URL` with a Fonnte-compatible API.
+
+The included `ROS Daily Operations` GitHub workflow performs readiness,
+subscription, and reminder calls after `PRODUCTION_APP_URL` and
+`PRODUCTION_CRON_SECRET` are configured as repository secrets.
+
+## Storage
+
+Production uploads require Supabase Storage:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_STORAGE_BUCKET`
+
+Local development falls back to `public/uploads/<tenantId>`. Production deliberately fails with `503` when object storage is not configured.
+
+## Inventory Ledger
+
+The Inventory page exposes the latest 500 tenant-scoped mutations with search,
+IN/OUT filters, pagination, operator attribution, and filtered PDF/Excel
+exports. Cached stock remains transactionally synchronized with the immutable
+ledger and can be checked with `pnpm audit:stock`.
+
+Purchases support cash, partial, and credit terms. Supplier payments are
+immutable records with VOID correction, payable aging, and Balance Sheet
+integration.
+
+## Webhooks
+
+- `/api/webhooks/artisan` with `Authorization: Bearer <artisan token>`
+- `/api/webhooks/tenant-midtrans`
+- `/api/webhooks/superadmin-midtrans`
+
+Artisan events are stored in the webhook inbox. When more than one roasting batch is pending, the payload must include `parent_batch_id`.
+The legacy `?token=` query parameter remains supported for existing Artisan
+setups, but the authorization header avoids exposing tokens in access logs.
+
+## Recovery and Maintenance
+
+- Use managed PostgreSQL point-in-time recovery where available.
+- Take a provider snapshot before migrations that rewrite data.
+- Run restore drills against a separate database.
+- Never test restore procedures against the production database.
+- Run `repair:tenant-relations` without `--apply` first. Apply only after reviewing the generated repair plan:
+
+```bash
+pnpm repair:tenant-relations
+pnpm repair:tenant-relations -- --apply
+```
+
+## Release Checklist
+
+1. Database backup or provider snapshot confirmed.
+2. `pnpm install --frozen-lockfile` succeeds.
+3. Migration status is clean.
+4. Typecheck, lint, unit tests, E2E, and build pass.
+5. Stock and integrity audits report no violations.
+6. Health endpoint returns HTTP 200 after deployment.
+7. Payment and Artisan webhook smoke tests pass.

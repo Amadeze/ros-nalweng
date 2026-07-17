@@ -13,13 +13,13 @@ import {
   FileText,
   LogOut,
   Settings,
+  ScrollText,
+  Coffee,
 } from "lucide-react";
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { logoutAction } from "@/app/login/actions";
-
-// ─────────────────────────────────────────────
+import { planHasFeature, type PlanTier } from "@/lib/plans";
 // Menu definition
 const NAV_ITEMS = [
   { label: "Dashboard",   href: "/dashboard",    icon: LayoutDashboard },
@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { label: "Keuangan",    href: "/keuangan",     icon: BarChart3       },
   { label: "Laporan Finansial", href: "/laporan", icon: FileText       },
   { label: "Data Master", href: "/master-data",  icon: Database        },
+  { label: "Audit & Integrasi", href: "/audit",  icon: ScrollText      },
   { label: "Pengaturan",  href: "/settings",     icon: Settings        },
   { label: "Billing & Plan", href: "/billing",   icon: FileText        },
 ] as const;
@@ -84,14 +85,26 @@ function NavItem({
 // Sidebar
 // ─────────────────────────────────────────────
 
-export function Sidebar({ userRole }: { userRole: string }) {
+export function Sidebar({
+  userRole,
+  subscriptionTier,
+}: {
+  userRole: string;
+  subscriptionTier: PlanTier;
+}) {
   const pathname = usePathname();
 
   // Role-based access control for sidebar menus
   const filteredNavItems = NAV_ITEMS.filter((item) => {
+    if (
+      item.href === "/laporan" &&
+      !planHasFeature(subscriptionTier, "ADVANCED_REPORTS")
+    ) {
+      return false;
+    }
     if (userRole === "OWNER") return true;
     if (userRole === "MANAGER") {
-      return item.href !== "/settings";
+      return !["/settings", "/billing"].includes(item.href);
     }
     if (userRole === "OPERATOR") {
       return ["/dashboard", "/inventory", "/roasting", "/produksi"].includes(item.href);
@@ -106,7 +119,10 @@ export function Sidebar({ userRole }: { userRole: string }) {
     <aside className="flex h-full w-64 shrink-0 flex-col rounded-2xl bg-white/70 backdrop-blur-3xl border border-white/60 text-slate-800 shadow-2xl md:bg-transparent md:backdrop-blur-none md:border-transparent md:shadow-none">
       {/* Brand */}
       <div className="flex h-32 items-center justify-center px-2 pt-6 mb-4 transition-transform duration-500 hover:scale-105">
-        <Image src="/logo.png" alt="Beanslab Logo" width={220} height={100} className="w-full h-auto max-w-[220px] object-contain drop-shadow-sm" unoptimized />
+        <div className="flex flex-col items-center gap-2">
+          <Coffee className="h-12 w-12 text-slate-800" />
+          <span className="text-xl font-bold text-slate-800 tracking-tight">Roastery OS</span>
+        </div>
       </div>
 
       <div className="mx-6 h-px bg-white/40 my-2" />

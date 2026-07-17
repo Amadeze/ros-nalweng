@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ThemeProps } from "../ThemeProps";
 import { motion, AnimatePresence } from "framer-motion";
 import { Terminal, Shield, Zap, Cpu, Code, Database, ChevronDown, CheckSquare, PlusSquare, MinusSquare } from "lucide-react";
+import { TenantBrand } from "../TenantBrand";
 
 // =============================================================================
 // TEMA 3: CYBER-BARISTA (HIGH-TECH & FUTURISTIC)
@@ -44,6 +45,7 @@ export function CyberTheme({
 
   const title = catalogTitle || "DATABASE.query(\"products\")";
   const footer = footerText || tenant?.footerText || "SYSTEM LOG: End of transmission.";
+  const bgImage = tenant?.backgroundImageUrl || "https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&q=80&w=2000";
   
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -74,11 +76,11 @@ export function CyberTheme({
       <header className="fixed top-0 w-full px-4 md:px-8 py-6 flex justify-between items-center z-50 bg-[#050510]/90 backdrop-blur-md border-b border-[var(--theme-primary,#00FF41)]/30">
         <div className="text-xl font-bold tracking-widest uppercase flex items-center gap-3">
           <div className="w-3 h-3 bg-[var(--theme-primary,#00FF41)] animate-pulse"></div>
-          {tenant?.name || "SYS.ROAST"}
+          <TenantBrand tenant={tenant} fallback="SYS.ROAST" />
         </div>
         <div className="flex gap-4 items-center">
           <button onClick={() => setIsCartOpen(true)} className="flex items-center gap-2 border border-[var(--theme-primary,#00FF41)] px-4 py-2 text-xs uppercase font-bold hover:bg-[var(--theme-primary,#00FF41)] hover:text-black transition-colors">
-            [ CART: {cart?.items?.length || 0} ]
+            [ CART: {cart.getTotalItems(tenant.subdomain || "")} ]
           </button>
         </div>
       </header>
@@ -86,12 +88,16 @@ export function CyberTheme({
       <main className="relative z-10 pt-24 pb-20">
         
         {/* 1. ABOVE THE FOLD (Hero) */}
-        <motion.section initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ duration: 0.8, ease: "easeOut" }} className="min-h-[85vh] flex flex-col items-center justify-center px-4 md:px-6 text-center max-w-5xl mx-auto">
+        <motion.section initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ duration: 0.8, ease: "easeOut" }} className="relative min-h-[85vh] flex flex-col items-center justify-center px-4 md:px-6 text-center max-w-5xl mx-auto overflow-hidden">
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-10 mix-blend-screen pointer-events-none"
+            style={{ backgroundImage: `url(${bgImage})` }}
+          />
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="border border-[var(--theme-primary,#00FF41)]/50 bg-[var(--theme-primary,#00FF41)]/5 p-8 md:p-16 backdrop-blur-sm relative w-full"
+            className="border border-[var(--theme-primary,#00FF41)]/50 bg-[var(--theme-primary,#00FF41)]/5 p-8 md:p-16 backdrop-blur-sm relative z-10 w-full"
           >
             <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[var(--theme-primary,#00FF41)]"></div>
             <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[var(--theme-primary,#00FF41)]"></div>
@@ -155,7 +161,7 @@ export function CyberTheme({
                   </div>
                   <p className="text-white/90 text-sm mb-6  leading-relaxed">"{testi.text}"</p>
                   <div className="uppercase text-xs tracking-widest text-[var(--theme-primary,#00FF41)]">
-                    <span className="font-bold text-white">{testi.name}</span> // {testi.role}
+                    <span className="font-bold text-white">{testi.name}</span> {"//"} {testi.role}
                   </div>
                 </div>
               ))}
@@ -203,7 +209,7 @@ export function CyberTheme({
                     <p className="text-xs text-[var(--theme-primary,#00FF41)]/60 mb-4 uppercase">{item.origin || "SRC_UNKNOWN"}</p>
                     <div className="mt-auto pt-4 border-t border-[var(--theme-primary,#00FF41)]/20 flex justify-between items-center">
                       <span className="font-bold text-white tracking-widest">Rp{Number(item.price).toLocaleString('id-ID')}</span>
-                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="bg-[color-mix(in_srgb,var(--theme-primary,#00FF41)_10%,transparent)] text-[var(--theme-primary,#00FF41)] px-3 py-1.5 text-xs font-bold hover:bg-[var(--theme-primary,#00FF41)] hover:text-black transition-colors rounded-[calc(var(--theme-radius)*0.5)]">
+                      <motion.button aria-label={`Add ${item.name} to cart`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="bg-[color-mix(in_srgb,var(--theme-primary,#00FF41)_10%,transparent)] text-[var(--theme-primary,#00FF41)] px-3 py-1.5 text-xs font-bold hover:bg-[var(--theme-primary,#00FF41)] hover:text-black transition-colors rounded-[calc(var(--theme-radius)*0.5)]">
                         + ADD
                       </motion.button>
                     </div>

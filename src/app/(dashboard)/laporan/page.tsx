@@ -1,14 +1,11 @@
 import { getPnLReport } from "../keuangan/actions";
-import { getInventoryValuationReport, getBalanceSheetReport, getCoffeeFlowReport } from "./actions";
 import { SuperDashboardClient } from "./_components/SuperDashboardClient";
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
-import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
+import { requireFeature } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function LaporanPage({ searchParams }: { searchParams: Promise<{ month?: string; year?: string }> }) {
-  const session = await getIronSession<{ user?: SessionUser }>(await cookies(), SESSION_OPTIONS);
+  await requireFeature("ADVANCED_REPORTS");
   const resolvedParams = await searchParams;
   const now = new Date();
   
@@ -16,14 +13,22 @@ export default async function LaporanPage({ searchParams }: { searchParams: Prom
   let year = now.getFullYear();
 
   if (resolvedParams.month && resolvedParams.year) {
-    month = parseInt(resolvedParams.month, 10);
-    year = parseInt(resolvedParams.year, 10);
+    const requestedMonth = Number.parseInt(resolvedParams.month, 10);
+    const requestedYear = Number.parseInt(resolvedParams.year, 10);
+    if (
+      Number.isInteger(requestedMonth) &&
+      requestedMonth >= 1 &&
+      requestedMonth <= 12 &&
+      Number.isInteger(requestedYear) &&
+      requestedYear >= 2000 &&
+      requestedYear <= 2100
+    ) {
+      month = requestedMonth;
+      year = requestedYear;
+    }
   }
 
   const pnlReport = await getPnLReport(month, year);
-  const inventoryReport = await getInventoryValuationReport();
-  const balanceSheetReport = await getBalanceSheetReport(inventoryReport.grandTotalValue);
-  const flowReport = await getCoffeeFlowReport();
 
-  return <SuperDashboardClient pnlReport={pnlReport} inventoryReport={inventoryReport} balanceSheetReport={balanceSheetReport} flowReport={flowReport} userRole={session.user?.role || "OWNER"} />;
+  return <SuperDashboardClient pnlReport={pnlReport} />;
 }

@@ -1,5 +1,5 @@
 "use server";
-import { requireTenantPrisma } from "@/lib/auth";
+import { requireRole, requireTenantPrisma } from "@/lib/auth";
 
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
@@ -155,7 +155,7 @@ export async function getMasterData(): Promise<MasterPageData> {
     .filter(p => p.type === "ROASTED_BEAN" && p.ledgerEntries[0])
     .map(p => p.ledgerEntries[0].refId);
 
-  const roastingBatches = rbLedgerRefIds.length > 0 ? await (await requireTenantPrisma()).roastingBatch.findMany({
+  const roastingBatches = rbLedgerRefIds.length > 0 ? await (await requireTenantPrisma()).parentRoastingBatch.findMany({
     where: { id: { in: rbLedgerRefIds } },
     include: {
       inputProduct: {
@@ -208,7 +208,7 @@ export async function getMasterData(): Promise<MasterPageData> {
             const wKg = Number(pur.weightKg ?? 0);
             if (wKg > 0) {
               const gbHppPerKg = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
-              const shrinkage = Number(batch.roastLossPercent) / 100;
+              const shrinkage = Number(batch.totalShrinkagePercent) / 100;
               latestHppPerKg = shrinkage < 1 ? gbHppPerKg / (1 - shrinkage) : gbHppPerKg;
             }
           }
@@ -288,6 +288,7 @@ export type CreateSupplierInput = {
 
 export async function createSupplier(input: CreateSupplierInput): Promise<ActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER");
     if (!input.name?.trim()) return { success: false, error: "Nama supplier wajib diisi." };
     const count = await (await requireTenantPrisma()).supplier.count();
     const code  = `SUP-${String(count + 1).padStart(3, "0")}`;
@@ -309,6 +310,7 @@ export type UpdateSupplierInput = CreateSupplierInput & { id: string; isActive: 
 
 export async function updateSupplier(input: UpdateSupplierInput): Promise<ActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER");
     if (!input.name?.trim()) return { success: false, error: "Nama supplier wajib diisi." };
     const existing = await (await requireTenantPrisma()).supplier.findUnique({ where: { id: input.id }, select: { code: true } });
     if (!existing) return { success: false, error: "Supplier tidak ditemukan." };
@@ -337,6 +339,7 @@ export type CreateCustomerInput = {
 
 export async function createCustomer(input: CreateCustomerInput): Promise<ActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER", "CASHIER");
     if (!input.name?.trim()) return { success: false, error: "Nama pelanggan wajib diisi." };
     const count = await (await requireTenantPrisma()).customer.count();
     const code  = `CST-${String(count + 1).padStart(3, "0")}`;
@@ -359,6 +362,7 @@ export type UpdateCustomerInput = CreateCustomerInput & { id: string; isActive: 
 
 export async function updateCustomer(input: UpdateCustomerInput): Promise<ActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER", "CASHIER");
     if (!input.name?.trim()) return { success: false, error: "Nama pelanggan wajib diisi." };
     const existing = await (await requireTenantPrisma()).customer.findUnique({ where: { id: input.id }, select: { code: true } });
     if (!existing) return { success: false, error: "Pelanggan tidak ditemukan." };
@@ -401,13 +405,16 @@ const USER_ROLES: UserRow["role"][] = ["OWNER", "MANAGER", "OPERATOR", "CASHIER"
 
 export async function createUser(input: CreateUserInput): Promise<ActionResult> {
   try {
+    await requireRole("OWNER");
     const name = input.name?.trim();
     const email = input.email?.toLowerCase().trim();
     const password = input.password?.trim();
 
     if (!name) return { success: false, error: "Nama pengguna wajib diisi." };
     if (!email) return { success: false, error: "Email wajib diisi." };
-    if (!password) return { success: false, error: "Password wajib diisi." };
+    if (!password || password.length < 8) {
+      return { success: false, error: "Password minimal 8 karakter." };
+    }
     if (!USER_ROLES.includes(input.role)) return { success: false, error: "Role pengguna tidak valid." };
 
     const existing = await (await requireTenantPrisma()).user.findUnique({ where: { email }, select: { id: true } });
@@ -428,6 +435,7 @@ export async function createUser(input: CreateUserInput): Promise<ActionResult> 
 
 export async function updateUser(input: UpdateUserInput): Promise<ActionResult> {
   try {
+    const actor = await requireRole("OWNER");
     const name = input.name?.trim();
     const email = input.email?.toLowerCase().trim();
     const password = input.password?.trim();
@@ -436,8 +444,44 @@ export async function updateUser(input: UpdateUserInput): Promise<ActionResult> 
     if (!email) return { success: false, error: "Email wajib diisi." };
     if (!USER_ROLES.includes(input.role)) return { success: false, error: "Role pengguna tidak valid." };
 
-    const existing = await (await requireTenantPrisma()).user.findUnique({ where: { id: input.id }, select: { id: true } });
+    const existing = await (await requireTenantPrisma()).user.findUnique({
+      where: { id: input.id },
+      select: { id: true, role: true, isActive: true },
+    });
     if (!existing) return { success: false, error: "Pengguna tidak ditemukan." };
+
+    if (
+      actor.id === input.id &&
+      (!input.isActive || input.role !== "OWNER")
+    ) {
+      return {
+        success: false,
+        error: "Owner tidak dapat menonaktifkan atau menurunkan role akun sendiri.",
+      };
+    }
+
+    if (
+      existing.role === "OWNER" &&
+      (input.role !== "OWNER" || !input.isActive)
+    ) {
+      const otherActiveOwners = await (await requireTenantPrisma()).user.count({
+        where: {
+          id: { not: input.id },
+          role: "OWNER",
+          isActive: true,
+        },
+      });
+      if (otherActiveOwners === 0) {
+        return {
+          success: false,
+          error: "Tenant harus memiliki minimal satu Owner aktif.",
+        };
+      }
+    }
+
+    if (password && password.length < 8) {
+      return { success: false, error: "Password minimal 8 karakter." };
+    }
 
     const duplicate = await (await requireTenantPrisma()).user.findFirst({
       where: { email, NOT: { id: input.id } },
@@ -524,7 +568,15 @@ const TYPE_PREFIX: Record<CreateProductInput["type"], string> = {
 
 export async function createProduct(input: CreateProductInput): Promise<ActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER");
     if (!input.name?.trim()) return { success: false, error: "Nama produk wajib diisi." };
+
+    if (input.type === "FINISHED_GOODS" && input.recipe && input.recipe.items.length > 0) {
+      const productIds = input.recipe.items.map((i) => i.rbProductId);
+      if (new Set(productIds).size !== productIds.length) {
+        return { success: false, error: "Bahan baku dalam resep tidak boleh ganda." };
+      }
+    }
 
     const prefix = TYPE_PREFIX[input.type];
     const count  = await (await requireTenantPrisma()).product.count({ where: { type: input.type } });
@@ -551,7 +603,7 @@ export async function createProduct(input: CreateProductInput): Promise<ActionRe
         const rCode   = `RCP-${String(rCount + 1).padStart(3, "0")}`;
         const outputG = r.outputGrams;
 
-        await tx.recipe.create({
+        const recipe = await tx.recipe.create({
           data: {
             code:        rCode,
             name:        input.name.trim(),
@@ -559,15 +611,18 @@ export async function createProduct(input: CreateProductInput): Promise<ActionRe
             packagingId: r.packagingId,
             outputGrams: outputG,
             notes:       r.notes?.trim() || null,
-            items: {
-              create: r.items.map((item) => ({
-                productId:    item.rbProductId,
-                gramsPerUnit: item.gramsPerUnit,
-                ratioPercent: outputG > 0 ? (item.gramsPerUnit / outputG) * 100 : 0,
-              })),
-            },
           },
         });
+        if (r.items.length > 0) {
+          await tx.recipeItem.createMany({
+            data: r.items.map((item) => ({
+              recipeId:     recipe.id,
+              productId:    item.rbProductId,
+              gramsPerUnit: item.gramsPerUnit,
+              ratioPercent: outputG > 0 ? (item.gramsPerUnit / outputG) * 100 : 0,
+            })),
+          });
+        }
       }
     });
 
@@ -586,6 +641,7 @@ export async function createProduct(input: CreateProductInput): Promise<ActionRe
 
 export async function updateProduct(input: UpdateProductInput): Promise<ActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER");
     if (!input.name?.trim()) return { success: false, error: "Nama produk wajib diisi." };
 
     const existing = await (await requireTenantPrisma()).product.findUnique({
@@ -593,6 +649,13 @@ export async function updateProduct(input: UpdateProductInput): Promise<ActionRe
       select: { code: true, type: true, recipes: { where: { isActive: true }, select: { id: true }, take: 1 } },
     });
     if (!existing) return { success: false, error: "Produk tidak ditemukan." };
+
+    if (existing.type === "FINISHED_GOODS" && input.recipe && input.recipe.items.length > 0) {
+      const productIds = input.recipe.items.map((i) => i.rbProductId);
+      if (new Set(productIds).size !== productIds.length) {
+        return { success: false, error: "Bahan baku dalam resep tidak boleh ganda." };
+      }
+    }
 
     await (await requireTenantPrisma()).$transaction(async (tx) => {
       // ✅ DITAMBAHKAN: Data price dikirim untuk update
@@ -626,20 +689,23 @@ export async function updateProduct(input: UpdateProductInput): Promise<ActionRe
               packagingId: r.packagingId,
               outputGrams: outputG,
               notes:       r.notes?.trim() || null,
-              items: {
-                create: r.items.map((item) => ({
-                  productId:    item.rbProductId,
-                  gramsPerUnit: item.gramsPerUnit,
-                  ratioPercent: outputG > 0 ? (item.gramsPerUnit / outputG) * 100 : 0,
-                })),
-              },
             },
           });
+          if (r.items.length > 0) {
+            await tx.recipeItem.createMany({
+              data: r.items.map((item) => ({
+                recipeId:     existingRecipe.id,
+                productId:    item.rbProductId,
+                gramsPerUnit: item.gramsPerUnit,
+                ratioPercent: outputG > 0 ? (item.gramsPerUnit / outputG) * 100 : 0,
+              })),
+            });
+          }
         } else {
           // Create brand-new recipe for this product
           const rCount = await tx.recipe.count();
           const rCode  = `RCP-${String(rCount + 1).padStart(3, "0")}`;
-          await tx.recipe.create({
+          const recipe = await tx.recipe.create({
             data: {
               code:        rCode,
               name:        input.name!.trim(),
@@ -647,15 +713,18 @@ export async function updateProduct(input: UpdateProductInput): Promise<ActionRe
               packagingId: r.packagingId,
               outputGrams: outputG,
               notes:       r.notes?.trim() || null,
-              items: {
-                create: r.items.map((item) => ({
-                  productId:    item.rbProductId,
-                  gramsPerUnit: item.gramsPerUnit,
-                  ratioPercent: outputG > 0 ? (item.gramsPerUnit / outputG) * 100 : 0,
-                })),
-              },
             },
           });
+          if (r.items.length > 0) {
+            await tx.recipeItem.createMany({
+              data: r.items.map((item) => ({
+                recipeId:     recipe.id,
+                productId:    item.rbProductId,
+                gramsPerUnit: item.gramsPerUnit,
+                ratioPercent: outputG > 0 ? (item.gramsPerUnit / outputG) * 100 : 0,
+              })),
+            });
+          }
         }
       }
     });
@@ -684,6 +753,7 @@ type UpdatePackagingInput = CreatePackagingInput & { id: string };
 
 export async function createPackaging(input: CreatePackagingInput): Promise<ActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER");
     const data = packagingSchema.parse(input);
     const code = `PKG-${Date.now().toString().slice(-4)}`;
     
@@ -708,6 +778,7 @@ export async function createPackaging(input: CreatePackagingInput): Promise<Acti
 
 export async function updatePackaging(input: UpdatePackagingInput): Promise<ActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER");
     const { id, ...data } = input;
     const parsed = packagingSchema.parse(data);
 

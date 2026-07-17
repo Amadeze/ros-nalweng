@@ -1,23 +1,17 @@
-import { cookies } from "next/headers";
-import { getIronSession } from "iron-session";
-import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/auth";
 import BillingClient from "./_components/BillingClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function BillingPage() {
-  const session = await getIronSession<{ user?: SessionUser }>(await cookies(), SESSION_OPTIONS);
-  
-  if (!session.user || !session.user.tenantId) {
-    return <div>Not authenticated</div>;
-  }
+  const user = await requireRole("OWNER");
 
   const tenant = await prisma.tenant.findUnique({
-    where: { id: session.user.tenantId }
+    where: { id: user.tenantId }
   });
 
-  if (!tenant) return <div>Tenant not found</div>;
+  if (!tenant) throw new Error("Tenant not found.");
 
   return <BillingClient tenant={tenant} />;
 }

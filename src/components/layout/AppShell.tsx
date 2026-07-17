@@ -2,26 +2,31 @@
 
 import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { Menu } from "lucide-react"; 
+import { Menu, Coffee } from "lucide-react"; 
 import { usePathname } from "next/navigation";
-import Image from "next/image";
 import { PageTransition } from "./PageTransition";
+import type { PlanTier } from "@/lib/plans";
 
 /**
  * AppShell — root shell untuk semua halaman autentikasi.
  * Sudah dilengkapi efek Glassmorphism & Mobile-Friendly (Off-canvas sidebar)
  */
-export function AppShell({ children, userRole }: { children: React.ReactNode, userRole: string }) {
+export function AppShell({
+  children,
+  userRole,
+  subscriptionTier,
+}: {
+  children: React.ReactNode;
+  userRole: string;
+  subscriptionTier: PlanTier;
+}) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
 
-  const [prevPathname, setPrevPathname] = useState(pathname);
-
   // Tutup sidebar mobile secara otomatis jika rute (URL) berubah
-  if (pathname !== prevPathname) {
-    setPrevPathname(pathname);
+  useEffect(() => {
     setIsMobileMenuOpen(false);
-  }
+  }, [pathname]);
 
   return (
     <div className="relative flex h-[100dvh] w-full overflow-hidden p-0 md:p-8 lg:p-12">
@@ -45,7 +50,7 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
           isMobileMenuOpen ? "translate-x-0" : "translate-x-[-120%]"
         }`}
       >
-        <Sidebar userRole={userRole} />
+        <Sidebar userRole={userRole} subscriptionTier={subscriptionTier} />
       </div>
 
       {/* ── MAIN CONTENT AREA ── */}
@@ -59,8 +64,9 @@ export function AppShell({ children, userRole }: { children: React.ReactNode, us
           >
             <Menu size={20} />
           </button>
-          <div className="flex items-center ml-3">
-            <Image src="/logo.png" alt="Beanslab Logo" width={40} height={40} className="h-10 w-auto object-contain drop-shadow-sm scale-150 origin-left" unoptimized />
+          <div className="flex items-center ml-3 gap-2">
+            <Coffee className="h-6 w-6 text-slate-800" />
+            <span className="font-bold text-slate-800 tracking-tight">Roastery OS</span>
           </div>
         </div>
 

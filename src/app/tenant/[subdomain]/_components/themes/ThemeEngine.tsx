@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { ThemeConfig, THEME_PRESETS, DEFAULT_THEME_CONFIG } from "./ThemeConfig";
+import { ThemeConfig, getThemePreset } from "./ThemeConfig";
 import { ExtendedTenant } from "./ThemeProps";
+import { resolveThemeFontFamily } from "./ThemeFonts";
 
 // =============================================================================
 // THEME ENGINE — The $10k Infrastructure Core
@@ -17,15 +18,80 @@ interface ThemeEngineProps {
   children: React.ReactNode;
 }
 
+const THEME_COLORS: Record<string, string> = {
+  amber: "#f59e0b",
+  blue: "#3b82f6",
+  emerald: "#10b981",
+  rose: "#f43f5e",
+  violet: "#8b5cf6",
+  zinc: "#71717a",
+};
+
+const THEME_FONTS: Record<string, string> = {
+  sans: "Inter",
+  serif: "Playfair Display",
+  mono: "JetBrains Mono",
+};
+
+const THEME_RADII: Record<string, number> = {
+  none: 0,
+  sm: 4,
+  md: 8,
+  xl: 12,
+  full: 999,
+};
+
+const THEME_ANIMATIONS: Record<string, Partial<ThemeConfig["animations"]>> = {
+  none: { level: "none", durationScale: 0, hoverEffects: false, scrollTrigger: false },
+  subtle: { level: "subtle", durationScale: 1 },
+  bouncy: { level: "moderate", easing: [0.34, 1.56, 0.64, 1], durationScale: 0.9 },
+  float: { level: "moderate", durationScale: 1.6 },
+  fast: { level: "high-tech", durationScale: 0.55 },
+  cinematic: { level: "cinematic", durationScale: 1.5 },
+  spring: { level: "moderate", easing: [0.22, 1.4, 0.36, 1], durationScale: 0.85 },
+  staggered: { level: "moderate", durationScale: 1.1 },
+};
+
+function applyThemeMode(
+  colors: ThemeConfig["colors"],
+  themeMode?: string | null,
+  layoutStyle?: string | null,
+): ThemeConfig["colors"] {
+  const nativeDarkThemes = new Set([
+    "cyber", "cyberpunk", "liquid", "glass", "industrial", "luxury", "cinematic",
+  ]);
+  const isNativeDark = nativeDarkThemes.has(layoutStyle?.toLowerCase() || "");
+
+  if (themeMode === "light" && isNativeDark) {
+    return {
+      ...colors,
+      background: "#fafafa",
+      surface: "#ffffff",
+      text: "#18181b",
+      textMuted: "#71717a",
+      border: "#e4e4e7",
+    };
+  }
+
+  if (themeMode !== "dark" || isNativeDark) return colors;
+
+  return {
+    ...colors,
+    background: "#0b0b0c",
+    surface: "#171719",
+    text: "#f8fafc",
+    textMuted: "#a1a1aa",
+    border: "#303036",
+  };
+}
+
 /**
  * Resolves the final ThemeConfig by deep-merging:
  * 1. Preset defaults (based on layoutStyle)
  * 2. Tenant's custom themeConfig overrides
  */
 function resolveConfig(tenant: ThemeEngineProps["tenant"]): ThemeConfig {
-  // Pick the base preset
-  const layoutStyle = tenant.layoutStyle || "modern";
-  const preset = THEME_PRESETS[layoutStyle] || DEFAULT_THEME_CONFIG;
+  const preset = getThemePreset(tenant.layoutStyle);
 
   // Parse tenant overrides
   let overrides: Partial<ThemeConfig> = {};
@@ -40,12 +106,45 @@ function resolveConfig(tenant: ThemeEngineProps["tenant"]): ThemeConfig {
   }
 
   // Deep merge (2 levels)
+  const colors = {
+    ...applyThemeMode(preset.colors, tenant.themeMode, tenant.layoutStyle),
+    ...(tenant.themeColor && THEME_COLORS[tenant.themeColor]
+      ? {
+          primary: THEME_COLORS[tenant.themeColor],
+          accent: THEME_COLORS[tenant.themeColor],
+        }
+      : {}),
+    ...(overrides.colors || {}),
+  };
+  const selectedFont = tenant.fontFamily && THEME_FONTS[tenant.fontFamily];
+  const typography = {
+    ...preset.typography,
+    ...(selectedFont
+      ? { fontFamily: selectedFont, displayFont: selectedFont }
+      : {}),
+    ...(overrides.typography || {}),
+  };
+  const animations = {
+    ...preset.animations,
+    ...(tenant.animationStyle
+      ? THEME_ANIMATIONS[tenant.animationStyle] || {}
+      : {}),
+    ...(overrides.animations || {}),
+  };
+  const layout = {
+    ...preset.layout,
+    ...(tenant.borderRadius && THEME_RADII[tenant.borderRadius] !== undefined
+      ? { borderRadius: THEME_RADII[tenant.borderRadius] }
+      : {}),
+    ...(overrides.layout || {}),
+  };
+
   return {
-    colors: { ...preset.colors, ...(overrides.colors || {}) },
-    typography: { ...preset.typography, ...(overrides.typography || {}) },
+    colors,
+    typography,
     shadows: { ...preset.shadows, ...(overrides.shadows || {}) },
-    animations: { ...preset.animations, ...(overrides.animations || {}) },
-    layout: { ...preset.layout, ...(overrides.layout || {}) },
+    animations,
+    layout,
   };
 }
 
@@ -155,46 +254,20 @@ function resolveAnimations(cfg: ThemeConfig["animations"]) {
 }
 
 /**
- * Resolves font family to a Google Fonts import URL
- */
-function resolveFontUrl(cfg: ThemeConfig["typography"]): string {
-  const families = new Set([cfg.fontFamily, cfg.displayFont]);
-  const weights = new Set([cfg.bodyWeight, cfg.headingWeight]);
-  
-  const params = [...families].map(fam => {
-    const safe = fam.replace(/\s+/g, "+");
-    const wts = [...weights].sort().join(";");
-    return `family=${safe}:wght@${wts}`;
-  });
-
-  return `https://fonts.googleapis.com/css2?${params.join("&")}&display=swap`;
-}
-
-/**
  * Resolves font-family CSS value from config name
  */
 function resolveFontFamily(name: string): string {
-  const map: Record<string, string> = {
-    serif: "Georgia, 'Times New Roman', serif",
-    sans: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    mono: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
-  };
-  if (map[name]) return map[name];
-  return `'${name}', sans-serif`;
+  return resolveThemeFontFamily(name);
 }
 
 export function ThemeEngine({ tenant, children }: ThemeEngineProps) {
   const config = useMemo(() => resolveConfig(tenant), [tenant]);
   const shadows = useMemo(() => resolveShadow(config.shadows), [config.shadows]);
   const anims = useMemo(() => resolveAnimations(config.animations), [config.animations]);
-  const fontUrl = useMemo(() => resolveFontUrl(config.typography), [config.typography]);
-
   const { colors, typography, layout } = config;
 
   // Build the dynamic CSS
   const cssVariables = `
-    @import url('${fontUrl}');
-    
     .t-root {
       /* ── COLORS ────────────────────────────────── */
       --t-primary: ${colors.primary};
@@ -243,6 +316,14 @@ export function ThemeEngine({ tenant, children }: ThemeEngineProps) {
       --t-anim-enter: ${(anims.enter?.duration || 0.6).toFixed(2)}s;
       --t-anim-section: ${(anims.section?.duration || 0.8).toFixed(2)}s;
       --t-anim-stagger: ${(anims.stagger || 0.1).toFixed(2)}s;
+      --theme-primary: ${colors.primary};
+      --theme-background: ${colors.background};
+      --theme-surface: ${colors.surface};
+      --theme-text: ${colors.text};
+      --theme-text-muted: ${colors.textMuted};
+      --theme-border: ${colors.border};
+      --theme-radius: ${layout.borderRadius}px;
+      --theme-font: ${resolveFontFamily(typography.fontFamily)};
       
       /* ── APPLY BASE ────────────────────────────── */
       font-family: var(--t-font-body);
@@ -267,7 +348,13 @@ export function ThemeEngine({ tenant, children }: ThemeEngineProps) {
   `;
 
   return (
-    <div className="t-root min-h-screen w-full" data-theme={tenant.layoutStyle || "modern"}>
+    <div
+      className="t-root min-h-screen w-full overflow-x-clip"
+      data-theme={tenant.layoutStyle || "neomodern"}
+      data-theme-mode={tenant.themeMode || "light"}
+      data-animation={tenant.animationStyle || "subtle"}
+      data-animation-direction={tenant.animationDirection || "up"}
+    >
       <style suppressHydrationWarning>{cssVariables}</style>
       {children}
     </div>

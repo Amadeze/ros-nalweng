@@ -1,0 +1,54 @@
+"use client";
+
+import { Trash2 } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { formatDate, formatRupiah } from "@/lib/format";
+import type { SupplierPaymentRow } from "../actions";
+
+export function SupplierPaymentTable({
+  rows,
+  onVoid,
+}: {
+  rows: SupplierPaymentRow[];
+  onVoid: (row: SupplierPaymentRow) => void;
+}) {
+  if (rows.length === 0) {
+    return <div className="py-16 text-center text-sm text-slate-400">Belum ada pembayaran supplier.</div>;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-white/60 bg-white/40">
+      <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-3 border-b border-white/60 px-4 py-3 text-xs font-bold uppercase text-slate-500">
+        <span>Pembayaran</span>
+        <span>Pembelian / Supplier</span>
+        <span className="text-right">Nominal</span>
+        <span className="w-8" />
+      </div>
+      {rows.map((row) => (
+        <div key={row.id} className="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-3 border-b border-white/40 px-4 py-3 text-sm last:border-0">
+          <div>
+            <div className="font-semibold text-slate-800">{row.code}</div>
+            <div className="text-xs text-slate-500">{formatDate(row.paidAt)} · {row.method}</div>
+          </div>
+          <div>
+            <div className="font-medium text-slate-700">{row.purchaseCode}</div>
+            <div className="text-xs text-slate-500">{row.supplierName}</div>
+          </div>
+          <div className="text-right font-mono font-bold text-red-600">{formatRupiah(row.amount)}</div>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            title="Void pembayaran supplier"
+            aria-label={`Void ${row.code}`}
+            className="text-slate-400 hover:bg-red-50 hover:text-red-600"
+            onClick={() => onVoid(row)}
+          >
+            <Trash2 size={14} />
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+}

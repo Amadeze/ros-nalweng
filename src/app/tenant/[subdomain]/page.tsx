@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { TenantPortalClient } from "./_components/TenantPortalClient";
+import { getTenantAccessState } from "@/lib/subscription";
+import { planHasFeature } from "@/lib/plans";
 
 export const revalidate = 3600; // 1 hour caching for performance
 
@@ -25,7 +27,7 @@ export async function generateMetadata({ params }: TenantPageProps): Promise<Met
   return {
     title: tenant.name,
     icons: {
-      icon: tenant.logoUrl || '/logo.png',
+      icon: tenant.logoUrl || '/favicon.ico',
     }
   };
 }
@@ -38,19 +40,36 @@ export default async function TenantB2BPortal({ params }: TenantPageProps) {
     where: { subdomain },
     include: {
       products: {
-        where: { type: "FINISHED_GOODS" }
+        where: {
+          type: "FINISHED_GOODS",
+          isActive: true,
+        },
+        orderBy: [
+          { stockKg: "desc" },
+          { name: "asc" },
+        ],
       }
     }
   });
 
-  if (!tenant) {
+  if (
+    !tenant ||
+    getTenantAccessState(tenant) !== "ACTIVE" ||
+    !planHasFeature(tenant.subscriptionTier, "STOREFRONT")
+  ) {
     notFound();
   }
+
+  const {
+    midtransServerKey: _midtransServerKey,
+    artisanWebhookToken: _artisanWebhookToken,
+    ...publicTenant
+  } = tenant;
 
   // Next.js App Router Server -> Client serialization doesn't support Prisma Decimal
   // We need to map over products and convert decimals to numbers
   const serializedTenant = {
-    ...tenant,
+    ...publicTenant,
     products: tenant.products.map(product => ({
       ...product,
       price: product.price ? Number(product.price) : null,
@@ -58,6 +77,7 @@ export default async function TenantB2BPortal({ params }: TenantPageProps) {
       priceGold: product.priceGold ? Number(product.priceGold) : null,
       lastHpp: product.lastHpp ? Number(product.lastHpp) : null,
       stockKg: product.stockKg ? Number(product.stockKg) : null,
+      avgCostPerKg: product.avgCostPerKg ? Number(product.avgCostPerKg) : null,
     }))
   };
 

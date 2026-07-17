@@ -1,9 +1,12 @@
 allowBuilds:
-  '@prisma/engines': set this to true or false
-  core-js: set this to true or false
-  esbuild: set this to true or false
-  prisma: set this to true or false
-  sharp: set this to true or false
-  unrs-resolver: set this to true or false
+  '@prisma/engines': true
+  core-js: false
+  esbuild: true
+  prisma: true
+  sharp: true
+  unrs-resolver: true
 minimumReleaseAgeExclude:
   - tsx@4.22.5
+overrides:
+  '@hono/node-server': 1.19.14
+  postcss: 8.5.19

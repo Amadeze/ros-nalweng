@@ -22,7 +22,11 @@ export function TenantForm() {
     try {
       const res = await createTenant({ code, name, subdomain, adminName, adminEmail });
       if (res.success) {
-        toast.success("Outlet berhasil dibuat! Password admin: admin123");
+        toast.success(
+          res.emailSent
+            ? "Outlet berhasil dibuat. Tautan pembuatan password telah dikirim ke owner."
+            : "Outlet berhasil dibuat. Konfigurasi email belum aktif; owner dapat memakai fitur lupa password setelah email diaktifkan.",
+        );
         setIsOpen(false);
         setCode("");
         setName("");
@@ -119,7 +123,7 @@ export function TenantForm() {
               />
             </div>
             <p className="text-xs text-amber-500 bg-amber-500/10 p-3 rounded-lg border border-amber-500/20 font-medium">
-              Note: Default password for this admin will be <strong>admin123</strong>. They can change it later.
+              Owner akan menerima tautan aman untuk membuat password pertama. Tautan berlaku selama 24 jam.
             </p>
           </div>
 

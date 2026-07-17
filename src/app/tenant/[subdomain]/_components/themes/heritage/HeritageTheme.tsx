@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ThemeProps } from "../ThemeProps";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShieldCheck, Coffee, Leaf, Award, Star, Quote, Handshake, Plus, Minus, ArrowRight } from "lucide-react";
+import { TenantBrand } from "../TenantBrand";
 
 // =============================================================================
 // TEMA 1: THE HERITAGE CRAFT (CLASSIC & ARTISANAL)
@@ -72,10 +73,10 @@ export function HeritageTheme({
       <motion.section initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ duration: 0.8, ease: "easeOut" }} className="relative w-full min-h-screen flex flex-col items-center justify-center border-[12px] border-double border-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)]/20 m-4 rounded-[var(--theme-radius)] box-border" style={{ height: 'calc(100vh - 32px)' }}>
         <header className="absolute top-0 w-full px-4 md:px-6 py-8 flex justify-between items-center z-20 md:px-12">
           <div className="text-xl md:text-2xl font-bold tracking-widest uppercase border-b-2 border-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)] pb-1">
-            {tenant?.name || "Heritage Roasters"}
+            <TenantBrand tenant={tenant} fallback="Heritage Roasters" />
           </div>
           <button onClick={() => setIsCartOpen(true)} className="flex items-center gap-2 border border-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)] px-4 py-2 text-xs uppercase tracking-widest font-bold hover:bg-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)] hover:text-[#F4F1EA] transition-colors bg-[#F4F1EA]">
-            Cart ({cart?.items?.length || 0})
+            Cart ({cart.getTotalItems(tenant.subdomain || "")})
           </button>
         </header>
 
@@ -206,7 +207,7 @@ export function HeritageTheme({
                 </p>
                 <div className="mt-auto border-t border-[#D7CCC8] pt-4 flex justify-between items-center">
                   <span className="font-bold text-lg text-[var(--theme-primary,#3E2723)]">Rp {Number(item.price).toLocaleString('id-ID')}</span>
-                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="bg-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)] text-[#F4F1EA] px-4 py-2 text-xs uppercase tracking-widest hover:bg-[var(--theme-primary,#3E2723)] font-bold flex items-center gap-2 transition-colors">
+                  <motion.button aria-label={`Add ${item.name} to cart`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="bg-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)] text-[#F4F1EA] px-4 py-2 text-xs uppercase tracking-widest hover:bg-[var(--theme-primary,#3E2723)] font-bold flex items-center gap-2 transition-colors">
                     Add to Cart <ArrowRight className="w-4 h-4" strokeWidth={iconStroke || 2} />
                   </motion.button>
                 </div>

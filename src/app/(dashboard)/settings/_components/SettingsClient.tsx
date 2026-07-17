@@ -7,14 +7,14 @@ import { Tenant } from "@prisma/client";
 import { Save, ExternalLink, Upload, Phone, Plus, Trash2 } from "lucide-react";
 
 // Helper type for tenant since Prisma Client might not have typed the new fields perfectly in this file's context if cached
-type ExtendedTenant = Tenant & {
+type ExtendedTenant = Omit<Tenant, "midtransServerKey" | "artisanWebhookToken"> & {
   whatsappNumber?: string | null;
   aboutText?: string | null;
   catalogTitle?: string | null;
   catalogSubtitle?: string | null;
   footerText?: string | null;
   midtransClientKey?: string | null;
-  midtransServerKey?: string | null;
+  midtransServerKeyConfigured: boolean;
   midtransIsProduction?: boolean;
   backgroundImageUrl?: string | null;
   contactEmail?: string | null;
@@ -34,6 +34,7 @@ type ExtendedTenant = Tenant & {
 };
 
 export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
+  const portalPath = `/tenant/${tenant.subdomain}`;
   const [name, setName] = useState(tenant.name || "");
   const [themeColor, setThemeColor] = useState(tenant.themeColor || "amber");
   const [heroText, setHeroText] = useState(tenant.heroText || "");
@@ -75,7 +76,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
 
   // Payment Gateway
   const [midtransClientKey, setMidtransClientKey] = useState(tenant.midtransClientKey || "");
-  const [midtransServerKey, setMidtransServerKey] = useState(tenant.midtransServerKey || "");
+  const [midtransServerKey, setMidtransServerKey] = useState("");
   const [midtransIsProduction, setMidtransIsProduction] = useState(tenant.midtransIsProduction || false);
   const [isTestingMidtrans, setIsTestingMidtrans] = useState(false);
 
@@ -141,8 +142,8 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
   };
 
   const testMidtrans = async () => {
-    if (!midtransServerKey) {
-      toast.error("Please enter a Server Key first.");
+    if (!midtransServerKey && !tenant.midtransServerKeyConfigured) {
+      toast.error("Please save a Server Key first.");
       return;
     }
     
@@ -152,7 +153,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          serverKey: midtransServerKey,
+          serverKey: midtransServerKey || undefined,
           isProduction: midtransIsProduction
         })
       });
@@ -185,7 +186,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
         catalogSubtitle,
         footerText,
         midtransClientKey,
-        midtransServerKey,
+        ...(midtransServerKey ? { midtransServerKey } : {}),
         midtransIsProduction,
         backgroundImageUrl,
         contactEmail,
@@ -199,9 +200,9 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
         problemStatement,
         solutionStatement,
         uspText,
-        features,
-        testimonials,
-        faqs,
+        features: features.filter((feature) => feature.title?.trim() && feature.desc?.trim()),
+        testimonials: testimonials.filter((item) => item.name?.trim() && item.text?.trim()),
+        faqs: faqs.filter((item) => item.question?.trim() && item.answer?.trim()),
       });
       toast.success("Settings saved successfully!");
       setRefreshKey(prev => prev + 1);
@@ -363,7 +364,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
           <h2 className="text-lg font-bold text-slate-800">B2B Portal Customization</h2>
           {tenant.subdomain && (
             <a 
-              href={`http://${tenant.subdomain}.localhost:3000`} 
+              href={portalPath}
               target="_blank" 
               rel="noreferrer"
               className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 hover:text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg transition-colors"
@@ -731,7 +732,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
           </span>
           <span className="bg-white px-6 py-1 rounded-full shadow-sm flex items-center gap-2">
             <span className="text-slate-400">🔒</span>
-            {tenant.subdomain}.localhost:3000
+            {portalPath}
           </span>
         </div>
         
@@ -739,7 +740,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
         <div className="flex-1 bg-white relative">
           <iframe 
             key={refreshKey}
-            src={`http://${tenant.subdomain}.localhost:3000`} 
+            src={portalPath}
             className="w-full h-full border-none"
             title="Live Preview"
           />

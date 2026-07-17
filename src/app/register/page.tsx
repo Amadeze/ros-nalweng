@@ -37,11 +37,10 @@ function RegisterForm() {
         roasteryName, 
         subdomain, 
         email, 
-        password,
-        tier: selectedPlan
+        password
       });
       if (!result.success) {
-        setError(result.error);
+        setError(result.error || "Pendaftaran gagal. Silakan coba lagi.");
         setStep(1); // Go back if error is from fields
         return;
       }

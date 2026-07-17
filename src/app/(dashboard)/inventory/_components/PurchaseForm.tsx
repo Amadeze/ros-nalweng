@@ -42,6 +42,10 @@ const schema = z
     weightKg: z.number().positive("Harus lebih dari 0"),
     pricePerKg: z.number().positive("Harus lebih dari 0"),
     shippingCost: z.number().min(0, "Tidak boleh negatif"),
+    paymentStatus: z.enum(["PAID", "PARTIAL", "UNPAID"]),
+    initialPaidAmount: z.number().min(0).optional(),
+    paymentMethod: z.enum(["CASH", "TRANSFER", "QRIS"]),
+    dueDate: z.string().optional(),
     notes: z.string().optional(),
   })
   .superRefine((data, ctx) => {
@@ -60,6 +64,23 @@ const schema = z
           message: "Nama minimal 2 karakter",
         });
       }
+    }
+    const totalCost = data.pricePerKg * data.weightKg + data.shippingCost;
+    if (data.paymentStatus === "PARTIAL") {
+      if (!data.initialPaidAmount || data.initialPaidAmount >= totalCost) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["initialPaidAmount"],
+          message: "Uang muka harus lebih dari 0 dan lebih kecil dari total",
+        });
+      }
+    }
+    if (data.paymentStatus !== "PAID" && !data.dueDate) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["dueDate"],
+        message: "Tanggal jatuh tempo wajib diisi",
+      });
     }
   });
 
@@ -146,6 +167,10 @@ export function PurchaseForm({
       weightKg: 0,
       pricePerKg: 0,
       shippingCost: 0,
+      paymentStatus: "PAID",
+      initialPaidAmount: 0,
+      paymentMethod: "CASH",
+      dueDate: "",
       notes: "",
     },
   });
@@ -157,6 +182,7 @@ export function PurchaseForm({
     "shippingCost",
   ]);
   const productMode = watch("productMode");
+  const paymentStatus = watch("paymentStatus");
 
   const hppPerKg = calcHppPerKg(
     Number(pricePerKg) || 0,
@@ -182,6 +208,10 @@ export function PurchaseForm({
         weightKg: values.weightKg,
         pricePerKg: values.pricePerKg,
         shippingCost: values.shippingCost,
+        paymentStatus: values.paymentStatus,
+        initialPaidAmount: values.initialPaidAmount,
+        paymentMethod: values.paymentMethod,
+        dueDate: values.dueDate,
         notes: values.notes,
       });
 
@@ -388,6 +418,64 @@ export function PurchaseForm({
           hint="(Harga × Berat + Ongkir) ÷ Berat"
         />
       </div>
+
+      <Separator className="bg-white/50" />
+
+      <div className="grid grid-cols-2 gap-4">
+        <FieldGroup>
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+            Status Pembayaran
+          </Label>
+          <select
+            className={cn("w-full h-9 rounded-lg border px-3 text-sm outline-none", glassInput)}
+            {...register("paymentStatus")}
+          >
+            <option value="PAID">Lunas</option>
+            <option value="PARTIAL">Bayar Sebagian</option>
+            <option value="UNPAID">Belum Dibayar</option>
+          </select>
+        </FieldGroup>
+        <FieldGroup>
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+            Metode Pembayaran
+          </Label>
+          <select
+            disabled={paymentStatus === "UNPAID"}
+            className={cn("w-full h-9 rounded-lg border px-3 text-sm outline-none disabled:opacity-50", glassInput)}
+            {...register("paymentMethod")}
+          >
+            <option value="CASH">Tunai</option>
+            <option value="TRANSFER">Transfer</option>
+            <option value="QRIS">QRIS</option>
+          </select>
+        </FieldGroup>
+      </div>
+
+      {paymentStatus === "PARTIAL" && (
+        <FieldGroup>
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+            Uang Muka
+          </Label>
+          <Input
+            type="number"
+            min="1"
+            step="1"
+            className={cn("h-9 tabular-nums", glassInput)}
+            {...register("initialPaidAmount", { valueAsNumber: true })}
+          />
+          <FieldError message={errors.initialPaidAmount?.message} />
+        </FieldGroup>
+      )}
+
+      {paymentStatus !== "PAID" && (
+        <FieldGroup>
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+            Jatuh Tempo
+          </Label>
+          <Input type="date" className={cn("h-9", glassInput)} {...register("dueDate")} />
+          <FieldError message={errors.dueDate?.message} />
+        </FieldGroup>
+      )}
 
       <Separator className="bg-white/50" />
 

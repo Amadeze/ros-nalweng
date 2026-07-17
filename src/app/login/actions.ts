@@ -1,11 +1,16 @@
 "use server";
 
 import { getIronSession, type IronSession } from "iron-session";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
+import {
+  enforceRateLimit,
+  RateLimitError,
+  requestIdentifier,
+} from "@/lib/rate-limit";
 
 type AppSession = IronSession<{ user?: SessionUser }>;
 
@@ -17,12 +22,29 @@ export type LoginResult =
 
 export async function loginAction(email: string, password: string): Promise<LoginResult> {
   try {
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
-      select: { id: true, name: true, email: true, role: true, password: true, isActive: true, tenantId: true },
+    const requestHeaders = await headers();
+    await enforceRateLimit({
+      scope: "login",
+      identifier: `${requestIdentifier(requestHeaders)}:${email.toLowerCase().trim()}`,
+      limit: 10,
+      windowSeconds: 15 * 60,
     });
 
-    if (!user || !user.isActive) {
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        password: true,
+        isActive: true,
+        tenantId: true,
+        tenant: { select: { isActive: true } },
+      },
+    });
+
+    if (!user || !user.isActive || !user.tenant.isActive) {
       return { success: false, error: "Email atau password salah." };
     }
 
@@ -49,6 +71,9 @@ export async function loginAction(email: string, password: string): Promise<Logi
     return { success: true, role: user.role };
   } catch (err) {
     console.error("[loginAction]", err);
+    if (err instanceof RateLimitError) {
+      return { success: false, error: err.message };
+    }
     return { success: false, error: "Terjadi kesalahan. Coba lagi." };
   }
 }

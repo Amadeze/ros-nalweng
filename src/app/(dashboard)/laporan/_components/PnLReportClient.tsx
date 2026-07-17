@@ -35,9 +35,9 @@ function pct(part: number, total: number): string {
   return `${((part / total) * 100).toFixed(1)}%`;
 }
 
-function exportToCSV(report: PnLReport) {
+function getPnLRows(report: PnLReport) {
   const { month, year } = report;
-  const rows = [
+  return [
     ["Laporan Laba Rugi", `Beanslab Roastery - ${MONTHS[month-1]} ${year}`],
     [],
     ["Kategori", "Jumlah (IDR)"],
@@ -50,15 +50,54 @@ function exportToCSV(report: PnLReport) {
     ["Rincian OPEX", "Jumlah (IDR)"],
     ...report.opexBreakdown.map(o => [CATEGORY_LABELS[o.category] || o.category, o.amount])
   ];
+}
 
-  const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", `Laba_Rugi_${MONTHS[month-1]}_${year}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+async function exportToPdf(report: PnLReport) {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+  const doc = new jsPDF();
+  const period = `${MONTHS[report.month - 1]} ${report.year}`;
+
+  doc.setFontSize(14);
+  doc.text("Laporan Laba Rugi", 14, 16);
+  doc.setFontSize(10);
+  doc.text(`Periode: ${period}`, 14, 23);
+
+  autoTable(doc, {
+    startY: 30,
+    head: [["Kategori", "Jumlah (IDR)"]],
+    body: [
+      ["Total Pendapatan", report.revenue],
+      ["HPP (COGS)", report.cogs],
+      ["Laba Kotor", report.grossProfit],
+      ["Total OPEX", report.opex],
+      ["Laba Bersih", report.netProfit],
+    ].map(([label, value]) => [label, formatRupiah(Number(value))]),
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [37, 99, 235] },
+  });
+
+  autoTable(doc, {
+    startY: ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 62) + 8,
+    head: [["Rincian OPEX", "Jumlah (IDR)"]],
+    body: report.opexBreakdown.map((item) => [
+      CATEGORY_LABELS[item.category] || item.category,
+      formatRupiah(item.amount),
+    ]),
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [82, 82, 91] },
+  });
+
+  doc.save(`Laba_Rugi_${MONTHS[report.month - 1]}_${report.year}.pdf`);
+}
+
+async function exportToExcel(report: PnLReport) {
+  const { default: writeXlsxFile } = await import("write-excel-file/browser");
+  await writeXlsxFile(getPnLRows(report), {
+    sheet: "Laba Rugi",
+  }).toFile(`Laba_Rugi_${MONTHS[report.month - 1]}_${report.year}.xlsx`);
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -646,11 +685,14 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
       actionButton={
         <div className="flex items-center gap-2">
           <MonthNavigator month={month} year={year} />
-          <Button onClick={() => exportToCSV(report)} variant="outline" className="h-8 gap-1.5 border-white/60 bg-white/40 shadow-sm print:hidden">
-            <Download size={14} /> Export CSV
+          <Button onClick={() => void exportToExcel(report)} variant="outline" className="h-8 gap-1.5 border-white/60 bg-white/40 shadow-sm print:hidden">
+            <Download size={14} /> Export Excel
+          </Button>
+          <Button onClick={() => void exportToPdf(report)} variant="outline" className="h-8 gap-1.5 border-white/60 bg-white/40 shadow-sm print:hidden">
+            <Download size={14} /> Export PDF
           </Button>
           <Button onClick={() => window.print()} variant="outline" className="h-8 gap-1.5 border-white/60 bg-white/40 shadow-sm print:hidden">
-            <FileText size={14} /> Cetak PDF
+            <FileText size={14} /> Cetak
           </Button>
         </div>
       }

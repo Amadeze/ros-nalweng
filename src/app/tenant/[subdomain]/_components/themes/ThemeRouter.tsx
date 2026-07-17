@@ -3,6 +3,8 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import { ThemeProps } from "./ThemeProps";
+import { resolveConfig } from "./ThemeEngine";
+import { resolveThemeFontFamily } from "./ThemeFonts";
 
 // =============================================================================
 // THEME ROUTER (MATRIX ARCHITECTURE)
@@ -51,33 +53,7 @@ const PlayfulTheme = dynamic(() => import("./playful/PlayfulTheme").then(mod => 
 
 export function ThemeRouter(props: ThemeProps) {
   const layoutStyle = props.tenant.layoutStyle?.toLowerCase() || "modern";
-  
-  // Customization mappings
-  const colorMap: Record<string, string> = {
-    amber: "#f59e0b",
-    blue: "#3b82f6",
-    emerald: "#10b981",
-    rose: "#f43f5e",
-    violet: "#8b5cf6",
-    zinc: "#71717a",
-  };
-  const themePrimary = props.tenant.themeColor ? colorMap[props.tenant.themeColor] || colorMap.amber : undefined;
-  
-  const radiusMap: Record<string, string> = {
-    none: "0px",
-    sm: "4px",
-    md: "8px",
-    xl: "12px",
-    full: "9999px",
-  };
-  const themeRadius = props.tenant.borderRadius ? radiusMap[props.tenant.borderRadius] || radiusMap.md : undefined;
-
-  const fontMap: Record<string, string> = {
-    sans: "ui-sans-serif, system-ui, sans-serif",
-    serif: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
-    mono: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
-  };
-  const themeFont = props.tenant.fontFamily ? fontMap[props.tenant.fontFamily] || fontMap.sans : undefined;
+  const config = resolveConfig(props.tenant);
 
   // Render the selected theme
   const renderTheme = () => {
@@ -118,24 +94,71 @@ export function ThemeRouter(props: ThemeProps) {
   
   const shouldInvert = (props.isDark && !isNativeDark) || (!props.isDark && isNativeDark);
   const filterStyle = shouldInvert ? 'invert(1) hue-rotate(180deg)' : 'none';
+  const direction = props.tenant.animationDirection || "up";
+  const animationStyle = props.tenant.animationStyle || "subtle";
 
   return (
     <div 
       className={`rep-theme-wrapper w-full min-h-screen ${shouldInvert ? 'theme-inverted' : ''}`}
+      data-animation={animationStyle}
+      data-animation-direction={direction}
+      data-icon-style={props.tenant.iconStyle || "regular"}
       style={{
         filter: filterStyle,
-        ...(themePrimary && { '--theme-primary': themePrimary }),
-        ...(themeRadius && { '--theme-radius': themeRadius }),
-        ...(themeFont && { '--theme-font': themeFont, fontFamily: 'var(--theme-font)' }),
+        '--theme-primary': config.colors.primary,
+        '--theme-background': config.colors.background,
+        '--theme-surface': config.colors.surface,
+        '--theme-text': config.colors.text,
+        '--theme-text-muted': config.colors.textMuted,
+        '--theme-border': config.colors.border,
+        '--theme-radius': `${config.layout.borderRadius}px`,
+        '--theme-font': resolveThemeFontFamily(config.typography.fontFamily),
+        fontFamily: 'var(--theme-font)',
       } as React.CSSProperties}
     >
-      {shouldInvert && (
-        <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes rep-enter-up { from { opacity: 0; transform: translateY(28px); } }
+          @keyframes rep-enter-down { from { opacity: 0; transform: translateY(-28px); } }
+          @keyframes rep-enter-left { from { opacity: 0; transform: translateX(28px); } }
+          @keyframes rep-enter-right { from { opacity: 0; transform: translateX(-28px); } }
+          @keyframes rep-enter-float {
+            0% { opacity: 0; transform: translateY(24px); }
+            55% { opacity: 1; transform: translateY(-5px); }
+            100% { opacity: 1; transform: translateY(0); }
+          }
+          .rep-theme-wrapper { animation: rep-enter-${direction} var(--t-anim-enter, .65s) both; }
+          .rep-theme-wrapper[data-animation="none"] { animation: none !important; }
+          .rep-theme-wrapper[data-animation="none"] * {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.001ms !important;
+          }
+          .rep-theme-wrapper[data-animation="fast"] { --t-anim-enter: .3s; }
+          .rep-theme-wrapper[data-animation="float"] { animation-name: rep-enter-float; --t-anim-enter: 1.4s; }
+          .rep-theme-wrapper[data-animation="bouncy"],
+          .rep-theme-wrapper[data-animation="spring"] { animation-timing-function: cubic-bezier(.22, 1.4, .36, 1); }
+          .rep-theme-wrapper[data-animation="cinematic"] { --t-anim-enter: 1.8s; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+          .rep-theme-wrapper[data-animation="staggered"] section {
+            animation: rep-enter-${direction} .75s both;
+            animation-timeline: view();
+            animation-range: entry 5% cover 25%;
+          }
+          .rep-theme-wrapper[data-icon-style="thin"] svg { stroke-width: 1 !important; }
+          .rep-theme-wrapper[data-icon-style="light"] svg { stroke-width: 1.5 !important; }
+          .rep-theme-wrapper[data-icon-style="regular"] svg { stroke-width: 2 !important; }
+          .rep-theme-wrapper[data-icon-style="bold"] svg { stroke-width: 3 !important; }
+          .rep-theme-wrapper[data-icon-style="fill"] svg {
+            fill: currentColor;
+            stroke-width: 1.25 !important;
+          }
+          .rep-theme-wrapper[data-icon-style="duotone"] svg {
+            fill: color-mix(in srgb, currentColor 22%, transparent);
+            stroke-width: 2 !important;
+          }
           .theme-inverted img, .theme-inverted video {
             filter: invert(1) hue-rotate(180deg) !important;
           }
         `}} />
-      )}
       {renderTheme()}
     </div>
   );

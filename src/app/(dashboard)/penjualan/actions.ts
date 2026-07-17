@@ -1,7 +1,11 @@
 "use server";
-import { requireTenantPrisma, getSystemUserId } from "@/lib/auth";
+import { getCurrentTenantId, requireFeature, requireRole, requireTenantPrisma, getSystemUserId } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { appendLedger, computeFGUnitStock } from "@/lib/stock";
+import { appendLedger } from "@/lib/stock";
+import { recordAudit } from "@/lib/audit";
+import { decryptCredential } from "@/lib/credentials";
+import { z } from "zod";
+import { randomBytes } from "crypto";
 
 // =============================================================================
 // TYPES
@@ -106,6 +110,22 @@ export type InvoicePrintData = {
   notes: string | null;
 };
 
+const CreateInvoiceSchema = z.object({
+  customerId: z.string().min(1),
+  items: z.array(z.object({
+    productId: z.string().min(1),
+    quantity: z.number().int().positive().max(100_000),
+    unitPrice: z.number().nonnegative(),
+    discount: z.number().nonnegative(),
+  })).min(1).max(100),
+  invoiceDiscount: z.number().nonnegative(),
+  tax: z.number().nonnegative(),
+  status: z.enum(["PAID", "ISSUED"]),
+  paymentMethod: z.enum(["CASH", "TRANSFER", "QRIS", "CREDIT"]).optional(),
+  dueDate: z.string().optional(),
+  notes: z.string().max(2_000).optional(),
+});
+
 // =============================================================================
 // PAGE DATA
 // =============================================================================
@@ -183,68 +203,112 @@ export async function getSalesPageData(): Promise<SalesPageData> {
 
 export async function createInvoice(input: CreateInvoiceInput): Promise<SalesActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER", "CASHIER");
+    const parsed = CreateInvoiceSchema.parse(input);
+    if (parsed.status === "PAID" && !parsed.paymentMethod) {
+      return { success: false, error: "Metode pembayaran wajib dipilih untuk nota lunas." };
+    }
     // ── System user ──
     const userId = await getSystemUserId();
+    const tenantId = await getCurrentTenantId();
+    const tenantPrisma = await requireTenantPrisma();
 
     // ── Validate stock for every item ──
-    for (const item of input.items) {
-      const stock = await computeFGUnitStock(item.productId);
-      if (stock < item.quantity) {
-        const product = await (await requireTenantPrisma()).product.findUnique({
-          where: { id: item.productId },
-          select: { name: true },
-        });
+    const [customer, products] = await Promise.all([
+      tenantPrisma.customer.findUnique({
+        where: { id: parsed.customerId },
+        select: { id: true, tier: true },
+      }),
+      tenantPrisma.product.findMany({
+        where: {
+          id: { in: parsed.items.map((item) => item.productId) },
+          type: "FINISHED_GOODS",
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          priceSilver: true,
+          priceGold: true,
+          stockUnit: true,
+          lastHpp: true,
+          productionBatches: {
+            where: { status: "COMPLETED" },
+            orderBy: { producedAt: "desc" },
+            take: 1,
+            select: { hppPerUnit: true },
+          },
+        },
+      }),
+    ]);
+    if (!customer) {
+      return { success: false, error: "Customer tidak ditemukan." };
+    }
+    const productMap = new Map(products.map((product) => [product.id, product]));
+
+    for (const item of parsed.items) {
+      const product = productMap.get(item.productId);
+      if (!product) {
+        return { success: false, error: "Salah satu produk tidak valid atau sudah nonaktif." };
+      }
+      if (product.stockUnit < item.quantity) {
         return {
           success: false,
-          error: `Stok "${product?.name ?? "produk"}" tidak cukup. Tersedia: ${stock} unit, dibutuhkan: ${item.quantity} unit.`,
+          error: `Stok "${product.name}" tidak cukup. Tersedia: ${product.stockUnit} unit, dibutuhkan: ${item.quantity} unit.`,
         };
       }
     }
 
     // ── HPP snapshot per product ──
-    const hppMap = new Map<string, number>();
-    await Promise.all(
-      input.items.map(async (item) => {
-        const lastBatch = await (await requireTenantPrisma()).productionBatch.findFirst({
-          where: { outputProductId: item.productId, status: "COMPLETED" },
-          orderBy: { producedAt: "desc" },
-          select: { hppPerUnit: true },
-        });
-        hppMap.set(item.productId, lastBatch ? Number(lastBatch.hppPerUnit) : 0);
-      })
-    );
-
     // ── Generate invoice code ──
     const now = new Date();
     const prefix = `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const randStr = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const randStr = randomBytes(4).toString("hex").toUpperCase();
     const invoiceCode = `${prefix}-${randStr}`;
 
     // ── Compute totals ──
-    const enrichedItems = input.items.map((item) => {
-      const hpp = hppMap.get(item.productId) ?? 0;
-      const effectivePrice = item.unitPrice - item.discount;
+    const enrichedItems = parsed.items.map((item) => {
+      const product = productMap.get(item.productId)!;
+      const selectedTierPrice =
+        customer.tier === "WHOLESALE_GOLD"
+          ? Number(product.priceGold)
+          : customer.tier === "WHOLESALE_SILVER"
+            ? Number(product.priceSilver)
+            : Number(product.price);
+      const unitPrice = selectedTierPrice > 0 ? selectedTierPrice : Number(product.price);
+      if (item.discount > unitPrice) {
+        throw new Error(`Diskon per unit untuk "${product.name}" melebihi harga jual.`);
+      }
+      const hpp = Number(product.lastHpp ?? product.productionBatches[0]?.hppPerUnit ?? 0);
+      const effectivePrice = unitPrice - item.discount;
       const subtotal = effectivePrice * item.quantity;
-      return { ...item, hpp, subtotal };
+      return { ...item, unitPrice, hpp, subtotal };
     });
     const subtotal = enrichedItems.reduce((s, i) => s + i.subtotal, 0);
-    const grandTotal = subtotal - input.invoiceDiscount + input.tax;
+    if (parsed.invoiceDiscount > subtotal) {
+      return { success: false, error: "Diskon invoice tidak boleh melebihi subtotal." };
+    }
+    const grandTotal = subtotal - parsed.invoiceDiscount + parsed.tax;
+    if (grandTotal <= 0) {
+      return { success: false, error: "Total invoice harus lebih dari 0." };
+    }
 
     // ── ACID transaction ──
-    const invoice = await (await requireTenantPrisma()).$transaction(async (tx) => {
+    const invoice = await tenantPrisma.$transaction(async (tx) => {
       const inv = await tx.invoice.create({
         data: {
           code: invoiceCode,
-          customerId: input.customerId,
+          customerId: parsed.customerId,
           subtotal,
-          discount: input.invoiceDiscount,
-          tax: input.tax,
+          discount: parsed.invoiceDiscount,
+          tax: parsed.tax,
           grandTotal,
-          paidAmount: input.status === "PAID" ? grandTotal : 0,
-          status: input.status === "PAID" ? "PAID" : "ISSUED",
+          paidAmount: parsed.status === "PAID" ? grandTotal : 0,
+          status: parsed.status === "PAID" ? "PAID" : "ISSUED",
           issuedAt: now,
-          dueDate: input.dueDate ? new Date(input.dueDate) : null,
-          notes: input.notes,
+          dueDate: parsed.dueDate ? new Date(`${parsed.dueDate}T00:00:00`) : null,
+          notes: parsed.notes,
           createdById: userId,
         },
       });
@@ -280,7 +344,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
       }
 
       // Payment record if PAID
-      if (input.status === "PAID" && input.paymentMethod) {
+      if (parsed.status === "PAID" && parsed.paymentMethod) {
         const payPrefix = `PAY-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
         const payCount = await tx.payment.count({ where: { code: { startsWith: payPrefix } } });
         const payCode = `${payPrefix}-${String(payCount + 1).padStart(3, "0")}`;
@@ -290,13 +354,27 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
             code: payCode,
             invoiceId: inv.id,
             amount: grandTotal,
-            method: input.paymentMethod,
+            method: parsed.paymentMethod,
             paidAt: now,
             notes: "Lunas saat nota diterbitkan",
             createdById: userId,
           },
         });
       }
+
+      await recordAudit(tx, {
+        tenantId,
+        userId,
+        action: "CREATE",
+        entityType: "Invoice",
+        entityId: inv.id,
+        after: {
+          code: inv.code,
+          status: inv.status,
+          grandTotal: Number(inv.grandTotal),
+        },
+        metadata: { itemCount: enrichedItems.length },
+      });
 
       return inv;
     });
@@ -307,7 +385,14 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
     return { success: true, invoiceCode, invoiceId: invoice.id };
   } catch (err) {
     console.error("[createInvoice]", err);
-    return { success: false, error: "Gagal menyimpan nota. Coba lagi." };
+    return {
+      success: false,
+      error: err instanceof z.ZodError
+        ? "Data nota tidak valid."
+        : err instanceof Error
+          ? err.message
+          : "Gagal menyimpan nota. Coba lagi.",
+    };
   }
 }
 
@@ -386,7 +471,9 @@ export async function voidInvoice(
   reason: string
 ): Promise<VoidResult> {
   try {
+    await requireRole("OWNER", "MANAGER");
     const userId = await getSystemUserId();
+    const tenantId = await getCurrentTenantId();
 
     const inv = await (await requireTenantPrisma()).invoice.findUnique({
       where: { id: invoiceId },
@@ -417,6 +504,16 @@ export async function voidInvoice(
         where: { id: invoiceId },
         data: { status: "VOID", voidReason: reason, voidAt: new Date() },
       });
+
+      await recordAudit(tx, {
+        tenantId,
+        userId,
+        action: "VOID",
+        entityType: "Invoice",
+        entityId: invoiceId,
+        before: { code: inv.code, status: inv.status },
+        after: { status: "VOID", reason },
+      });
     });
 
     revalidatePath("/penjualan");
@@ -436,6 +533,8 @@ import { createMidtransSnapTransaction } from "@/lib/midtrans";
 
 export async function approveInvoiceForMidtrans(invoiceId: string) {
   try {
+    await requireRole("OWNER", "MANAGER", "CASHIER");
+    await requireFeature("MIDTRANS");
     const prisma = await requireTenantPrisma();
     const inv = await prisma.invoice.findUnique({
       where: { id: invoiceId },
@@ -474,7 +573,7 @@ export async function approveInvoiceForMidtrans(invoiceId: string) {
         };
 
         const snapRes = await createMidtransSnapTransaction(
-          tenant.midtransServerKey,
+          decryptCredential(tenant.midtransServerKey),
           tenant.midtransIsProduction,
           snapParams
         );
@@ -509,31 +608,62 @@ export async function updateInvoiceShipping(
   data: { courierName?: string; trackingNumber?: string; shippingCost?: number; shippingMethod?: string }
 ) {
   try {
-    const prisma = await requireTenantPrisma();
+    await requireRole("OWNER", "MANAGER", "CASHIER");
+    const tenantId = await getCurrentTenantId();
+    const userId = await getSystemUserId();
+    const tenantPrisma = await requireTenantPrisma();
+    const parsed = z.object({
+      courierName: z.string().trim().max(100).optional(),
+      trackingNumber: z.string().trim().max(150).optional(),
+      shippingCost: z.number().nonnegative().max(1_000_000_000).optional(),
+      shippingMethod: z.string().trim().max(100).optional(),
+    }).parse(data);
 
-    const { courierName, trackingNumber, shippingCost, shippingMethod } = data;
+    const invoice = await tenantPrisma.invoice.findUnique({ where: { id: invoiceId } });
+    if (!invoice) return { success: false, error: "Nota tidak ditemukan." };
+    if (invoice.status === "VOID") return { success: false, error: "Nota yang sudah di-void tidak dapat diubah." };
+    if (invoice.status === "PAID" && parsed.shippingCost !== undefined && parsed.shippingCost !== Number(invoice.shippingCost)) {
+      return { success: false, error: "Ongkir nota lunas tidak dapat diubah." };
+    }
+
+    const { courierName, trackingNumber, shippingCost, shippingMethod } = parsed;
     const updateData: any = {};
     if (courierName !== undefined) updateData.courierName = courierName;
     if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber;
     if (shippingCost !== undefined) {
       updateData.shippingCost = shippingCost;
-      // We also need to recalculate grandTotal if shippingCost changes
-      const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
-      if (invoice) {
-        updateData.grandTotal = Number(invoice.subtotal) - Number(invoice.discount) + Number(invoice.tax) + shippingCost;
+      updateData.grandTotal = Number(invoice.subtotal) - Number(invoice.discount) + Number(invoice.tax) + shippingCost;
+      if (updateData.grandTotal < Number(invoice.paidAmount)) {
+        return { success: false, error: "Total baru tidak boleh lebih kecil dari pembayaran yang sudah diterima." };
       }
     }
     if (shippingMethod !== undefined) updateData.shippingMethod = shippingMethod;
 
-    await prisma.invoice.update({
-      where: { id: invoiceId },
-      data: updateData
+    await tenantPrisma.$transaction(async (tx) => {
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: updateData,
+      });
+      await recordAudit(tx, {
+        tenantId,
+        userId,
+        action: "UPDATE",
+        entityType: "InvoiceShipping",
+        entityId: invoiceId,
+        before: {
+          courierName: invoice.courierName,
+          trackingNumber: invoice.trackingNumber,
+          shippingCost: Number(invoice.shippingCost),
+          shippingMethod: invoice.shippingMethod,
+        },
+        after: updateData,
+      });
     });
 
     revalidatePath("/penjualan");
     return { success: true };
   } catch (error: any) {
     console.error("Update Shipping Error:", error);
-    return { error: "Gagal update data pengiriman: " + error.message };
+    return { success: false, error: "Gagal update data pengiriman: " + error.message };
   }
 }

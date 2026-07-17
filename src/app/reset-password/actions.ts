@@ -1,0 +1,82 @@
+"use server";
+
+import bcrypt from "bcryptjs";
+import { headers } from "next/headers";
+
+import { prisma } from "@/lib/prisma";
+import {
+  consumePasswordResetToken,
+  hashPasswordResetToken,
+} from "@/lib/password-reset";
+import {
+  enforceRateLimit,
+  RateLimitError,
+  requestIdentifier,
+} from "@/lib/rate-limit";
+
+export async function resetPassword(token: string, password: string) {
+  try {
+    const requestHeaders = await headers();
+    await enforceRateLimit({
+      scope: "reset-password",
+      identifier: requestIdentifier(requestHeaders),
+      limit: 10,
+      windowSeconds: 60 * 60,
+    });
+
+    if (!token || password.length < 8) {
+      return {
+        success: false,
+        message: "Token tidak valid atau password kurang dari 8 karakter.",
+      };
+    }
+
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash: hashPasswordResetToken(token) },
+      include: {
+        user: {
+          select: { id: true, tenantId: true, isActive: true },
+        },
+      },
+    });
+
+    if (
+      !resetToken ||
+      resetToken.usedAt ||
+      resetToken.expiresAt <= new Date() ||
+      !resetToken.user.isActive
+    ) {
+      return {
+        success: false,
+        message: "Tautan reset sudah tidak berlaku. Silakan buat permintaan baru.",
+      };
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    await prisma.$transaction(async (tx) => {
+      await consumePasswordResetToken(tx, {
+        tokenId: resetToken.id,
+        userId: resetToken.user.id,
+        tenantId: resetToken.user.tenantId,
+        passwordHash,
+      });
+    });
+
+    return {
+      success: true,
+      message: "Password berhasil diperbarui. Silakan masuk kembali.",
+    };
+  } catch (error) {
+    console.error("[resetPassword]", error);
+    return {
+      success: false,
+      message:
+        error instanceof RateLimitError
+          ? error.message
+          : error instanceof Error
+              && ["RESET_TOKEN_ALREADY_USED", "RESET_USER_INACTIVE"].includes(error.message)
+            ? "Tautan reset sudah tidak berlaku. Silakan buat permintaan baru."
+          : "Password belum dapat diperbarui.",
+    };
+  }
+}

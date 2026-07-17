@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { appendLedger } from "@/lib/stock";
-import { computeKgStock, computeUnitStock } from "@/lib/stock";
-import { getSystemUserId, requireTenantPrisma } from "@/lib/auth";
+import { getCurrentTenantId, getSystemUserId, requireRole, requireTenantPrisma } from "@/lib/auth";
+import { recordAudit } from "@/lib/audit";
+import { randomBytes } from "crypto";
+import { normalizeProductionComponents } from "@/lib/operations";
 
 // =============================================================================
 // TYPES
@@ -97,7 +99,7 @@ export type ProductionPageData = {
 async function generateBatchCode(): Promise<string> {
   const now = new Date();
   const prefix = `PRD-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const randStr = Math.random().toString(36).substring(2, 7).toUpperCase();
+  const randStr = randomBytes(4).toString("hex").toUpperCase();
   return `${prefix}-${randStr}`;
 }
 
@@ -152,7 +154,7 @@ async function fetchFGOptions(): Promise<FGProductOption[]> {
 async function fetchRBOptions(): Promise<RBStockOption[]> {
   const products = await (await requireTenantPrisma()).product.findMany({
     where: { type: { in: ["ROASTED_BEAN", "GREEN_BEAN"] }, isActive: true },
-    include: { ledgerEntries: { select: { entryType: true, quantityKg: true } } },
+    select: { id: true, name: true, roastLevel: true, stockKg: true },
     orderBy: { name: "asc" },
   });
 
@@ -161,10 +163,7 @@ async function fetchRBOptions(): Promise<RBStockOption[]> {
       id: p.id,
       name: p.name,
       roastLevel: p.roastLevel,
-      stockKg: p.ledgerEntries.reduce((sum, e) => {
-        const q = Number(e.quantityKg ?? 0);
-        return e.entryType === "IN" ? sum + q : sum - q;
-      }, 0),
+      stockKg: Number(p.stockKg),
     }))
     .filter((p) => p.stockKg > 0);
 }
@@ -172,7 +171,7 @@ async function fetchRBOptions(): Promise<RBStockOption[]> {
 async function fetchPackagingOptions(): Promise<PackagingOption[]> {
   const pkgs = await (await requireTenantPrisma()).packaging.findMany({
     where: { isActive: true },
-    include: { ledgerEntries: { select: { entryType: true, quantityUnit: true } } },
+    select: { id: true, name: true, costPerUnit: true, stockUnit: true },
     orderBy: { name: "asc" },
   });
   return pkgs
@@ -180,12 +179,56 @@ async function fetchPackagingOptions(): Promise<PackagingOption[]> {
       id: pkg.id,
       name: pkg.name,
       costPerUnit: Number(pkg.costPerUnit),
-      stockUnit: pkg.ledgerEntries.reduce(
-        (sum, e) =>
-          e.entryType === "IN" ? sum + (e.quantityUnit ?? 0) : sum - (e.quantityUnit ?? 0),
-        0
-      ),
+      stockUnit: pkg.stockUnit,
     }))
+    .filter((p) => p.stockUnit > 0);
+}
+
+async function fetchBatchHistory(): Promise<ProductionBatchRow[]> {
+  const batches = await (await requireTenantPrisma()).productionBatch.findMany({
+    orderBy: { producedAt: "desc" },
+    take: 100,
+    include: {
+      outputProduct: { select: { name: true } },
+      packaging:     { select: { name: true } },
+      recipe:        { select: { name: true } },
+    },
+  });
+
+  return batches.map((b) => ({
+    id: b.id,
+    code: b.code,
+    outputProductName: b.outputProduct.name,
+    packagingName:     b.packaging.name,
+    unitsProduced:     b.unitsProduced,
+    totalRbUsedKg:     Number(b.totalRbUsedKg),
+    hppPerUnit:        Number(b.hppPerUnit),
+    producedAt:        b.producedAt.toISOString(),
+    status:            b.status,
+    notes:             b.notes,
+    recipeUsed:        b.recipe?.name ?? null,
+  }));
+}
+
+// =============================================================================
+// PUBLIC SERVER ACTIONS
+// =============================================================================
+
+export async function getProductionPageData(): Promise<ProductionPageData> {
+  const [batches, fgOptions, rbOptions, packagingOptions] = await Promise.all([
+    fetchBatchHistory(),
+    fetchFGOptions(),
+    fetchRBOptions(),
+    fetchPackagingOptions(),
+  ]);
+  return { batches, fgOptions, rbOptions, packagingOptions };
+}
+
+/**
+ * Catat Batch Produksi.
+ *
+ * ACID transaction:
+ *   1. Validasi: setiap komponen RB stok cukup
     .filter((p) => p.stockUnit > 0);
 }
 
@@ -245,24 +288,47 @@ export async function createProductionBatch(
   input: CreateProductionBatchInput
 ): Promise<ProductionActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
     if (input.rbComponents.length === 0) {
       return { success: false, error: "Minimal satu komponen Roasted Bean diperlukan." };
     }
-    if (input.unitsProduced < 1) {
+    if (!Number.isInteger(input.unitsProduced) || input.unitsProduced < 1 || input.unitsProduced > 1_000_000) {
       return { success: false, error: "Jumlah unit yang diproduksi minimal 1." };
     }
+    const normalizedComponents = normalizeProductionComponents(input.rbComponents);
 
     const userId = await getSystemUserId();
+    const tenantId = await getCurrentTenantId();
+    const tenantPrisma = await requireTenantPrisma();
 
     // 1. Ambil data packaging untuk validasi stok & HPP
-    const packaging = await (await requireTenantPrisma()).packaging.findUnique({
-      where: { id: input.packagingId },
-      select: { id: true, name: true, costPerUnit: true },
-    });
+    const [packaging, outputProduct, recipe] = await Promise.all([
+      tenantPrisma.packaging.findUnique({
+        where: { id: input.packagingId },
+        select: { id: true, name: true, costPerUnit: true, avgCostPerUnit: true, isActive: true, stockUnit: true },
+      }),
+      tenantPrisma.product.findUnique({
+        where: { id: input.outputProductId },
+        select: { id: true, type: true, isActive: true },
+      }),
+      input.recipeId
+        ? tenantPrisma.recipe.findUnique({
+            where: { id: input.recipeId },
+            select: { id: true, productId: true, isActive: true },
+          })
+        : null,
+    ]);
     if (!packaging) return { success: false, error: "Packaging tidak ditemukan." };
+    if (!packaging.isActive) return { success: false, error: "Packaging sudah nonaktif." };
+    if (!outputProduct || !outputProduct.isActive || outputProduct.type !== "FINISHED_GOODS") {
+      return { success: false, error: "Produk output harus Finished Goods aktif." };
+    }
+    if (input.recipeId && (!recipe || !recipe.isActive || recipe.productId !== input.outputProductId)) {
+      return { success: false, error: "Resep tidak valid untuk produk output yang dipilih." };
+    }
 
     // 2. Validasi stok packaging
-    const pkgStock = await computeUnitStock(input.packagingId);
+    const pkgStock = packaging.stockUnit;
     if (pkgStock < input.unitsProduced) {
       return {
         success: false,
@@ -280,79 +346,36 @@ export async function createProductionBatch(
       hppPerKg: number;
     }> = [];
 
-    for (const comp of input.rbComponents) {
-      const actualKg = comp.actualGrams / 1000;
+    for (const { productId, actualGrams } of normalizedComponents) {
+      const actualKg = actualGrams / 1000;
       if (actualKg <= 0) continue;
 
-      const rbProduct = await (await requireTenantPrisma()).product.findUnique({
-        where: { id: comp.productId },
-        select: { name: true, type: true },
+      const rbProduct = await tenantPrisma.product.findUnique({
+        where: { id: productId },
+        select: { name: true, type: true, isActive: true, stockKg: true, avgCostPerKg: true },
       });
+      if (
+        !rbProduct ||
+        !rbProduct.isActive ||
+        !["GREEN_BEAN", "ROASTED_BEAN"].includes(rbProduct.type)
+      ) {
+        return { success: false, error: "Komponen bahan baku tidak valid atau sudah nonaktif." };
+      }
 
       // Validasi stok RB
-      const rbStock = await computeKgStock(comp.productId);
+      const rbStock = Number(rbProduct.stockKg);
       if (rbStock < actualKg) {
         return {
           success: false,
-          error: `Stok "${rbProduct?.name ?? comp.productId}" tidak cukup. Tersedia: ${rbStock.toFixed(3)} kg, dibutuhkan: ${actualKg.toFixed(3)} kg.`,
+          error: `Stok "${rbProduct.name}" tidak cukup. Tersedia: ${rbStock.toFixed(3)} kg, dibutuhkan: ${actualKg.toFixed(3)} kg.`,
         };
       }
-
-      let hppPerKg = 0;
-
-      if (rbProduct?.type === "GREEN_BEAN") {
-        // Ambil HPP GB langsung dari purchase terakhir
-        const lastPurchase = await (await requireTenantPrisma()).purchase.findFirst({
-          where: { productId: comp.productId, status: "COMPLETED" },
-          orderBy: { receivedAt: "desc" },
-          select: { pricePerUnit: true, weightKg: true, shippingCost: true },
-        });
-        if (lastPurchase) {
-          const wKg = Number(lastPurchase.weightKg ?? 0);
-          if (wKg > 0) {
-            hppPerKg = (Number(lastPurchase.pricePerUnit) * wKg + Number(lastPurchase.shippingCost ?? 0)) / wKg;
-          }
-        }
-      } else {
-        // Ambil HPP RB dari roasting batch terakhir via ledger (masuk dari ROASTING_RB_IN)
-        const lastRbLedger = await (await requireTenantPrisma()).inventoryLedger.findFirst({
-          where: { productId: comp.productId, entryType: "IN", refType: "ROASTING_RB_IN" },
-          orderBy: { createdAt: "desc" },
-          select: { refId: true },
-        });
-
-        if (lastRbLedger) {
-          const roastBatch = await (await requireTenantPrisma()).roastingBatch.findUnique({
-            where: { id: lastRbLedger.refId },
-            include: {
-              inputProduct: {
-                include: {
-                  purchases: {
-                    where: { status: "COMPLETED" },
-                    orderBy: { receivedAt: "desc" },
-                    take: 1,
-                    select: { pricePerUnit: true, weightKg: true, shippingCost: true },
-                  },
-                },
-              },
-            },
-          });
-          if (roastBatch?.inputProduct.purchases[0]) {
-            const pur = roastBatch.inputProduct.purchases[0];
-            const wKg = Number(pur.weightKg ?? 0);
-            if (wKg > 0) {
-              const gbHppPerKg = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
-              // RB HPP = GB HPP / (1 - shrinkage/100)
-              const shrinkage = Number(roastBatch.roastLossPercent) / 100;
-              hppPerKg = shrinkage < 1 ? gbHppPerKg / (1 - shrinkage) : gbHppPerKg;
-            }
-          }
-        }
-      }
+      
+      const hppPerKg = Number(rbProduct.avgCostPerKg ?? 0);
 
       totalRbCost += hppPerKg * actualKg;
       totalRbUsedKg += actualKg;
-      rbDetails.push({ productId: comp.productId, actualKg, hppPerKg });
+      rbDetails.push({ productId, actualKg, hppPerKg });
     }
 
     if (totalRbUsedKg === 0) {
@@ -360,7 +383,7 @@ export async function createProductionBatch(
     }
 
     // 4. Hitung HPP per unit
-    const pkgCostTotal = Number(packaging.costPerUnit) * input.unitsProduced;
+    const pkgCostTotal = Number(packaging.avgCostPerUnit || packaging.costPerUnit) * input.unitsProduced;
     const totalCost = totalRbCost + pkgCostTotal;
     const hppPerUnit = totalCost / input.unitsProduced;
 
@@ -368,7 +391,7 @@ export async function createProductionBatch(
     const batchCode = await generateBatchCode();
 
     // 6. ACID transaction
-    await (await requireTenantPrisma()).$transaction(async (tx) => {
+    await tenantPrisma.$transaction(async (tx) => {
       const batch = await tx.productionBatch.create({
         data: {
           code:            batchCode,
@@ -379,7 +402,7 @@ export async function createProductionBatch(
           totalRbUsedKg:   totalRbUsedKg,
           hppPerUnit:      hppPerUnit,
           status:          "COMPLETED",
-          notes:           input.notes ?? null,
+          notes:           input.notes?.trim() || null,
           createdById:     userId,
         },
       });
@@ -424,6 +447,26 @@ export async function createProductionBatch(
           createdById:  userId,
         },
       });
+
+      await tx.product.update({
+        where: { id: input.outputProductId },
+        data: { lastHpp: hppPerUnit },
+      });
+
+      await recordAudit(tx, {
+        tenantId,
+        userId,
+        action: "CREATE",
+        entityType: "ProductionBatch",
+        entityId: batch.id,
+        after: {
+          code: batch.code,
+          unitsProduced: batch.unitsProduced,
+          totalRbUsedKg: Number(batch.totalRbUsedKg),
+          hppPerUnit: Number(batch.hppPerUnit),
+        },
+        metadata: { componentCount: rbDetails.length },
+      });
     });
 
     revalidatePath("/produksi");
@@ -451,24 +494,28 @@ export async function voidProductionBatch(
   reason: string
 ): Promise<VoidResult> {
   try {
+    await requireRole("OWNER", "MANAGER");
+    if (!reason.trim()) {
+      return { success: false, error: "Alasan void wajib diisi." };
+    }
     const userId = await getSystemUserId();
+    const tenantId = await getCurrentTenantId();
+    const tenantPrisma = await requireTenantPrisma();
 
-    const batch = await (await requireTenantPrisma()).productionBatch.findUnique({
-      where: { id: batchId },
-      include: {
-        outputProduct: { select: { id: true } },
-      },
-    });
+    await tenantPrisma.$transaction(async (tx) => {
+      const batch = await tx.productionBatch.findUnique({ where: { id: batchId } });
+      if (!batch) throw new Error("Batch tidak ditemukan.");
+      if (batch.status === "VOID") throw new Error("Batch sudah di-void.");
+      const ledgerEntries = await tx.inventoryLedger.findMany({
+        where: {
+          refId: batchId,
+          refType: { in: ["PRODUCTION_RB_OUT", "PRODUCTION_PKG_OUT", "PRODUCTION_FG_IN"] },
+        },
+      });
+      if (ledgerEntries.length === 0) {
+        throw new Error("Ledger produksi tidak ditemukan; void dibatalkan untuk menjaga integritas stok.");
+      }
 
-    if (!batch) return { success: false, error: "Batch tidak ditemukan." };
-    if (batch.status === "VOID") return { success: false, error: "Batch sudah di-void." };
-
-    // Ambil semua ledger entries milik batch ini
-    const ledgerEntries = await (await requireTenantPrisma()).inventoryLedger.findMany({
-      where: { refId: batchId, refType: { in: ["PRODUCTION_RB_OUT", "PRODUCTION_PKG_OUT", "PRODUCTION_FG_IN"] } },
-    });
-
-    await (await requireTenantPrisma()).$transaction(async (tx) => {
       // Balik setiap ledger entry
       for (const entry of ledgerEntries) {
         await appendLedger(tx, {
@@ -488,15 +535,41 @@ export async function voidProductionBatch(
 
       await tx.productionBatch.update({
         where: { id: batchId },
-        data: { status: "VOID", voidReason: reason, voidAt: new Date() },
+        data: { status: "VOID", voidReason: reason.trim(), voidAt: new Date() },
       });
-    });
+      const previousBatch = await tx.productionBatch.findFirst({
+        where: {
+          outputProductId: batch.outputProductId,
+          status: "COMPLETED",
+          id: { not: batch.id },
+        },
+        orderBy: { producedAt: "desc" },
+        select: { hppPerUnit: true },
+      });
+      await tx.product.update({
+        where: { id: batch.outputProductId },
+        data: { lastHpp: previousBatch?.hppPerUnit ?? null },
+      });
+
+      await recordAudit(tx, {
+        tenantId,
+        userId,
+        action: "VOID",
+        entityType: "ProductionBatch",
+        entityId: batch.id,
+        before: { status: batch.status },
+        after: { status: "VOID", reason: reason.trim() },
+      });
+    }, { isolationLevel: "Serializable" });
 
     revalidatePath("/produksi");
     revalidatePath("/inventory");
     return { success: true };
   } catch (err) {
     console.error("[voidProductionBatch]", err);
-    return { success: false, error: "Gagal melakukan void." };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Gagal melakukan void.",
+    };
   }
 }

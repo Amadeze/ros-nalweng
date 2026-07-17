@@ -1,100 +1,60 @@
 "use client";
 
 import { useMemo } from "react";
-import { RepConfig, FontToken } from "../core/RepConfig";
+import { RepConfig } from "../core/RepConfig";
+import { resolveThemeFontFamily } from "../../themes/ThemeFonts";
 
 // =============================================================================
 // TYPOGRAPHY ENGINE
 // =============================================================================
-// Constructs Google Fonts URL dynamically and injects typographic CSS variables.
+// Injects typographic CSS variables backed by locally bundled fonts.
 // =============================================================================
 
-function extractFamilies(config: RepConfig["tokens"]["typography"]) {
-  const families = new Set<string>();
-  const weightsByFamily: Record<string, Set<number>> = {};
-
-  const addFont = (token: FontToken) => {
-    families.add(token.family);
-    if (!weightsByFamily[token.family]) {
-      weightsByFamily[token.family] = new Set();
-    }
-    weightsByFamily[token.family].add(token.weight);
-  };
-
-  addFont(config.display);
-  addFont(config.heading);
-  addFont(config.title);
-  addFont(config.body);
-  addFont(config.caption);
-  addFont(config.button);
-
-  return { families: Array.from(families), weightsByFamily };
-}
-
 export function TypographyEngine({ config }: { config: RepConfig }) {
-  const { typoConfig, fontUrl } = useMemo(() => {
-    const typo = config.tokens.typography;
-    const { families, weightsByFamily } = extractFamilies(typo);
-
-    // Build Google Fonts URL
-    const params = families.map(fam => {
-      const safeFam = fam.replace(/\s+/g, "+");
-      const weights = Array.from(weightsByFamily[fam]).sort().join(";");
-      return `family=${safeFam}:wght@${weights}`;
-    });
-    
-    let fontUrl = "";
-    if (params.length > 0) {
-      fontUrl = `https://fonts.googleapis.com/css2?${params.join("&")}&display=swap`;
-    }
-
-    return { typoConfig: typo, fontUrl };
-  }, [config.tokens.typography]);
+  const typoConfig = config.tokens.typography;
 
   const cssString = useMemo(() => {
     return `
-      ${fontUrl ? `@import url('${fontUrl}');` : ''}
-      
       :root {
         --rep-base-size: ${typoConfig.baseSize}px;
         
         /* Display */
-        --rep-font-display: '${typoConfig.display.family}', sans-serif;
+        --rep-font-display: ${resolveThemeFontFamily(typoConfig.display.family)};
         --rep-weight-display: ${typoConfig.display.weight};
         --rep-tracking-display: ${typoConfig.display.letterSpacing};
         --rep-lh-display: ${typoConfig.display.lineHeight};
         --rep-transform-display: ${typoConfig.display.textTransform};
         
         /* Heading */
-        --rep-font-heading: '${typoConfig.heading.family}', sans-serif;
+        --rep-font-heading: ${resolveThemeFontFamily(typoConfig.heading.family)};
         --rep-weight-heading: ${typoConfig.heading.weight};
         --rep-tracking-heading: ${typoConfig.heading.letterSpacing};
         --rep-lh-heading: ${typoConfig.heading.lineHeight};
         --rep-transform-heading: ${typoConfig.heading.textTransform};
         
         /* Title */
-        --rep-font-title: '${typoConfig.title.family}', sans-serif;
+        --rep-font-title: ${resolveThemeFontFamily(typoConfig.title.family)};
         --rep-weight-title: ${typoConfig.title.weight};
         --rep-tracking-title: ${typoConfig.title.letterSpacing};
         --rep-lh-title: ${typoConfig.title.lineHeight};
         --rep-transform-title: ${typoConfig.title.textTransform};
         
         /* Body */
-        --rep-font-body: '${typoConfig.body.family}', sans-serif;
+        --rep-font-body: ${resolveThemeFontFamily(typoConfig.body.family)};
         --rep-weight-body: ${typoConfig.body.weight};
         --rep-tracking-body: ${typoConfig.body.letterSpacing};
         --rep-lh-body: ${typoConfig.body.lineHeight};
         --rep-transform-body: ${typoConfig.body.textTransform};
         
         /* Caption */
-        --rep-font-caption: '${typoConfig.caption.family}', sans-serif;
+        --rep-font-caption: ${resolveThemeFontFamily(typoConfig.caption.family)};
         --rep-weight-caption: ${typoConfig.caption.weight};
         --rep-tracking-caption: ${typoConfig.caption.letterSpacing};
         --rep-lh-caption: ${typoConfig.caption.lineHeight};
         --rep-transform-caption: ${typoConfig.caption.textTransform};
         
         /* Button */
-        --rep-font-button: '${typoConfig.button.family}', sans-serif;
+        --rep-font-button: ${resolveThemeFontFamily(typoConfig.button.family)};
         --rep-weight-button: ${typoConfig.button.weight};
         --rep-tracking-button: ${typoConfig.button.letterSpacing};
         --rep-lh-button: ${typoConfig.button.lineHeight};
@@ -120,7 +80,7 @@ export function TypographyEngine({ config }: { config: RepConfig }) {
         background-color: var(--rep-bg);
       }
     `;
-  }, [typoConfig, fontUrl]);
+  }, [typoConfig]);
 
   return <style suppressHydrationWarning>{cssString}</style>;
 }

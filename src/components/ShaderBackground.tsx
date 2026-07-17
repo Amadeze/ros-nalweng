@@ -17,13 +17,16 @@ export function ShaderBackground() {
         canvas!.height = h;
       }
     }
-    if (typeof ResizeObserver !== 'undefined') {
-      new ResizeObserver(syncSize).observe(canvas);
-    }
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(syncSize) : null;
+    resizeObserver?.observe(canvas);
     syncSize();
 
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl') as WebGLRenderingContext;
-    if (!gl) return;
+    if (!gl) {
+      resizeObserver?.disconnect();
+      return;
+    }
     const vs = `attribute vec2 a_position;
   varying vec2 v_texCoord;
   void main() {
@@ -52,7 +55,7 @@ export function ShaderBackground() {
       float b = random(i + vec2(1.0, 0.0));
       float c = random(i + vec2(0.0, 1.0));
       float d = random(i + vec2(1.0, 1.0));
-      vec2 u = f * f * (3.0 - 2.0 * u);
+      vec2 u = f * f * (3.0 - 2.0 * f);
       return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
   }
   
@@ -104,20 +107,48 @@ export function ShaderBackground() {
       gl_FragColor = vec4(color, 1.0);
   }`;
     function cs(type: number, src: string) {
-      const s = gl.createShader(type)!;
+      const s = gl.createShader(type);
+      if (!s) return null;
       gl.shaderSource(s, src);
       gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error("[ShaderBackground]", gl.getShaderInfoLog(s));
+        gl.deleteShader(s);
+        return null;
+      }
       return s;
     }
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
-    gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+    const vertexShader = cs(gl.VERTEX_SHADER, vs);
+    const fragmentShader = cs(gl.FRAGMENT_SHADER, fs);
+    const prog = gl.createProgram();
+    if (!vertexShader || !fragmentShader || !prog) {
+      resizeObserver?.disconnect();
+      return;
+    }
+    gl.attachShader(prog, vertexShader);
+    gl.attachShader(prog, fragmentShader);
     gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      console.error("[ShaderBackground]", gl.getProgramInfoLog(prog));
+      gl.deleteProgram(prog);
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+      resizeObserver?.disconnect();
+      return;
+    }
     gl.useProgram(prog);
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     const pos = gl.getAttribLocation(prog, 'a_position');
+    if (pos < 0) {
+      gl.deleteBuffer(buf);
+      gl.deleteProgram(prog);
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+      resizeObserver?.disconnect();
+      return;
+    }
     gl.enableVertexAttribArray(pos);
     gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
     const uTime = gl.getUniformLocation(prog, 'u_time');
@@ -137,20 +168,34 @@ export function ShaderBackground() {
     window.addEventListener('mousemove', onMouseMove);
 
     let animationFrameId: number;
+    let isVisible = !document.hidden;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const onVisibilityChange = () => {
+      isVisible = !document.hidden;
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
     function render(t: number) {
       if (typeof ResizeObserver === 'undefined') syncSize();
-      gl.viewport(0, 0, canvas!.width, canvas!.height);
-      if (uTime) gl.uniform1f(uTime, t * 0.001);
-      if (uRes) gl.uniform2f(uRes, canvas!.width, canvas!.height);
-      if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      animationFrameId = requestAnimationFrame(render);
+      if (isVisible) {
+        gl.viewport(0, 0, canvas!.width, canvas!.height);
+        if (uTime) gl.uniform1f(uTime, reducedMotion ? 0 : t * 0.001);
+        if (uRes) gl.uniform2f(uRes, canvas!.width, canvas!.height);
+        if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+      if (!reducedMotion) animationFrameId = requestAnimationFrame(render);
     }
     render(0);
 
     return () => {
+      resizeObserver?.disconnect();
       window.removeEventListener('mousemove', onMouseMove);
-      cancelAnimationFrame(animationFrameId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      gl.deleteBuffer(buf);
+      gl.deleteProgram(prog);
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
     };
   }, []);
 

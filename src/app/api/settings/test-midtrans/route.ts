@@ -1,9 +1,29 @@
 import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
+import { decryptCredential } from "@/lib/credentials";
+import { getRequestId, logServerError } from "@/lib/api-observability";
 
 export async function POST(req: Request) {
+  const requestId = getRequestId(req.headers);
   try {
-    const body = await req.json();
-    const { serverKey, isProduction } = body;
+    const user = await getCurrentUser();
+    if (!user || user.role !== "OWNER") {
+      return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
+    }
+
+    const body = (await req.json()) as {
+      serverKey?: string;
+      isProduction?: boolean;
+    };
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+      select: { midtransServerKey: true, midtransIsProduction: true },
+    });
+    const serverKey =
+      body.serverKey || decryptCredential(tenant?.midtransServerKey);
+    const isProduction =
+      body.isProduction ?? tenant?.midtransIsProduction ?? false;
 
     if (!serverKey || typeof serverKey !== "string") {
       return NextResponse.json({ success: false, message: "Server Key is required." });
@@ -29,15 +49,20 @@ export async function POST(req: Request) {
       });
     }
 
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-
     return NextResponse.json({ 
       success: true, 
-      message: "Connection successful! API Key format is valid." 
+      message: "Credential format matches the selected Midtrans environment."
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message || "Internal server error" }, { status: 500 });
+  } catch (error) {
+    logServerError("settings.test-midtrans", error, { requestId });
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Pengujian koneksi gagal.",
+        requestId,
+      },
+      { status: 500, headers: { "X-Request-Id": requestId } },
+    );
   }
 }

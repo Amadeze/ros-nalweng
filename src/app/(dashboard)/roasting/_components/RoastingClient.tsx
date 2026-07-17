@@ -7,10 +7,10 @@ import { StandardPageLayout } from "@/components/StandardPageLayout";
 import { StandardDrawer } from "@/components/StandardDrawer";
 import { RoastingHistoryTable } from "./RoastingHistoryTable";
 import { RoastingForm } from "./RoastingForm";
-import type { GBStockOption, RBProductOption, RoastingBatchRow } from "../actions";
+import type { GBStockOption, RBProductOption, ParentRoastingBatchRow } from "../actions";
 
 interface RoastingClientProps {
-  batches: RoastingBatchRow[];
+  batches: ParentRoastingBatchRow[];
   gbOptions: GBStockOption[];
   rbOptions: RBProductOption[];
 }
@@ -21,10 +21,10 @@ export function RoastingClient({ batches, gbOptions, rbOptions }: RoastingClient
 
   const kpi = useMemo(() => {
     const validBatches = batches.filter(b => b.status === "COMPLETED");
-    const totalGB = validBatches.reduce((sum, b) => sum + b.inputWeightKg, 0);
-    const totalRB = validBatches.reduce((sum, b) => sum + b.outputWeightKg, 0);
+    const totalGB = validBatches.reduce((sum, b) => sum + b.targetWeightKg, 0);
+    const totalRB = validBatches.reduce((sum, b) => sum + (b.actualOutputKg ?? 0), 0);
     const avgLoss = validBatches.length > 0 
-      ? validBatches.reduce((sum, b) => sum + b.roastLossPercent, 0) / validBatches.length 
+      ? validBatches.reduce((sum, b) => sum + (b.totalShrinkagePercent ?? 0), 0) / validBatches.length
       : 0;
     
     return {

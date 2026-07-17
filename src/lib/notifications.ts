@@ -3,6 +3,45 @@ import { Resend } from 'resend';
 // Helper for Resend (Email)
 const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder_key_here');
 
+function escapeHtml(value: string) {
+  return value.replace(
+    /[&<>"']/g,
+    (character) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    })[character]!,
+  );
+}
+
+async function sendWhatsAppMessage(phone: string, message: string) {
+  let formattedPhone = phone.replace(/[^\d+]/g, "");
+  if (formattedPhone.startsWith("0")) formattedPhone = `62${formattedPhone.slice(1)}`;
+  if (formattedPhone.startsWith("+")) formattedPhone = formattedPhone.slice(1);
+  if (!process.env.WA_API_KEY) {
+    return { success: true as const, mocked: true as const };
+  }
+
+  const response = await fetch(process.env.WA_API_URL || "https://api.fonnte.com/send", {
+    method: "POST",
+    headers: {
+      Authorization: process.env.WA_API_KEY,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ target: formattedPhone, message }),
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    return {
+      success: false as const,
+      error: `WhatsApp provider returned ${response.status}: ${body.slice(0, 300)}`,
+    };
+  }
+  return { success: true as const, mocked: false as const };
+}
+
 export async function sendInvoiceEmail(to: string, invoiceCode: string, paymentUrl: string | null) {
   try {
     if (!process.env.RESEND_API_KEY) {
@@ -47,46 +86,110 @@ export async function sendInvoiceEmail(to: string, invoiceCode: string, paymentU
   }
 }
 
+export async function sendPasswordResetEmail(
+  to: string,
+  name: string,
+  resetUrl: string,
+) {
+  if (!process.env.RESEND_API_KEY) {
+    console.log("Password reset email mocked because RESEND_API_KEY is not set.");
+    return { success: true, mocked: true };
+  }
+
+  const { data, error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM || "Roastery OS <hello@beanslab.vercel.app>",
+    to: [to],
+    subject: "Reset password Roastery OS",
+    html: `
+      <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
+        <h2>Reset password</h2>
+        <p>Halo ${name}, kami menerima permintaan reset password untuk akun Roastery OS Anda.</p>
+        <p>
+          <a href="${resetUrl}" style="display:inline-block;padding:12px 20px;background:#0f172a;color:#fff;text-decoration:none;border-radius:6px">
+            Buat password baru
+          </a>
+        </p>
+        <p>Tautan ini berlaku selama 30 menit dan hanya dapat digunakan satu kali.</p>
+        <p style="font-size:12px;color:#64748b">Abaikan email ini jika Anda tidak meminta reset password.</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("Password reset email error:", error);
+    return { success: false, error };
+  }
+  return { success: true, data };
+}
+
 // Helper for WhatsApp (Fonnte/Watzap Placeholder)
 export async function sendInvoiceWhatsApp(phone: string, invoiceCode: string, paymentUrl: string | null) {
   try {
-    // 1. Format phone number to international (e.g. 0812 -> 62812)
-    let formattedPhone = phone;
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '62' + formattedPhone.substring(1);
-    }
-
     const message = `Halo! Terima kasih atas pesanan Anda.\n\n` +
       `Kode Invoice: *${invoiceCode}*\n\n` +
       (paymentUrl ? `Silakan selesaikan pembayaran melalui tautan berikut:\n${paymentUrl}\n\n` : '') +
       `Terima kasih telah berbelanja bersama kami!`;
 
-    // 2. Mocking logic since there's no API key yet
-    if (!process.env.WA_API_KEY) {
-      console.log("Mocking WA Send. WA_API_KEY is not set.");
-      console.log(`To: ${formattedPhone}\nMessage: ${message}`);
-      return { success: true, mocked: true };
-    }
-
-    /*
-    // Example implementation for Fonnte:
-    const response = await fetch("https://api.fonnte.com/send", {
-      method: "POST",
-      headers: {
-        "Authorization": process.env.WA_API_KEY,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        target: formattedPhone,
-        message: message
-      })
-    });
-    const result = await response.json();
-    */
-
-    return { success: true, mocked: false };
+    return await sendWhatsAppMessage(phone, message);
   } catch (error) {
     console.error("Failed to send WA:", error);
     return { success: false, error };
   }
+}
+
+export async function sendOverdueReminderEmail(input: {
+  to: string;
+  customerName: string;
+  invoiceCode: string;
+  tenantName: string;
+  balance: number;
+  dueDate: Date;
+  paymentUrl: string | null;
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    return { success: true as const, mocked: true as const };
+  }
+  const currency = new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(input.balance);
+  const { data, error } = await resend.emails.send({
+    from: process.env.EMAIL_FROM || "Roastery OS <no-reply@example.com>",
+    to: [input.to],
+    subject: `Pengingat tagihan ${input.invoiceCode}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:560px;margin:0 auto">
+        <h2>Pengingat pembayaran</h2>
+        <p>Halo ${escapeHtml(input.customerName)},</p>
+        <p>Tagihan <strong>${escapeHtml(input.invoiceCode)}</strong> dari ${escapeHtml(input.tenantName)}
+        telah melewati jatuh tempo. Sisa tagihan saat ini adalah <strong>${currency}</strong>.</p>
+        ${input.paymentUrl ? `<p><a href="${escapeHtml(input.paymentUrl)}">Bayar sekarang</a></p>` : ""}
+        <p>Mohon abaikan pesan ini bila pembayaran baru saja dilakukan.</p>
+      </div>
+    `,
+  });
+  if (error) return { success: false as const, error };
+  return { success: true as const, data };
+}
+
+export async function sendOverdueReminderWhatsApp(input: {
+  phone: string;
+  customerName: string;
+  invoiceCode: string;
+  tenantName: string;
+  balance: number;
+  paymentUrl: string | null;
+}) {
+  const currency = new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(input.balance);
+  const message =
+    `Halo ${input.customerName}, pengingat tagihan *${input.invoiceCode}* dari ${input.tenantName}. ` +
+    `Sisa tagihan ${currency} telah melewati jatuh tempo.` +
+    (input.paymentUrl ? `\n\nBayar melalui: ${input.paymentUrl}` : "") +
+    "\n\nAbaikan pesan ini bila pembayaran baru saja dilakukan.";
+  return sendWhatsAppMessage(input.phone, message);
 }

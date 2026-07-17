@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { ThemeProps } from "../ThemeProps";
 import { motion, AnimatePresence } from "framer-motion";
 import { Leaf, Droplets, Sun, Wind, Sprout, Plus, Minus } from "lucide-react";
+import { TenantBrand } from "../TenantBrand";
 
 // =============================================================================
 // TEMA 4: BOTANICAL LABORATORY (ORGANIC & ECO-FRIENDLY)
@@ -81,11 +82,11 @@ export function BotanicalTheme({
       <header className="fixed top-8 left-8 right-8 bg-white/40 backdrop-blur-md rounded-[var(--theme-radius)] px-4 md:px-8 py-4 flex justify-between items-center shadow-sm border border-white/50 z-50">
         <div className="text-xl font-medium tracking-tight text-[var(--theme-primary,#2C4A3B)] flex items-center gap-2">
           <Leaf className="w-5 h-5 text-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)]" strokeWidth={iconStroke || 2} />
-          {tenant?.name || "Botanical Brews"}
+          <TenantBrand tenant={tenant} fallback="Botanical Brews" />
         </div>
         <div className="flex gap-4 items-center">
           <button onClick={() => setIsCartOpen(true)} className="flex items-center gap-2 px-4 md:px-6 py-2 bg-[var(--theme-primary,#2C4A3B)] text-white rounded-[var(--theme-radius)] text-xs font-bold hover:bg-[var(--theme-primary)] transition-colors shadow-md hover:shadow-xl">
-            Cart ({cart?.items?.length || 0})
+            Cart ({cart.getTotalItems(tenant.subdomain || "")})
           </button>
         </div>
       </header>
@@ -238,7 +239,7 @@ export function BotanicalTheme({
                   </p>
                   <div className="flex justify-between items-center pt-4 border-t border-[#F0F4F1]">
                     <span className="font-bold text-xl text-[var(--theme-primary,#2C4A3B)]">Rp{Number(item.price).toLocaleString('id-ID')}</span>
-                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="bg-[#E2EBE5] text-[var(--theme-primary,#2C4A3B)] px-5 py-2 rounded-[var(--theme-radius)] font-bold text-sm hover:bg-[var(--theme-primary,#2C4A3B)] hover:text-white transition-colors">
+                    <motion.button aria-label={`Add ${item.name} to cart`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="bg-[#E2EBE5] text-[var(--theme-primary,#2C4A3B)] px-5 py-2 rounded-[var(--theme-radius)] font-bold text-sm hover:bg-[var(--theme-primary,#2C4A3B)] hover:text-white transition-colors">
                       Add to Cart
                     </motion.button>
                   </div>

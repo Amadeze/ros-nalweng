@@ -1,8 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { computeKgStock, appendLedger } from "@/lib/stock";
-import { getSystemUserId, requireTenantPrisma } from "@/lib/auth";
+import { appendLedger } from "@/lib/stock";
+import { getCurrentTenantId, getSystemUserId, requireRole, requireTenantPrisma } from "@/lib/auth";
+import { recordAudit } from "@/lib/audit";
+import { randomBytes } from "crypto";
+import { validateRoastingWeights } from "@/lib/operations";
 
 // =============================================================================
 // TYPES
@@ -22,36 +25,35 @@ export type RBProductOption = {
   roastLevel: string | null;
 };
 
-export type RoastingBatchRow = {
+export type ParentRoastingBatchRow = {
   id: string;
   code: string;
   inputProductName: string;
   outputProductName: string;
-  inputWeightKg: number;
-  outputWeightKg: number;
-  roastLossPercent: number;
-  roastDurationMin: number | null;
-  roastedAt: string;   // ISO string — serializable
+  targetWeightKg: number;
+  actualOutputKg: number | null;
+  totalShrinkagePercent: number | null;
   status: string;
+  createdAt: string;
   notes: string | null;
 };
 
 export type RoastingPageData = {
-  batches: RoastingBatchRow[];
+  batches: ParentRoastingBatchRow[];
   gbOptions: GBStockOption[];
   rbOptions: RBProductOption[];
 };
 
-export type CreateRoastingBatchInput = {
+export type CreateParentRoastingBatchInput = {
+  mode: "ARTISAN" | "MANUAL";
   inputProductId: string;
-  inputWeightKg: number;
+  targetWeightKg: number;
   outputMode: "existing" | "new";
   outputProductId?: string;
   outputProductName?: string;
   outputProductOrigin?: string;
   outputRoastLevel?: string;
-  outputWeightKg: number;
-  roastDurationMin?: number;
+  actualOutputKg?: number;
   notes?: string;
 };
 
@@ -63,11 +65,10 @@ export type RoastingActionResult =
 // HELPERS
 // =============================================================================
 
-
 async function generateBatchCode(): Promise<string> {
   const now = new Date();
   const prefix = `RST-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const randStr = Math.random().toString(36).substring(2, 7).toUpperCase();
+  const randStr = randomBytes(4).toString("hex").toUpperCase();
   return `${prefix}-${randStr}`;
 }
 
@@ -92,9 +93,7 @@ async function generateRBCode(name: string): Promise<string> {
 async function fetchGBOptions(): Promise<GBStockOption[]> {
   const products = await (await requireTenantPrisma()).product.findMany({
     where: { type: "GREEN_BEAN", isActive: true },
-    include: {
-      ledgerEntries: { select: { entryType: true, quantityKg: true } },
-    },
+    select: { id: true, name: true, origin: true, stockKg: true },
     orderBy: { name: "asc" },
   });
 
@@ -103,12 +102,9 @@ async function fetchGBOptions(): Promise<GBStockOption[]> {
       id: p.id,
       name: p.name,
       origin: p.origin,
-      stockKg: p.ledgerEntries.reduce((sum, e) => {
-        const qty = Number(e.quantityKg ?? 0);
-        return e.entryType === "IN" ? sum + qty : sum - qty;
-      }, 0),
+      stockKg: Number(p.stockKg),
     }))
-    .filter((p) => p.stockKg > 0); // hanya tampilkan GB yang ada stoknya
+    .filter((p) => p.stockKg > 0);
 }
 
 async function fetchRBOptions(): Promise<RBProductOption[]> {
@@ -119,9 +115,9 @@ async function fetchRBOptions(): Promise<RBProductOption[]> {
   });
 }
 
-async function fetchBatchHistory(): Promise<RoastingBatchRow[]> {
-  const batches = await (await requireTenantPrisma()).roastingBatch.findMany({
-    orderBy: { roastedAt: "desc" },
+async function fetchBatchHistory(): Promise<ParentRoastingBatchRow[]> {
+  const batches = await (await requireTenantPrisma()).parentRoastingBatch.findMany({
+    orderBy: { createdAt: "desc" },
     take: 100,
     include: {
       inputProduct:  { select: { name: true } },
@@ -134,13 +130,12 @@ async function fetchBatchHistory(): Promise<RoastingBatchRow[]> {
     code: b.code,
     inputProductName:  b.inputProduct.name,
     outputProductName: b.outputProduct.name,
-    inputWeightKg:     Number(b.inputWeightKg),
-    outputWeightKg:    Number(b.outputWeightKg),
-    roastLossPercent:  Number(b.roastLossPercent),
-    roastDurationMin:  b.roastDurationMin,
-    roastedAt:         b.roastedAt.toISOString(),
+    targetWeightKg:     Number(b.targetWeightKg),
+    actualOutputKg:    b.actualOutputKg ? Number(b.actualOutputKg) : null,
+    totalShrinkagePercent: b.totalShrinkagePercent ? Number(b.totalShrinkagePercent) : null,
     status:            b.status,
     notes:             b.notes,
+    createdAt:         b.createdAt.toISOString(),
   }));
 }
 
@@ -157,49 +152,42 @@ export async function getRoastingPageData(): Promise<RoastingPageData> {
   return { batches, gbOptions, rbOptions };
 }
 
-/**
- * Catat Roasting Batch.
- *
- * ACID transaction:
- *   1. Validasi stok GB mencukupi
- *   2. Find-or-create Product Roasted Bean
- *   3. INSERT RoastingBatch (COMPLETED)
- *   4. INSERT InventoryLedger: GB OUT  (refType = ROASTING_GB_OUT)
- *   5. INSERT InventoryLedger: RB IN   (refType = ROASTING_RB_IN)
- *   6. Hitung roastLossPercent otomatis = (in - out) / in * 100
- */
-export async function createRoastingBatch(
-  input: CreateRoastingBatchInput
+export async function createParentRoastingBatch(
+  input: CreateParentRoastingBatchInput
 ): Promise<RoastingActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
     const userId = await getSystemUserId();
+    const tenantId = await getCurrentTenantId();
+    const weightError = validateRoastingWeights(input);
+    if (weightError) return { success: false, error: weightError };
 
-    // 1. Validasi stok GB
-    const currentStock = await computeKgStock(input.inputProductId);
-    if (currentStock < input.inputWeightKg) {
+    const inputProduct = await (await requireTenantPrisma()).product.findUnique({
+      where: { id: input.inputProductId },
+      select: { type: true, isActive: true, stockKg: true, avgCostPerKg: true },
+    });
+    if (!inputProduct || !inputProduct.isActive || inputProduct.type !== "GREEN_BEAN") {
+      return { success: false, error: "Produk input harus Green Bean aktif." };
+    }
+    const currentStock = Number(inputProduct.stockKg);
+    if (currentStock < input.targetWeightKg) {
       return {
         success: false,
-        error: `Stok Green Bean tidak cukup. Tersedia: ${currentStock.toFixed(3)} kg, dibutuhkan: ${input.inputWeightKg.toFixed(3)} kg.`,
+        error: `Stok Green Bean tidak cukup. Tersedia: ${currentStock.toFixed(3)} kg, dibutuhkan: ${input.targetWeightKg.toFixed(3)} kg.`,
       };
     }
 
-    // 2. Validasi logika berat
-    if (input.outputWeightKg >= input.inputWeightKg) {
-      return {
-        success: false,
-        error: "Berat keluar tidak boleh >= berat masuk. Roasting selalu menghasilkan susut.",
-      };
-    }
-
-    // 3. Find-or-create output RB product
     let outputProduct = input.outputProductId
       ? await (await requireTenantPrisma()).product.findUnique({ where: { id: input.outputProductId } })
       : null;
+    if (outputProduct && (outputProduct.type !== "ROASTED_BEAN" || !outputProduct.isActive)) {
+      return { success: false, error: "Produk output harus Roasted Bean aktif." };
+    }
 
     if (!outputProduct && input.outputProductName) {
       const code = await generateRBCode(input.outputProductName);
       outputProduct = await (await requireTenantPrisma()).product.upsert({
-        where: { code },
+        where: { tenantId_code: { tenantId, code } },
         create: {
           code,
           name: input.outputProductName,
@@ -220,62 +208,81 @@ export async function createRoastingBatch(
       return { success: false, error: "Produk Roasted Bean tidak valid." };
     }
 
-    // 4. Hitung shrinkage
-    const roastLossPercent =
-      ((input.inputWeightKg - input.outputWeightKg) / input.inputWeightKg) * 100;
+    let totalShrinkagePercent = null;
+    if (input.mode === "MANUAL") {
+      totalShrinkagePercent = ((input.targetWeightKg - Number(input.actualOutputKg)) / input.targetWeightKg) * 100;
+    }
 
-    // 5. Generate kode
     const batchCode = await generateBatchCode();
 
-    // 6. ACID transaction
     await (await requireTenantPrisma()).$transaction(async (tx) => {
-      const batch = await tx.roastingBatch.create({
+      const batch = await tx.parentRoastingBatch.create({
         data: {
           code: batchCode,
           inputProductId:   input.inputProductId,
-          inputWeightKg:    input.inputWeightKg,
+          targetWeightKg:   input.targetWeightKg,
           outputProductId:  outputProduct!.id,
-          outputWeightKg:   input.outputWeightKg,
-          roastLossPercent: roastLossPercent,
-          roastDurationMin: input.roastDurationMin ?? null,
-          status:           "COMPLETED",
-          notes:            input.notes ?? null,
+          actualOutputKg:   input.mode === "MANUAL" ? Number(input.actualOutputKg) : null,
+          totalShrinkagePercent: totalShrinkagePercent,
+          status:           input.mode === "MANUAL" ? "COMPLETED" : "PENDING",
+          notes:            input.notes?.trim() || null,
+          completedAt:      input.mode === "MANUAL" ? new Date() : null,
           createdById:      userId,
         },
       });
 
-      // GB keluar
+      // Always deduct GB immediately
       await appendLedger(tx, {
         data: {
           productId:   input.inputProductId,
           entryType:   "OUT",
           refType:     "ROASTING_GB_OUT",
           refId:       batch.id,
-          quantityKg:  input.inputWeightKg,
+          quantityKg:  input.targetWeightKg,
           notes:       `Roasting: ${batch.code}`,
           createdById: userId,
         },
       });
 
-      // RB masuk
-      await appendLedger(tx, {
-        data: {
-          productId:   outputProduct!.id,
-          entryType:   "IN",
-          refType:     "ROASTING_RB_IN",
-          refId:       batch.id,
-          quantityKg:  input.outputWeightKg,
-          notes:       `Roasting: ${batch.code}`,
-          createdById: userId,
+      // If MANUAL, also add RB immediately
+      if (input.mode === "MANUAL") {
+        await appendLedger(tx, {
+          data: {
+            productId:   outputProduct!.id,
+            entryType:   "IN",
+            refType:     "ROASTING_RB_IN",
+            refId:       batch.id,
+            quantityKg:  Number(input.actualOutputKg),
+            incomingPrice: (Number(inputProduct.avgCostPerKg ?? 0) * input.targetWeightKg) / Number(input.actualOutputKg),
+            notes:       `Roasting: ${batch.code}`,
+            createdById: userId,
+          },
+        });
+      }
+
+      await recordAudit(tx, {
+        tenantId,
+        userId,
+        action: "CREATE",
+        entityType: "ParentRoastingBatch",
+        entityId: batch.id,
+        after: {
+          code: batch.code,
+          mode: input.mode,
+          status: batch.status,
+          targetWeightKg: Number(batch.targetWeightKg),
+          actualOutputKg: batch.actualOutputKg
+            ? Number(batch.actualOutputKg)
+            : null,
         },
       });
     });
 
     revalidatePath("/roasting");
-    revalidatePath("/inventory"); // stok GB & RB berubah
+    revalidatePath("/inventory");
     return { success: true, batchCode };
   } catch (err) {
-    console.error("[createRoastingBatch]", err);
+    console.error("[createParentRoastingBatch]", err);
     return {
       success: false,
       error: err instanceof Error ? err.message : "Terjadi kesalahan sistem.",
@@ -283,68 +290,165 @@ export async function createRoastingBatch(
   }
 }
 
-// =============================================================================
-// VOID ROASTING BATCH
-// =============================================================================
+export async function completeParentRoastingBatch(
+  batchId: string,
+  actualOutputKg: number
+): Promise<RoastingActionResult> {
+  try {
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
+    if (!Number.isFinite(actualOutputKg) || actualOutputKg <= 0) {
+      return { success: false, error: "Berat hasil harus lebih dari 0." };
+    }
+    const userId = await getSystemUserId();
+    const tenantId = await getCurrentTenantId();
+    const tenantPrisma = await requireTenantPrisma();
+
+    const batchCode = await tenantPrisma.$transaction(async (tx) => {
+      const batch = await tx.parentRoastingBatch.findUnique({ 
+        where: { id: batchId },
+        include: { inputProduct: { select: { avgCostPerKg: true } } }
+      });
+      if (!batch || batch.status !== "PENDING") {
+        throw new Error("Batch tidak valid atau sudah selesai.");
+      }
+      if (actualOutputKg >= Number(batch.targetWeightKg)) {
+        throw new Error("Berat keluar tidak boleh >= berat masuk.");
+      }
+      const totalShrinkagePercent =
+        ((Number(batch.targetWeightKg) - actualOutputKg) / Number(batch.targetWeightKg)) * 100;
+      const claimed = await tx.parentRoastingBatch.updateMany({
+        where: { id: batchId, status: "PENDING" },
+        data: {
+          actualOutputKg,
+          totalShrinkagePercent,
+          status: "COMPLETED",
+          completedAt: new Date(),
+        },
+      });
+      if (claimed.count !== 1) {
+        throw new Error("Batch sudah diselesaikan oleh proses lain.");
+      }
+
+      await appendLedger(tx, {
+        data: {
+          productId:   batch.outputProductId,
+          entryType:   "IN",
+          refType:     "ROASTING_RB_IN",
+          refId:       batch.id,
+          quantityKg:  actualOutputKg,
+          incomingPrice: (Number(batch.inputProduct.avgCostPerKg ?? 0) * Number(batch.targetWeightKg)) / actualOutputKg,
+          notes:       `Roasting: ${batch.code}`,
+          createdById: userId,
+        },
+      });
+
+      await recordAudit(tx, {
+        tenantId,
+        userId,
+        action: "COMPLETE",
+        entityType: "ParentRoastingBatch",
+        entityId: batch.id,
+        before: { status: batch.status },
+        after: {
+          status: "COMPLETED",
+          actualOutputKg,
+          totalShrinkagePercent,
+        },
+      });
+      return batch.code;
+    }, { isolationLevel: "Serializable" });
+
+    revalidatePath("/roasting");
+    revalidatePath("/inventory");
+    return { success: true, batchCode };
+  } catch (err) {
+    console.error("[completeParentRoastingBatch]", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Terjadi kesalahan sistem.",
+    };
+  }
+}
 
 export type VoidResult =
   | { success: true }
   | { success: false; error: string };
 
-export async function voidRoastingBatch(
+export async function voidParentRoastingBatch(
   batchId: string,
   reason: string
 ): Promise<VoidResult> {
   try {
+    await requireRole("OWNER", "MANAGER");
+    if (!reason.trim()) {
+      return { success: false, error: "Alasan void wajib diisi." };
+    }
     const userId = await getSystemUserId();
-
-    const batch = await (await requireTenantPrisma()).roastingBatch.findUnique({
-      where: { id: batchId },
-      select: {
-        id: true, code: true, status: true,
-        inputProductId: true, inputWeightKg: true,
-        outputProductId: true, outputWeightKg: true,
-      },
-    });
-
-    if (!batch) return { success: false, error: "Batch tidak ditemukan." };
-    if (batch.status === "VOID") return { success: false, error: "Batch sudah di-void." };
+    const tenantId = await getCurrentTenantId();
 
     await (await requireTenantPrisma()).$transaction(async (tx) => {
-      // Reversal: kembalikan GB, kurangi RB
+      const batch = await tx.parentRoastingBatch.findUnique({
+        where: { id: batchId },
+      });
+      if (!batch) throw new Error("Batch tidak ditemukan.");
+      if (batch.status === "VOID") throw new Error("Batch sudah divoid.");
+
+      await tx.parentRoastingBatch.update({
+        where: { id: batchId },
+        data: {
+          status: "VOID",
+          voidReason: reason.trim(),
+          voidAt: new Date(),
+        },
+      });
+
+      // Return GB (Always)
       await appendLedger(tx, {
         data: {
           productId:   batch.inputProductId,
           entryType:   "IN",
           refType:     "VOID_REVERSAL",
           refId:       batch.id,
-          quantityKg:  batch.inputWeightKg,
-          notes:       `VOID reversal: ${batch.code}`,
+          quantityKg:  batch.targetWeightKg,
+          notes:       `Reversal Roasting: ${batch.code}`,
           createdById: userId,
         },
       });
-      await appendLedger(tx, {
-        data: {
-          productId:   batch.outputProductId,
-          entryType:   "OUT",
-          refType:     "VOID_REVERSAL",
-          refId:       batch.id,
-          quantityKg:  batch.outputWeightKg,
-          notes:       `VOID reversal: ${batch.code}`,
-          createdById: userId,
-        },
+
+      // Return RB only if it was COMPLETED (RB was added)
+      if (batch.status === "COMPLETED" && batch.actualOutputKg) {
+        await appendLedger(tx, {
+          data: {
+            productId:   batch.outputProductId,
+            entryType:   "OUT",
+            refType:     "VOID_REVERSAL",
+            refId:       batch.id,
+            quantityKg:  batch.actualOutputKg,
+            notes:       `Reversal Roasting: ${batch.code}`,
+            createdById: userId,
+          },
+        });
+      }
+
+      await recordAudit(tx, {
+        tenantId,
+        userId,
+        action: "VOID",
+        entityType: "ParentRoastingBatch",
+        entityId: batch.id,
+        before: { status: batch.status },
+        after: { status: "VOID", reason: reason.trim() },
       });
-      await tx.roastingBatch.update({
-        where: { id: batch.id },
-        data: { status: "VOID", voidReason: reason, voidAt: new Date() },
-      });
-    });
+    }, { isolationLevel: "Serializable" });
 
     revalidatePath("/roasting");
     revalidatePath("/inventory");
     return { success: true };
   } catch (err) {
-    console.error("[voidRoastingBatch]", err);
-    return { success: false, error: "Gagal melakukan void." };
+    console.error("[voidParentRoastingBatch]", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Gagal membatalkan batch.",
+    };
   }
 }

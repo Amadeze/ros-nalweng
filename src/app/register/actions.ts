@@ -2,27 +2,62 @@
 
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getIronSession } from "iron-session";
 import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
+import {
+  enforceRateLimit,
+  RateLimitError,
+  requestIdentifier,
+} from "@/lib/rate-limit";
 
 export async function registerTenant(data: {
   roasteryName: string;
   subdomain: string;
   email: string;
   password: string;
-  tier: "TRIAL" | "BASIC" | "PRO" | "ENTERPRISE";
+  tier?: "TRIAL" | "BASIC" | "PRO" | "ENTERPRISE";
 }) {
   try {
-    const { roasteryName, subdomain, email, password, tier } = data;
+    const roasteryName = data.roasteryName.trim();
+    const subdomain = data.subdomain.toLowerCase().trim();
+    const email = data.email.toLowerCase().trim();
+    const password = data.password;
+    const requestHeaders = await headers();
+    await enforceRateLimit({
+      scope: "register",
+      identifier: requestIdentifier(requestHeaders),
+      limit: 5,
+      windowSeconds: 60 * 60,
+    });
 
     // 1. Basic validations
     if (!roasteryName || !subdomain || !email || !password) {
       return { success: false, error: "All fields are required" };
     }
 
-    if (!/^[a-z0-9-]+$/.test(subdomain)) {
+    if (roasteryName.length > 100) {
+      return { success: false, error: "Roastery name is too long" };
+    }
+
+    if (
+      subdomain.length < 3 ||
+      subdomain.length > 40 ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(subdomain)
+    ) {
       return { success: false, error: "Subdomain can only contain lowercase letters, numbers, and hyphens" };
+    }
+
+    if (["www", "app", "admin", "api", "mail", "support"].includes(subdomain)) {
+      return { success: false, error: "Subdomain is reserved" };
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { success: false, error: "Email is invalid" };
+    }
+
+    if (password.length < 8) {
+      return { success: false, error: "Password must be at least 8 characters" };
     }
 
     // 2. Check if subdomain exists
@@ -55,7 +90,8 @@ export async function registerTenant(data: {
           code: subdomain.toUpperCase(), // basic code generation
           name: roasteryName,
           subdomain: subdomain,
-          subscriptionTier: tier,
+          subscriptionTier: "TRIAL",
+          subscriptionStatus: "ACTIVE",
           trialEndsAt: trialEndsAt,
         },
       });
@@ -84,8 +120,16 @@ export async function registerTenant(data: {
     await session.save();
 
     return { success: true, tenantId: result.tenant.id };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Registration error:", error);
-    return { success: false, error: error.message || "Something went wrong" };
+    return {
+      success: false,
+      error:
+        error instanceof RateLimitError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Something went wrong",
+    };
   }
 }

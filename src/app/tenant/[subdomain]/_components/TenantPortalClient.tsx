@@ -25,7 +25,6 @@ type ExtendedTenant = Tenant & {
   catalogSubtitle?: string | null;
   footerText?: string | null;
   midtransClientKey?: string | null;
-  midtransServerKey?: string | null;
   midtransIsProduction?: boolean;
   themeConfig?: any;
 };
@@ -43,10 +42,7 @@ export function TenantPortalClient({ tenant }: TenantPortalClientProps) {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
   const [shippingMethod, setShippingMethod] = useState("LOCAL_DELIVERY");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const themeMode = tenant.themeMode || "light";
   const isDark = themeMode === "dark";
@@ -108,12 +104,14 @@ export function TenantPortalClient({ tenant }: TenantPortalClientProps) {
   };
 
   const handleCheckout = async () => {
+    if (isCheckingOut) return;
     if (!customerName || !customerPhone || !customerAddress) {
       alert("Mohon lengkapi Nama, Nomor HP, dan Alamat Pengiriman terlebih dahulu.");
       return;
     }
 
     try {
+      setIsCheckingOut(true);
       const res = await fetch(`/api/tenant/${tenant.subdomain}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -150,14 +148,20 @@ export function TenantPortalClient({ tenant }: TenantPortalClientProps) {
       if (cleanWa.startsWith('0')) cleanWa = '62' + cleanWa.substring(1);
       
       if (!cleanWa) {
+        cart.clearCart(tenant.subdomain || "");
+        setIsCartOpen(false);
         alert("Pesanan terekam (Ref: " + invoiceCode + ") tapi nomor WhatsApp admin belum diatur di sistem.");
         return;
       }
       
       window.open(`https://wa.me/${cleanWa}?text=${encodeURIComponent(text)}`, '_blank');
+      cart.clearCart(tenant.subdomain || "");
+      setIsCartOpen(false);
     } catch (error) {
       console.error(error);
       alert("Terjadi kesalahan sistem saat memproses checkout.");
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
@@ -165,7 +169,8 @@ export function TenantPortalClient({ tenant }: TenantPortalClientProps) {
   const themeProps = {
     tenant, cart, isCartOpen, setIsCartOpen, customerName, setCustomerName, customerPhone, setCustomerPhone,
     customerAddress, setCustomerAddress, shippingMethod, setShippingMethod, handleAddToCart, handleCheckout, mounted, heroGreeting, aboutText,
-    catalogTitle, catalogSubtitle, footerText, waLink, emailLink, igLink, iconProps, iconStroke, isDark
+    catalogTitle, catalogSubtitle, footerText, waLink, emailLink, igLink, iconProps, iconStroke, isDark,
+    isCheckingOut,
   };
 
   return (

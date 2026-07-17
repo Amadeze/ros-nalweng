@@ -12,8 +12,25 @@ import { TerimaPaymentDialog } from "./TerimaPaymentDialog";
 import { CatatPengeluaranDrawer } from "./CatatPengeluaranDrawer";
 import { ExpenseTable } from "./ExpenseTable";
 import { PurchaseTable } from "./PurchaseTable";
+import { PaymentTable } from "./PaymentTable";
+import { SupplierPaymentDialog } from "./SupplierPaymentDialog";
+import { SupplierPaymentTable } from "./SupplierPaymentTable";
 import { formatRupiah } from "@/lib/format";
-import type { KeuanganPageData, PiutangRow, ExpenseRow, PurchaseRow } from "../actions";
+import type {
+  ExpenseRow,
+  KeuanganPageData,
+  PaymentRow,
+  PiutangRow,
+  PurchaseRow,
+  SupplierPaymentRow,
+} from "../actions";
+import {
+  voidExpense,
+  voidPayment,
+  voidPurchase,
+  voidSupplierPayment,
+} from "../actions";
+import { VoidConfirmDialog } from "@/components/VoidConfirmDialog";
 
 // =============================================================================
 // KPI Card
@@ -51,7 +68,7 @@ function KpiCard({ label, value, sub, accent = "default", icon }: KpiCardProps) 
 // Tab
 // =============================================================================
 
-type Tab = "piutang" | "pengeluaran" | "pembelian";
+type Tab = "piutang" | "pembayaran" | "pengeluaran" | "pembelian" | "pembayaranSupplier";
 
 // =============================================================================
 // Main Client
@@ -61,13 +78,26 @@ interface KeuanganClientProps {
   data: KeuanganPageData;
   expenses: ExpenseRow[];
   purchases: PurchaseRow[];
+  payments: PaymentRow[];
+  supplierPayments: SupplierPaymentRow[];
 }
 
-export function KeuanganClient({ data, expenses, purchases }: KeuanganClientProps) {
+export function KeuanganClient({
+  data,
+  expenses,
+  purchases,
+  payments,
+  supplierPayments,
+}: KeuanganClientProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<PiutangRow | null>(null);
   const [dialogOpen,      setDialogOpen]      = useState(false);
   const [expenseOpen,     setExpenseOpen]     = useState(false);
   const [activeTab,       setActiveTab]       = useState<Tab>("piutang");
+  const [selectedPurchase, setSelectedPurchase] = useState<PurchaseRow | null>(null);
+  const [selectedExpense, setSelectedExpense] = useState<ExpenseRow | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentRow | null>(null);
+  const [supplierPaymentPurchase, setSupplierPaymentPurchase] = useState<PurchaseRow | null>(null);
+  const [selectedSupplierPayment, setSelectedSupplierPayment] = useState<SupplierPaymentRow | null>(null);
 
   const { kpi, piutangRows } = data;
 
@@ -139,11 +169,13 @@ export function KeuanganClient({ data, expenses, purchases }: KeuanganClientProp
         </div>
 
         {/* ── Tabs ── */}
-        <div className="mb-4 grid grid-cols-3 gap-2 bg-white/20 p-2 rounded-2xl backdrop-blur-md border border-white/50 w-fit">
+        <div className="mb-4 grid grid-cols-2 gap-2 bg-white/20 p-2 rounded-2xl backdrop-blur-md border border-white/50 w-fit md:grid-cols-5">
           {([
             { id: "piutang",      label: `Piutang (${piutangRows.length})` },
+            { id: "pembayaran",   label: `Pembayaran (${payments.length})` },
             { id: "pengeluaran",  label: `Pengeluaran (${expenses.length})` },
-            { id: "pembelian",    label: `Pembelian Modal (${purchases.length})` },
+            { id: "pembelian",    label: `Hutang Supplier (${purchases.filter((row) => row.balance > 0).length})` },
+            { id: "pembayaranSupplier", label: `Bayar Supplier (${supplierPayments.length})` },
           ] as { id: Tab; label: string }[]).map((tab) => (
             <button
               key={tab.id}
@@ -162,8 +194,22 @@ export function KeuanganClient({ data, expenses, purchases }: KeuanganClientProp
 
         {/* ── Content ── */}
         {activeTab === "piutang" && <PiutangTable rows={piutangRows} onTerimaPayment={handleTerimaPayment} />}
-        {activeTab === "pengeluaran" && <ExpenseTable rows={expenses} />}
-        {activeTab === "pembelian" && <PurchaseTable rows={purchases} />}
+        {activeTab === "pembayaran" && (
+          <PaymentTable rows={payments} onVoid={setSelectedPayment} />
+        )}
+        {activeTab === "pengeluaran" && (
+          <ExpenseTable rows={expenses} onVoid={setSelectedExpense} />
+        )}
+        {activeTab === "pembelian" && (
+          <PurchaseTable
+            rows={purchases}
+            onVoid={setSelectedPurchase}
+            onPay={setSupplierPaymentPurchase}
+          />
+        )}
+        {activeTab === "pembayaranSupplier" && (
+          <SupplierPaymentTable rows={supplierPayments} onVoid={setSelectedSupplierPayment} />
+        )}
       </StandardPageLayout>
 
       {/* ── Payment Dialog ── */}
@@ -182,6 +228,71 @@ export function KeuanganClient({ data, expenses, purchases }: KeuanganClientProp
 
       {/* ── Catat Pengeluaran Drawer ── */}
       <CatatPengeluaranDrawer open={expenseOpen} onOpenChange={setExpenseOpen} />
+
+      <SupplierPaymentDialog
+        purchase={supplierPaymentPurchase}
+        open={Boolean(supplierPaymentPurchase)}
+        onOpenChange={(open) => {
+          if (!open) setSupplierPaymentPurchase(null);
+        }}
+        onSuccess={() => setSupplierPaymentPurchase(null)}
+      />
+
+      <VoidConfirmDialog
+        open={Boolean(selectedPurchase)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPurchase(null);
+        }}
+        title="Void Pembelian"
+        description={`Stok dan biaya ${selectedPurchase?.code ?? ""} akan dibalik. Pembayaran supplier harus di-void lebih dahulu dan proses ditolak bila stok sudah digunakan.`}
+        onConfirm={(reason) =>
+          selectedPurchase
+            ? voidPurchase(selectedPurchase.id, reason)
+            : Promise.resolve({ success: false, error: "Pembelian tidak dipilih." })
+        }
+      />
+
+      <VoidConfirmDialog
+        open={Boolean(selectedPayment)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPayment(null);
+        }}
+        title="Void Pembayaran"
+        description={`Pembayaran ${selectedPayment?.code ?? ""} akan dibatalkan dan invoice terkait kembali menjadi piutang.`}
+        onConfirm={(reason) =>
+          selectedPayment
+            ? voidPayment(selectedPayment.id, reason)
+            : Promise.resolve({ success: false, error: "Pembayaran tidak dipilih." })
+        }
+      />
+
+      <VoidConfirmDialog
+        open={Boolean(selectedSupplierPayment)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedSupplierPayment(null);
+        }}
+        title="Void Pembayaran Supplier"
+        description={`Pembayaran ${selectedSupplierPayment?.code ?? ""} akan dibatalkan dan saldo hutang pembelian terkait dipulihkan.`}
+        onConfirm={(reason) =>
+          selectedSupplierPayment
+            ? voidSupplierPayment(selectedSupplierPayment.id, reason)
+            : Promise.resolve({ success: false, error: "Pembayaran supplier tidak dipilih." })
+        }
+      />
+
+      <VoidConfirmDialog
+        open={Boolean(selectedExpense)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedExpense(null);
+        }}
+        title="Void Pengeluaran"
+        description="Pengeluaran akan dikeluarkan dari perhitungan arus kas dan Laba/Rugi, tetapi histori audit tetap tersimpan."
+        onConfirm={(reason) =>
+          selectedExpense
+            ? voidExpense(selectedExpense.id, reason)
+            : Promise.resolve({ success: false, error: "Pengeluaran tidak dipilih." })
+        }
+      />
     </>
   );
 }

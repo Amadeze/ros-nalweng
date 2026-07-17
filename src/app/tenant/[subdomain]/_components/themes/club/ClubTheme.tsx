@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ThemeProps } from "../ThemeProps";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, Heart, Coffee, Shield, Star, Plus, Minus, Check, ArrowRight } from "lucide-react";
+import { TenantBrand } from "../TenantBrand";
 
 // =============================================================================
 // TEMA 8: COFFEE CLUB (SUBSCRIPTION & COMMUNITY)
@@ -65,11 +66,11 @@ export function ClubTheme({
       {/* Navigation - Friendly & Rounded */}
       <header className="fixed top-4 left-4 right-4 bg-white/90 backdrop-blur-md rounded-[var(--theme-radius)] shadow-sm px-4 md:px-6 py-4 flex justify-between items-center z-50">
         <div className="text-xl md:text-2xl font-black tracking-tight text-[var(--theme-primary,#E67E22)]">
-          {tenant?.name || "The Coffee Club"}
+          <TenantBrand tenant={tenant} fallback="The Coffee Club" />
         </div>
         <div className="flex gap-4 items-center">
           <button onClick={() => setIsCartOpen(true)} className="bg-[var(--theme-primary,#E67E22)] text-white px-4 md:px-6 py-2 rounded-[var(--theme-radius)] font-bold hover:bg-[#D35400] transition-colors shadow-md hover:shadow-lg text-sm">
-            Cart ({cart?.items?.length || 0})
+            Cart ({cart.getTotalItems(tenant.subdomain || "")})
           </button>
         </div>
       </header>
@@ -229,7 +230,7 @@ export function ClubTheme({
                   <span className="text-[#7F8C8D] font-medium">/mo</span>
                 </div>
                 
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className={`w-full py-4 rounded-[var(--theme-radius)] font-black text-sm transition-all ${i === 1 ? 'bg-[var(--theme-primary,#E67E22)] text-white hover:bg-[#D35400] shadow-lg' : 'bg-gray-100 text-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)] hover:bg-gray-200'}`}>
+                <motion.button aria-label={`Add ${item.name} to cart`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className={`w-full py-4 rounded-[var(--theme-radius)] font-black text-sm transition-all ${i === 1 ? 'bg-[var(--theme-primary,#E67E22)] text-white hover:bg-[#D35400] shadow-lg' : 'bg-gray-100 text-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)] hover:bg-gray-200'}`}>
                   Select Plan
                 </motion.button>
               </motion.div>

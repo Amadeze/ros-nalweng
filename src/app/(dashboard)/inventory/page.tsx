@@ -15,6 +15,7 @@ export default async function InventoryPage() {
       rbStocks={data.rbStocks}
       pkgStocks={data.pkgStocks}
       fgStocks={data.fgStocks}
+      ledgerEntries={data.ledgerEntries}
       suppliers={data.suppliers}
       gbProducts={data.gbProducts}
       packagings={packagings.map((p) => ({

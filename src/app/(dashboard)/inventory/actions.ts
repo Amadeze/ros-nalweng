@@ -1,8 +1,14 @@
 "use server";
 
 import { appendLedger } from "@/lib/stock";
-import { getSystemUserId, requireTenantPrisma } from "@/lib/auth";
+import { getCurrentTenantId, getSystemUserId, requireRole, requireTenantPrisma } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { recordAudit } from "@/lib/audit";
+import { randomBytes } from "crypto";
+import {
+  resolveInitialPurchasePayment,
+  type PurchasePaymentState,
+} from "@/lib/purchase-payments";
 
 // =============================================================================
 // TYPES — semua Decimal dikonversi ke number agar bisa di-serialize ke client
@@ -54,8 +60,24 @@ export type InventoryPageData = {
   rbStocks: ProductStockRow[];
   pkgStocks: PackagingStockRow[];
   fgStocks: FGStockRow[];
+  ledgerEntries: LedgerHistoryRow[];
   suppliers: SupplierOption[];
   gbProducts: GBProductOption[];
+};
+
+export type LedgerHistoryRow = {
+  id: string;
+  createdAt: string;
+  itemName: string;
+  itemCode: string;
+  itemType: "PRODUCT" | "PACKAGING";
+  entryType: "IN" | "OUT";
+  refType: string;
+  refId: string;
+  quantity: number;
+  unit: "kg" | "unit";
+  notes: string | null;
+  createdByName: string;
 };
 
 export type PurchaseActionInput = {
@@ -67,6 +89,10 @@ export type PurchaseActionInput = {
   weightKg: number;
   pricePerKg: number;
   shippingCost: number;
+  paymentStatus?: PurchasePaymentState;
+  initialPaidAmount?: number;
+  paymentMethod?: "CASH" | "TRANSFER" | "QRIS";
+  dueDate?: string;
   notes?: string;
 };
 
@@ -77,6 +103,10 @@ export type PackagingPurchaseInput = {
   quantityUnits: number;
   pricePerUnit: number;
   shippingCost: number;
+  paymentStatus?: PurchasePaymentState;
+  initialPaidAmount?: number;
+  paymentMethod?: "CASH" | "TRANSFER" | "QRIS";
+  dueDate?: string;
   notes?: string;
 };
 
@@ -124,9 +154,6 @@ async function fetchProductStocks(
   const products = await (await requireTenantPrisma()).product.findMany({
     where: { type, isActive: true },
     include: {
-      ledgerEntries: {
-        select: { entryType: true, quantityKg: true },
-      },
       purchases: {
         where: { status: "COMPLETED" },
         orderBy: { receivedAt: "desc" },
@@ -138,11 +165,6 @@ async function fetchProductStocks(
   });
 
   return products.map((p) => {
-    const stockKg = p.ledgerEntries.reduce((sum, e) => {
-      const qty = Number(e.quantityKg ?? 0);
-      return e.entryType === "IN" ? sum + qty : sum - qty;
-    }, 0);
-
     let latestHppPerKg: number | null = null;
     if (p.purchases[0]) {
       const pur = p.purchases[0];
@@ -160,7 +182,7 @@ async function fetchProductStocks(
       type: p.type as "GREEN_BEAN" | "ROASTED_BEAN",
       origin: p.origin,
       roastLevel: p.roastLevel,
-      stockKg,
+      stockKg: Number(p.stockKg),
       latestHppPerKg,
     };
   });
@@ -169,38 +191,36 @@ async function fetchProductStocks(
 async function fetchPackagingStocks(): Promise<PackagingStockRow[]> {
   const packagings = await (await requireTenantPrisma()).packaging.findMany({
     where: { isActive: true },
-    include: {
-      ledgerEntries: {
-        select: { entryType: true, quantityUnit: true },
-      },
-    },
     orderBy: { name: "asc" },
   });
 
-  return packagings.map((pkg) => {
-    const stockUnit = pkg.ledgerEntries.reduce((sum, e) => {
-      const qty = e.quantityUnit ?? 0;
-      return e.entryType === "IN" ? sum + qty : sum - qty;
-    }, 0);
-
-    return {
+  return packagings.map((pkg) => ({
       id: pkg.id,
       code: pkg.code,
       name: pkg.name,
       weightGrams: Number(pkg.weightGrams),
       costPerUnit: Number(pkg.costPerUnit),
-      stockUnit,
-    };
-  });
+      stockUnit: pkg.stockUnit,
+    }));
+}
+
+function parsePurchaseDueDate(status: PurchasePaymentState, dueDate?: string) {
+  if (status === "PAID") return null;
+  if (!dueDate) throw new Error("Tanggal jatuh tempo wajib diisi untuk pembelian kredit.");
+  const parsed = new Date(`${dueDate}T23:59:59`);
+  if (Number.isNaN(parsed.getTime())) throw new Error("Tanggal jatuh tempo tidak valid.");
+  return parsed;
+}
+
+function generateSupplierPaymentCode(paidAt: Date) {
+  const prefix = `SPAY-${paidAt.getFullYear()}${String(paidAt.getMonth() + 1).padStart(2, "0")}`;
+  return `${prefix}-${randomBytes(4).toString("hex").toUpperCase()}`;
 }
 
 async function fetchFGStocks(): Promise<FGStockRow[]> {
   const products = await (await requireTenantPrisma()).product.findMany({
     where: { type: "FINISHED_GOODS", isActive: true },
     include: {
-      ledgerEntries: {
-        select: { entryType: true, quantityUnit: true },
-      },
       productionBatches: {
         where: { status: "COMPLETED" },
         orderBy: { producedAt: "desc" },
@@ -212,11 +232,6 @@ async function fetchFGStocks(): Promise<FGStockRow[]> {
   });
 
   return products.map((p) => {
-    const stockUnit = p.ledgerEntries.reduce((sum, e) => {
-      const qty = Number(e.quantityUnit ?? 0);
-      return e.entryType === "IN" ? sum + qty : sum - qty;
-    }, 0);
-
     const latestHppPerUnit = p.productionBatches[0] 
       ? Number(p.productionBatches[0].hppPerUnit) 
       : null;
@@ -226,8 +241,46 @@ async function fetchFGStocks(): Promise<FGStockRow[]> {
       code: p.code,
       name: p.name,
       type: "FINISHED_GOODS",
-      stockUnit,
+      stockUnit: p.stockUnit,
       latestHppPerUnit,
+    };
+  });
+}
+
+async function fetchLedgerHistory(): Promise<LedgerHistoryRow[]> {
+  const entries = await (await requireTenantPrisma()).inventoryLedger.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 500,
+    select: {
+      id: true,
+      createdAt: true,
+      entryType: true,
+      refType: true,
+      refId: true,
+      quantityKg: true,
+      quantityUnit: true,
+      notes: true,
+      product: { select: { code: true, name: true } },
+      packaging: { select: { code: true, name: true } },
+      createdBy: { select: { name: true } },
+    },
+  });
+
+  return entries.map((entry) => {
+    const usesKg = entry.quantityKg !== null;
+    return {
+      id: entry.id,
+      createdAt: entry.createdAt.toISOString(),
+      itemName: entry.product?.name ?? entry.packaging?.name ?? "Item dihapus",
+      itemCode: entry.product?.code ?? entry.packaging?.code ?? "-",
+      itemType: entry.product ? "PRODUCT" : "PACKAGING",
+      entryType: entry.entryType,
+      refType: entry.refType,
+      refId: entry.refId,
+      quantity: usesKg ? Number(entry.quantityKg) : Number(entry.quantityUnit ?? 0),
+      unit: usesKg ? "kg" : "unit",
+      notes: entry.notes,
+      createdByName: entry.createdBy.name,
     };
   });
 }
@@ -237,12 +290,13 @@ async function fetchFGStocks(): Promise<FGStockRow[]> {
 // =============================================================================
 
 export async function getInventoryPageData(): Promise<InventoryPageData> {
-  const [gbStocks, rbStocks, pkgStocks, fgStocks, suppliers, gbProducts] =
+  const [gbStocks, rbStocks, pkgStocks, fgStocks, ledgerEntries, suppliers, gbProducts] =
     await Promise.all([
       fetchProductStocks("GREEN_BEAN"),
       fetchProductStocks("ROASTED_BEAN"),
       fetchPackagingStocks(),
       fetchFGStocks(),
+      fetchLedgerHistory(),
       (await requireTenantPrisma()).supplier.findMany({
         where: { isActive: true },
         select: { id: true, code: true, name: true },
@@ -255,7 +309,7 @@ export async function getInventoryPageData(): Promise<InventoryPageData> {
       }),
     ]);
 
-  return { gbStocks, rbStocks, pkgStocks, fgStocks, suppliers, gbProducts };
+  return { gbStocks, rbStocks, pkgStocks, fgStocks, ledgerEntries, suppliers, gbProducts };
 }
 
 // Tambah packaging options ke page data helper
@@ -286,7 +340,9 @@ export async function createGreenBeanPurchase(
   input: PurchaseActionInput
 ): Promise<ActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
     const userId = await getSystemUserId();
+    const tenantId = await getCurrentTenantId();
 
     // 1. Find or create Product
     let product = input.productId
@@ -296,7 +352,7 @@ export async function createGreenBeanPurchase(
     if (!product && input.productName) {
       const code = await generateProductCode(input.productName);
       product = await (await requireTenantPrisma()).product.upsert({
-        where: { code },
+        where: { tenantId_code: { tenantId, code } },
         create: {
           code,
           name: input.productName,
@@ -316,6 +372,16 @@ export async function createGreenBeanPurchase(
     const pricePerKg = input.pricePerKg;
     const shippingCost = input.shippingCost ?? 0;
     const totalCost = pricePerKg * weightKg + shippingCost;
+    const payment = resolveInitialPurchasePayment(
+      totalCost,
+      input.paymentStatus,
+      input.initialPaidAmount,
+    );
+    const dueDate = parsePurchaseDueDate(payment.paymentStatus, input.dueDate);
+    const receivedAt = new Date(`${input.receivedAt}T00:00:00`);
+    if (Number.isNaN(receivedAt.getTime())) {
+      return { success: false, error: "Tanggal penerimaan tidak valid." };
+    }
 
     // 3. Generate kode
     const purchaseCode = await generatePurchaseCode();
@@ -333,11 +399,28 @@ export async function createGreenBeanPurchase(
           shippingCost: shippingCost,
           totalCost: totalCost,
           status: "COMPLETED",
-          receivedAt: new Date(input.receivedAt),
+          paymentStatus: payment.paymentStatus,
+          paidAmount: payment.paidAmount,
+          dueDate,
+          receivedAt,
           notes: input.notes ?? null,
           createdById: userId,
         },
       });
+
+      if (payment.paidAmount > 0) {
+        await tx.supplierPayment.create({
+          data: {
+            code: generateSupplierPaymentCode(receivedAt),
+            purchaseId: purchase.id,
+            amount: payment.paidAmount,
+            method: input.paymentMethod ?? "CASH",
+            paidAt: receivedAt,
+            notes: payment.paymentStatus === "PARTIAL" ? "Uang muka pembelian" : "Pembayaran pembelian",
+            createdById: userId,
+          },
+        });
+      }
 
       await appendLedger(tx, {
         data: {
@@ -346,8 +429,24 @@ export async function createGreenBeanPurchase(
           refType: "PURCHASE_GB",
           refId: purchase.id,
           quantityKg: weightKg,
+          incomingPrice: totalCost / weightKg,
           notes: `Barang datang: ${purchase.code}`,
           createdById: userId,
+        },
+      });
+
+      await recordAudit(tx, {
+        tenantId,
+        userId,
+        action: "CREATE",
+        entityType: "Purchase",
+        entityId: purchase.id,
+        after: {
+          code: purchase.code,
+          type: purchase.type,
+          totalCost: Number(purchase.totalCost),
+          paymentStatus: purchase.paymentStatus,
+          paidAmount: Number(purchase.paidAmount),
         },
       });
     });
@@ -371,7 +470,9 @@ export async function createPackagingPurchase(
   input: PackagingPurchaseInput
 ): Promise<ActionResult> {
   try {
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
     const userId = await getSystemUserId();
+    const tenantId = await getCurrentTenantId();
 
     const packaging = await (await requireTenantPrisma()).packaging.findUnique({
       where: { id: input.packagingId },
@@ -379,6 +480,16 @@ export async function createPackagingPurchase(
     if (!packaging) return { success: false, error: "Kemasan tidak ditemukan." };
 
     const totalCost = input.pricePerUnit * input.quantityUnits + input.shippingCost;
+    const payment = resolveInitialPurchasePayment(
+      totalCost,
+      input.paymentStatus,
+      input.initialPaidAmount,
+    );
+    const dueDate = parsePurchaseDueDate(payment.paymentStatus, input.dueDate);
+    const receivedAt = new Date(`${input.receivedAt}T00:00:00`);
+    if (Number.isNaN(receivedAt.getTime())) {
+      return { success: false, error: "Tanggal penerimaan tidak valid." };
+    }
     const purchaseCode = await generatePurchaseCode();
 
     await (await requireTenantPrisma()).$transaction(async (tx) => {
@@ -393,11 +504,28 @@ export async function createPackagingPurchase(
           shippingCost: input.shippingCost,
           totalCost,
           status:       "COMPLETED",
-          receivedAt:   new Date(input.receivedAt),
+          paymentStatus: payment.paymentStatus,
+          paidAmount:   payment.paidAmount,
+          dueDate,
+          receivedAt,
           notes:        input.notes ?? null,
           createdById:  userId,
         },
       });
+
+      if (payment.paidAmount > 0) {
+        await tx.supplierPayment.create({
+          data: {
+            code: generateSupplierPaymentCode(receivedAt),
+            purchaseId: purchase.id,
+            amount: payment.paidAmount,
+            method: input.paymentMethod ?? "CASH",
+            paidAt: receivedAt,
+            notes: payment.paymentStatus === "PARTIAL" ? "Uang muka pembelian" : "Pembayaran pembelian",
+            createdById: userId,
+          },
+        });
+      }
 
       await appendLedger(tx, {
         data: {
@@ -406,8 +534,24 @@ export async function createPackagingPurchase(
           refType:      "PURCHASE_PKG",
           refId:        purchase.id,
           quantityUnit: input.quantityUnits,
+          incomingPrice: totalCost / input.quantityUnits,
           notes:        `Kemasan datang: ${purchase.code}`,
           createdById:  userId,
+        },
+      });
+
+      await recordAudit(tx, {
+        tenantId,
+        userId,
+        action: "CREATE",
+        entityType: "Purchase",
+        entityId: purchase.id,
+        after: {
+          code: purchase.code,
+          type: purchase.type,
+          totalCost: Number(purchase.totalCost),
+          paymentStatus: purchase.paymentStatus,
+          paidAmount: Number(purchase.paidAmount),
         },
       });
     });
@@ -430,6 +574,7 @@ export async function createPackaging(data: {
   costPerUnit: number;
 }) {
   try {
+    await requireRole("OWNER", "MANAGER");
     const newPkg = await (await requireTenantPrisma()).packaging.create({
       data: {
         code: data.code,
@@ -464,7 +609,9 @@ export async function adjustStock(input: {
   notes: string;
 }) {
   try {
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
     const userId = await getSystemUserId();
+    const tenantId = await getCurrentTenantId();
     
     // Validasi input
     if (input.quantity <= 0) {
@@ -474,7 +621,7 @@ export async function adjustStock(input: {
     await (await requireTenantPrisma()).$transaction(async (tx) => {
       let qtyKg: number | null = null;
       let qtyUnit: number | null = null;
-      let refType: "ADJUSTMENT_IN" | "ADJUSTMENT_OUT" = input.type === "IN" ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT";
+      const refType: "ADJUSTMENT_IN" | "ADJUSTMENT_OUT" = input.type === "IN" ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT";
 
       if (input.isPackaging) {
         qtyUnit = input.quantity;
@@ -500,6 +647,19 @@ export async function adjustStock(input: {
           notes:       input.notes || "Penyesuaian stok fisik (Opname)",
           createdById: userId,
         }
+      });
+
+      await recordAudit(tx, {
+        tenantId,
+        userId,
+        action: "ADJUST",
+        entityType: input.isPackaging ? "PackagingStock" : "ProductStock",
+        entityId: input.targetId,
+        metadata: {
+          direction: input.type,
+          quantity: input.quantity,
+          notes: input.notes,
+        },
       });
     });
 

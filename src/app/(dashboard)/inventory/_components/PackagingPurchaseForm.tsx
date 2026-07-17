@@ -29,7 +29,30 @@ const purchaseSchema = z.object({
   quantityUnits: z.number({ error: "Harus angka" }).int().positive("Qty harus > 0"),
   pricePerUnit:  z.number({ error: "Harus angka" }).min(0, "Harga minimal 0"),
   shippingCost:  z.number({ error: "Harus angka" }).min(0),
+  paymentStatus: z.enum(["PAID", "PARTIAL", "UNPAID"]),
+  initialPaidAmount: z.number().min(0).optional(),
+  paymentMethod: z.enum(["CASH", "TRANSFER", "QRIS"]),
+  dueDate: z.string().optional(),
   notes:         z.string().optional(),
+}).superRefine((data, ctx) => {
+  const totalCost = data.quantityUnits * data.pricePerUnit + data.shippingCost;
+  if (
+    data.paymentStatus === "PARTIAL"
+    && (!data.initialPaidAmount || data.initialPaidAmount >= totalCost)
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["initialPaidAmount"],
+      message: "Uang muka harus lebih dari 0 dan lebih kecil dari total",
+    });
+  }
+  if (data.paymentStatus !== "PAID" && !data.dueDate) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["dueDate"],
+      message: "Tanggal jatuh tempo wajib diisi",
+    });
+  }
 });
 
 const quickAddSchema = z.object({
@@ -69,7 +92,15 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
   // Form Utama (Pembelian)
   const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(purchaseSchema),
-    defaultValues: { receivedAt: today, shippingCost: 0, pricePerUnit: 0 },
+    defaultValues: {
+      receivedAt: today,
+      shippingCost: 0,
+      pricePerUnit: 0,
+      paymentStatus: "PAID",
+      initialPaidAmount: 0,
+      paymentMethod: "CASH",
+      dueDate: "",
+    },
   });
 
   // Form Mini (Quick Add Kemasan)
@@ -81,6 +112,7 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
   const qty   = watch("quantityUnits") ?? 0;
   const price = watch("pricePerUnit")  ?? 0;
   const ship  = watch("shippingCost")  ?? 0;
+  const paymentStatus = watch("paymentStatus");
   const total = qty * price + ship;
 
   // Submit Pembelian
@@ -208,6 +240,56 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
             <span className="font-mono font-bold text-slate-800 text-lg">
               {total.toLocaleString("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 })}
             </span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-700">Status Pembayaran</Label>
+            <select
+              className={cn("w-full h-9 rounded-lg border px-3 text-sm outline-none", glassInput)}
+              {...register("paymentStatus")}
+            >
+              <option value="PAID">Lunas</option>
+              <option value="PARTIAL">Bayar Sebagian</option>
+              <option value="UNPAID">Belum Dibayar</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-700">Metode</Label>
+            <select
+              disabled={paymentStatus === "UNPAID"}
+              className={cn("w-full h-9 rounded-lg border px-3 text-sm outline-none disabled:opacity-50", glassInput)}
+              {...register("paymentMethod")}
+            >
+              <option value="CASH">Tunai</option>
+              <option value="TRANSFER">Transfer</option>
+              <option value="QRIS">QRIS</option>
+            </select>
+          </div>
+        </div>
+
+        {paymentStatus === "PARTIAL" && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-700">Uang Muka (Rp)</Label>
+            <Input
+              type="number"
+              min="1"
+              step="1"
+              className={cn(glassInput, "text-right tabular-nums")}
+              {...register("initialPaidAmount", { valueAsNumber: true })}
+            />
+            {errors.initialPaidAmount && (
+              <p className="text-xs text-red-500 font-medium">{errors.initialPaidAmount.message}</p>
+            )}
+          </div>
+        )}
+
+        {paymentStatus !== "PAID" && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-700">Jatuh Tempo</Label>
+            <Input type="date" className={glassInput} {...register("dueDate")} />
+            {errors.dueDate && <p className="text-xs text-red-500 font-medium">{errors.dueDate.message}</p>}
           </div>
         )}
 

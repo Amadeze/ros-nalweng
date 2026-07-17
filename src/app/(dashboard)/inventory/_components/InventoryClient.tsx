@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Loader2, Package } from "lucide-react";
+import { Boxes, Download, History, Loader2, Package, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StandardPageLayout } from "@/components/StandardPageLayout";
 import { StandardDrawer } from "@/components/StandardDrawer";
@@ -9,8 +9,10 @@ import { StockTable } from "./StockTable";
 import { PurchaseForm } from "./PurchaseForm";
 import { PackagingPurchaseForm } from "./PackagingPurchaseForm";
 import { StockAdjustmentDrawer } from "./StockAdjustmentDrawer";
+import { LedgerHistoryTable } from "./LedgerHistoryTable";
 import type {
   GBProductOption,
+  LedgerHistoryRow,
   PackagingStockRow,
   ProductStockRow,
   FGStockRow,
@@ -24,18 +26,21 @@ interface InventoryClientProps {
   rbStocks:   ProductStockRow[];
   fgStocks:   FGStockRow[];
   pkgStocks:  PackagingStockRow[];
+  ledgerEntries: LedgerHistoryRow[];
   suppliers:  SupplierOption[];
   gbProducts: GBProductOption[];
   packagings: PackagingOption[];
 }
 
 export function InventoryClient({
-  gbStocks, rbStocks, fgStocks, pkgStocks, suppliers, gbProducts, packagings,
+  gbStocks, rbStocks, fgStocks, pkgStocks, ledgerEntries, suppliers, gbProducts, packagings,
 }: InventoryClientProps) {
   const [gbDrawerOpen,  setGbDrawerOpen]  = useState(false);
   const [pkgDrawerOpen, setPkgDrawerOpen] = useState(false);
   const [adjDrawerOpen, setAdjDrawerOpen] = useState(false);
   const [isSubmitting,  setIsSubmitting]  = useState(false);
+  const [activeView, setActiveView] = useState<"stock" | "ledger">("stock");
+  const [filteredLedger, setFilteredLedger] = useState(ledgerEntries);
 
   const adjustmentItems = [
     ...gbStocks.map(i => ({ id: i.id, label: i.name, type: "GREEN_BEAN" as const, currentStock: Number(i.stockKg) })),
@@ -59,40 +64,72 @@ export function InventoryClient({
                 import('jspdf').then(({ jsPDF }) => {
                   import('jspdf-autotable').then(({ default: autoTable }) => {
                     const doc = new jsPDF();
-                    doc.text("Laporan Stok Green Bean", 14, 15);
-                    const tableData = gbStocks.map(i => [
-                      i.name, i.stockKg, i.latestHppPerKg || 0
-                    ]);
+                    const isLedger = activeView === "ledger";
+                    doc.text(isLedger ? "Riwayat Ledger Inventory" : "Laporan Stok Green Bean", 14, 15);
+                    const tableData = isLedger
+                      ? filteredLedger.map((entry) => [
+                          new Date(entry.createdAt).toLocaleString("id-ID"),
+                          entry.itemCode,
+                          entry.itemName,
+                          entry.entryType,
+                          entry.quantity,
+                          entry.unit,
+                          entry.refType,
+                        ])
+                      : gbStocks.map(i => [i.name, i.stockKg, i.latestHppPerKg || 0]);
                     autoTable(doc, {
-                      head: [['Nama Green Bean', 'Stok (Kg)', 'HPP/Kg']],
+                      head: isLedger
+                        ? [["Waktu", "Kode", "Item", "Arah", "Jumlah", "Unit", "Referensi"]]
+                        : [['Nama Green Bean', 'Stok (Kg)', 'HPP/Kg']],
                       body: tableData,
                       startY: 20
                     });
-                    doc.save("Laporan_Stok.pdf");
+                    doc.save(isLedger ? "Riwayat_Ledger_Inventory.pdf" : "Laporan_Stok.pdf");
                   });
                 });
               }}
             >
-              Export PDF
+              <Download size={14} />
+              PDF
             </Button>
             <Button
               size="sm"
               variant="outline"
               className="bg-white/50 border-white/60 text-slate-700 shadow-sm backdrop-blur-md hover:bg-white/70"
-              onClick={() => {
-                import('xlsx').then((XLSX) => {
-                  const ws = XLSX.utils.json_to_sheet(gbStocks.map(i => ({
-                    'Nama': i.name,
-                    'Stok (Kg)': i.stockKg,
-                    'HPP/Kg': i.latestHppPerKg || 0
-                  })));
-                  const wb = XLSX.utils.book_new();
-                  XLSX.utils.book_append_sheet(wb, ws, "Stok GB");
-                  XLSX.writeFile(wb, "Laporan_Stok.xlsx");
-                });
+              onClick={async () => {
+                const { default: writeXlsxFile } = await import("write-excel-file/browser");
+                const isLedger = activeView === "ledger";
+                const rows = isLedger
+                  ? [
+                      ["Waktu", "Kode", "Item", "Arah", "Jumlah", "Unit", "Referensi", "ID Referensi", "Catatan", "Operator"],
+                      ...filteredLedger.map((entry) => [
+                        new Date(entry.createdAt).toLocaleString("id-ID"),
+                        entry.itemCode,
+                        entry.itemName,
+                        entry.entryType,
+                        entry.quantity,
+                        entry.unit,
+                        entry.refType,
+                        entry.refId,
+                        entry.notes ?? "",
+                        entry.createdByName,
+                      ]),
+                    ]
+                  : [
+                      ["Nama", "Stok (Kg)", "HPP/Kg"],
+                      ...gbStocks.map((item) => [
+                        item.name,
+                        item.stockKg,
+                        item.latestHppPerKg || 0,
+                      ]),
+                    ];
+                await writeXlsxFile(rows, {
+                  sheet: isLedger ? "Ledger" : "Stok GB",
+                }).toFile(isLedger ? "Riwayat_Ledger_Inventory.xlsx" : "Laporan_Stok.xlsx");
               }}
             >
-              Export Excel
+              <Download size={14} />
+              Excel
             </Button>
             <Button
               size="sm"
@@ -122,7 +159,33 @@ export function InventoryClient({
           </div>
         }
       >
-        <StockTable gbStocks={gbStocks} rbStocks={rbStocks} fgStocks={fgStocks} pkgStocks={pkgStocks} />
+        <div className="mb-4 inline-flex rounded-lg border border-white/60 bg-white/40 p-1 shadow-sm backdrop-blur-md">
+          <Button
+            type="button"
+            size="sm"
+            variant={activeView === "stock" ? "default" : "ghost"}
+            className="gap-2 rounded-md"
+            onClick={() => setActiveView("stock")}
+          >
+            <Boxes size={14} />
+            Stok
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={activeView === "ledger" ? "default" : "ghost"}
+            className="gap-2 rounded-md"
+            onClick={() => setActiveView("ledger")}
+          >
+            <History size={14} />
+            Ledger
+          </Button>
+        </div>
+        {activeView === "stock" ? (
+          <StockTable gbStocks={gbStocks} rbStocks={rbStocks} fgStocks={fgStocks} pkgStocks={pkgStocks} />
+        ) : (
+          <LedgerHistoryTable entries={ledgerEntries} onFilteredEntriesChange={setFilteredLedger} />
+        )}
       </StandardPageLayout>
 
       {/* ── Green Bean Drawer ── */}

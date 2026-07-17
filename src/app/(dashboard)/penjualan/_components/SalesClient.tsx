@@ -94,19 +94,20 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
               size="default"
               variant="outline"
               className="gap-2 rounded-xl font-semibold px-4"
-              onClick={() => {
-                import('xlsx').then((XLSX) => {
-                  const ws = XLSX.utils.json_to_sheet(invoices.map(i => ({
-                    'Kode Invoice': i.code,
-                    'Pelanggan': i.customerName,
-                    'Tanggal': new Date(i.issuedAt).toLocaleDateString(),
-                    'Status': i.status,
-                    'Total': i.grandTotal
-                  })));
-                  const wb = XLSX.utils.book_new();
-                  XLSX.utils.book_append_sheet(wb, ws, "Penjualan");
-                  XLSX.writeFile(wb, "Laporan_Penjualan.xlsx");
-                });
+              onClick={async () => {
+                const { default: writeXlsxFile } = await import("write-excel-file/browser");
+                await writeXlsxFile([
+                  ["Kode Invoice", "Pelanggan", "Tanggal", "Status", "Total"],
+                  ...invoices.map((invoice) => [
+                    invoice.code,
+                    invoice.customerName,
+                    new Date(invoice.issuedAt).toLocaleDateString("id-ID"),
+                    invoice.status,
+                    invoice.grandTotal,
+                  ]),
+                ], {
+                  sheet: "Penjualan",
+                }).toFile("Laporan_Penjualan.xlsx");
               }}
             >
               Export Excel

@@ -1,5 +1,18 @@
 import type { Metadata, Viewport } from "next"; // <-- Tambahkan Viewport di sini
-import { Geist, Geist_Mono } from "next/font/google";
+import {
+  DM_Sans,
+  EB_Garamond,
+  Geist,
+  Geist_Mono,
+  Inter,
+  JetBrains_Mono,
+  Nunito,
+  Orbitron,
+  Playfair_Display,
+  Source_Serif_4,
+  Space_Grotesk,
+  Space_Mono,
+} from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -14,6 +27,71 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+const playfairDisplay = Playfair_Display({
+  variable: "--font-playfair-display",
+  subsets: ["latin"],
+  preload: false,
+});
+const jetBrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+  preload: false,
+});
+const orbitron = Orbitron({
+  variable: "--font-orbitron",
+  subsets: ["latin"],
+  preload: false,
+});
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  preload: false,
+});
+const sourceSerif = Source_Serif_4({
+  variable: "--font-source-serif",
+  subsets: ["latin"],
+  preload: false,
+});
+const nunito = Nunito({
+  variable: "--font-nunito",
+  subsets: ["latin"],
+  preload: false,
+});
+const spaceMono = Space_Mono({
+  variable: "--font-space-mono",
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  preload: false,
+});
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  preload: false,
+});
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  preload: false,
+});
+const ebGaramond = EB_Garamond({
+  variable: "--font-eb-garamond",
+  subsets: ["latin"],
+  preload: false,
+});
+
+const storefrontFonts = [
+  playfairDisplay.variable,
+  jetBrainsMono.variable,
+  orbitron.variable,
+  dmSans.variable,
+  sourceSerif.variable,
+  nunito.variable,
+  spaceMono.variable,
+  spaceGrotesk.variable,
+  inter.variable,
+  ebGaramond.variable,
+].join(" ");
 
 export const metadata: Metadata = {
   title: "Roastery OS - Beanslab",
@@ -36,7 +114,7 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${storefrontFonts} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="h-full">

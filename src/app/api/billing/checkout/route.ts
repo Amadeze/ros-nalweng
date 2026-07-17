@@ -4,20 +4,36 @@ import { getIronSession } from "iron-session";
 import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import midtransClient from "midtrans-client";
+import {
+  enforceRateLimit,
+  RateLimitError,
+  requestIdentifier,
+} from "@/lib/rate-limit";
+import { PLAN_CATALOG } from "@/lib/plans";
+import {
+  getRequestId,
+  internalErrorResponse,
+  logServerError,
+} from "@/lib/api-observability";
 
 export async function POST(req: Request) {
+  const requestId = getRequestId(req.headers);
   try {
     const session = await getIronSession<{ user?: SessionUser }>(await cookies(), SESSION_OPTIONS);
-    if (!session.user || !session.user.tenantId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session.user || session.user.role !== "OWNER") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    await enforceRateLimit({
+      scope: "subscription-checkout",
+      identifier: `${session.user.tenantId}:${requestIdentifier(req.headers)}`,
+      limit: 10,
+      windowSeconds: 60 * 60,
+    });
 
-    const { tier } = await req.json();
-
-    let amount = 0;
-    if (tier === "PRO") amount = 299000;
-
-    if (amount === 0) {
+    const body = (await req.json()) as { tier?: string };
+    const tier = body.tier as "BASIC" | "PRO";
+    const amount = PLAN_CATALOG[tier]?.monthlyPrice;
+    if (!amount) {
       return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
     }
 
@@ -25,15 +41,24 @@ export async function POST(req: Request) {
       where: { id: session.user.tenantId }
     });
 
-    if (!tenant) {
+    if (!tenant || !tenant.isActive) {
       return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+    }
+
+    const serverKey = process.env.MIDTRANS_SERVER_KEY;
+    const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
+    if (!serverKey || !clientKey) {
+      return NextResponse.json(
+        { error: "Subscription payment gateway is not configured" },
+        { status: 503 },
+      );
     }
 
     // Prepare Midtrans Snap (Superadmin's Midtrans Account)
     const snap = new midtransClient.Snap({
       isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
-      serverKey: process.env.MIDTRANS_SERVER_KEY || "",
-      clientKey: process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || "",
+      serverKey,
+      clientKey,
     });
 
     const orderId = `SUB-${tenant.id}-${Date.now()}`;
@@ -75,8 +100,14 @@ export async function POST(req: Request) {
       redirect_url: transaction.redirect_url
     });
 
-  } catch (error: any) {
-    console.error("Checkout Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 429, headers: { "Retry-After": String(error.retryAfter) } },
+      );
+    }
+    logServerError("billing.checkout", error, { requestId });
+    return internalErrorResponse(requestId, "Unable to create subscription payment");
   }
 }

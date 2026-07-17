@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { PLAN_CATALOG } from "@/lib/plans";
+import { getTenantAccessState } from "@/lib/subscription";
 import { SuperadminShell } from "./_components/SuperadminShell";
 
 export const dynamic = "force-dynamic";
@@ -22,9 +24,9 @@ export default async function SuperadminDashboard() {
   let activeCount = 0;
   
   tenants.forEach(t => {
-    if (t.isActive && t.subscriptionStatus === "ACTIVE") {
+    if (getTenantAccessState(t) === "ACTIVE") {
       activeCount++;
-      if (t.subscriptionTier === "PRO") mrr += 299000;
+      mrr += PLAN_CATALOG[t.subscriptionTier].monthlyPrice ?? 0;
     }
   });
 
@@ -33,7 +35,7 @@ export default async function SuperadminDashboard() {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const newTenantsThisMonth = tenants.filter(t => new Date(t.createdAt) >= startOfMonth).length;
 
-  // Mock Tenant Growth Data (Last 6 months) for the chart
+  // Tenant growth over the last six calendar months.
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const growthData = Array.from({length: 6}).map((_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
@@ -41,8 +43,7 @@ export default async function SuperadminDashboard() {
     // Calculate how many tenants existed at the end of that month
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() - 4 + i, 0);
     const count = tenants.filter(t => new Date(t.createdAt) <= endOfMonth).length;
-    // Just add some random variance if count is 0 to show the chart is working during early stages
-    return { name: m, tenants: count > 0 ? count : (i + 1) * 2 };
+    return { name: m, tenants: count };
   });
 
   const recentTenants = tenants.slice(0, 5).map(t => ({

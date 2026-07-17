@@ -1,5 +1,8 @@
+"use client";
+
 import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -13,14 +16,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatKg, formatDate } from "@/lib/format";
 import { VoidConfirmDialog } from "@/components/VoidConfirmDialog";
-import { voidRoastingBatch } from "../actions";
-import type { RoastingBatchRow } from "../actions";
+import { voidParentRoastingBatch, completeParentRoastingBatch, type ParentRoastingBatchRow } from "../actions";
 
 // ─────────────────────────────────────────────
 // Shrinkage badge
 // ─────────────────────────────────────────────
 
-function ShrinkageBadge({ percent }: { percent: number }) {
+function ShrinkageBadge({ percent }: { percent: number | null }) {
+  if (percent === null) {
+    return <span className="text-xs text-zinc-400 font-medium">-</span>;
+  }
   const label = `${percent.toFixed(1)}%`;
   const className =
     percent > 25
@@ -79,7 +84,7 @@ function EmptyState({ isFiltered }: { isFiltered: boolean }) {
 // ─────────────────────────────────────────────
 
 interface RoastingHistoryTableProps {
-  batches: RoastingBatchRow[];
+  batches: ParentRoastingBatchRow[];
 }
 
 // ─────────────────────────────────────────────
@@ -87,7 +92,11 @@ interface RoastingHistoryTableProps {
 // ─────────────────────────────────────────────
 
 export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
-  const [voidTarget, setVoidTarget] = useState<RoastingBatchRow | null>(null);
+  const [voidTarget, setVoidTarget] = useState<ParentRoastingBatchRow | null>(null);
+  const [completeTarget, setCompleteTarget] = useState<ParentRoastingBatchRow | null>(null);
+  const [actualOutputKg, setActualOutputKg] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
 
@@ -101,6 +110,27 @@ export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
       return matchSearch && matchStatus;
     });
   }, [batches, searchTerm, statusFilter]);
+
+  const handleComplete = async () => {
+    if (!completeTarget) return;
+    const kg = parseFloat(actualOutputKg);
+    if (isNaN(kg) || kg <= 0) {
+      toast.error("Berat keluar harus lebih dari 0");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const result = await completeParentRoastingBatch(completeTarget.id, kg);
+    setIsSubmitting(false);
+
+    if (result.success) {
+      toast.success("Laporan berhasil diselesaikan!");
+      setCompleteTarget(null);
+      setActualOutputKg("");
+    } else {
+      toast.error(result.error);
+    }
+  };
 
   return (
     <>
@@ -157,21 +187,16 @@ export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
                   <p className="text-sm text-zinc-900">{b.outputProductName}</p>
                 </TableCell>
                 <TableCell  className="text-right font-mono text-sm text-zinc-700">
-                  {formatKg(b.inputWeightKg)}
+                  {formatKg(b.targetWeightKg)}
                 </TableCell>
                 <TableCell  className="text-right font-mono text-sm font-semibold text-zinc-900">
-                  {formatKg(b.outputWeightKg)}
+                  {b.actualOutputKg ? formatKg(b.actualOutputKg) : "-"}
                 </TableCell>
                 <TableCell className="text-center">
-                  <ShrinkageBadge percent={b.roastLossPercent} />
+                  <ShrinkageBadge percent={b.totalShrinkagePercent} />
                 </TableCell>
                 <TableCell className="text-sm text-zinc-500">
-                  {formatDate(b.roastedAt)}
-                  {b.roastDurationMin && (
-                    <span className="ml-1 text-xs text-zinc-400">
-                      ({b.roastDurationMin} min)
-                    </span>
-                  )}
+                  {formatDate(b.createdAt)}
                 </TableCell>
                 <TableCell className="text-center">
                   <StatusBadge status={b.status} />
@@ -185,6 +210,16 @@ export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
                       onClick={() => setVoidTarget(b)}
                     >
                       Void
+                    </Button>
+                  )}
+                  {b.status === "PENDING" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-xs text-indigo-500 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg"
+                      onClick={() => setCompleteTarget(b)}
+                    >
+                      Selesaikan
                     </Button>
                   )}
                 </TableCell>
@@ -213,23 +248,28 @@ export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-mono text-sm font-black text-slate-900">{formatKg(b.outputWeightKg)}</p>
-                <p className="font-mono text-[10px] font-bold text-slate-500 mt-0.5">Masuk: {formatKg(b.inputWeightKg)}</p>
+                <p className="font-mono text-sm font-black text-slate-900">{b.actualOutputKg ? formatKg(b.actualOutputKg) : "-"}</p>
+                <p className="font-mono text-[10px] font-bold text-slate-500 mt-0.5">Masuk: {formatKg(b.targetWeightKg)}</p>
               </div>
             </div>
-            
+
             <div className="flex justify-between items-end mt-2 pt-2 border-t border-white/40">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
                   <StatusBadge status={b.status} />
-                  <ShrinkageBadge percent={b.roastLossPercent} />
+                  <ShrinkageBadge percent={b.totalShrinkagePercent} />
                 </div>
-                <span className="text-[10px] font-semibold text-slate-500">{formatDate(b.roastedAt)}</span>
+                <span className="text-[10px] font-semibold text-slate-500">{formatDate(b.createdAt)}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 {b.status === "COMPLETED" && (
                   <Button size="sm" variant="ghost" onClick={() => setVoidTarget(b)} className="h-7 px-2.5 text-[11px] font-bold uppercase text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg">
                     Void
+                  </Button>
+                )}
+                {b.status === "PENDING" && (
+                  <Button size="sm" variant="ghost" onClick={() => setCompleteTarget(b)} className="h-7 px-2.5 text-[11px] font-bold uppercase text-indigo-500 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">
+                    Validasi Sore
                   </Button>
                 )}
               </div>
@@ -245,14 +285,45 @@ export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
       title={`Void Batch ${voidTarget?.code ?? ""}`}
       description="Tindakan ini akan membalik mutasi stok Green Bean dan Roasted Bean. Tidak dapat dibatalkan."
       onConfirm={async (reason) => {
-        const result = await voidRoastingBatch(voidTarget!.id, reason);
+        const result = await voidParentRoastingBatch(voidTarget!.id, reason);
         return result;
       }}
     />
+
+    {completeTarget && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95">
+          <div className="p-5">
+            <h3 className="font-bold text-lg mb-1">Validasi Akhir Sesi</h3>
+            <p className="text-xs text-slate-500 mb-4">Selesaikan {completeTarget.code} ({completeTarget.outputProductName}) dengan menginput berat akhir.</p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Berat Masuk (Kg)</label>
+                <Input value={completeTarget.targetWeightKg} disabled className="bg-slate-50 font-mono text-sm" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Berat Keluar / Matang (Kg)</label>
+                <Input
+                  type="number"
+                  autoFocus
+                  placeholder="Contoh: 16.5"
+                  value={actualOutputKg}
+                  onChange={(e) => setActualOutputKg(e.target.value)}
+                  className="font-mono text-sm font-bold border-indigo-200 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="bg-slate-50 p-4 border-t flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => { setCompleteTarget(null); setActualOutputKg(""); }}>Batal</Button>
+            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={isSubmitting} onClick={handleComplete}>
+              {isSubmitting ? "Menyimpan..." : "Selesaikan Laporan"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }
-
-
-
-

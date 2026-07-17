@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ThemeProps } from "../ThemeProps";
 import { motion, AnimatePresence } from "framer-motion";
 import { Crown, Gem, Award, Shield, Star, Plus, Minus, ArrowRight } from "lucide-react";
+import { TenantBrand } from "../TenantBrand";
 
 // =============================================================================
 // TEMA 9: LUXURY RESERVE (ELITE & ULTRA-PREMIUM)
@@ -65,7 +66,7 @@ export function LuxuryTheme({
       {/* Navigation - Classic Centered */}
       <header className="fixed top-0 w-full p-6 flex flex-col items-center gap-4 z-50 bg-[#0A0A0A]/90 backdrop-blur-sm border-b border-[var(--theme-primary,#D4AF37)]/20 transition-all rounded-[var(--theme-radius)]">
         <div className="text-xl md:text-2xl uppercase tracking-[0.3em] text-[var(--theme-primary,#D4AF37)] font-bold">
-          {tenant?.name || "Luxury Reserve"}
+          <TenantBrand tenant={tenant} fallback="Luxury Reserve" />
         </div>
         <div className="flex gap-8 md:gap-12 items-center text-[10px] md:text-xs uppercase tracking-[0.2em]  text-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)]">
           <nav className="flex gap-8 md:gap-12">
@@ -73,7 +74,7 @@ export function LuxuryTheme({
             <a href="#catalog" className="hover:text-[var(--theme-primary,#D4AF37)] transition-colors">Collection</a>
           </nav>
           <button onClick={() => setIsCartOpen(true)} className="hover:text-[var(--theme-primary,#D4AF37)] transition-colors border-l border-[color-mix(in_srgb,var(--theme-primary)_80%,transparent)]/30 pl-8 md:pl-12">
-            Cart ({cart?.items?.length || 0})
+            Cart ({cart.getTotalItems(tenant.subdomain || "")})
           </button>
         </div>
       </header>
@@ -211,7 +212,7 @@ export function LuxuryTheme({
                   {item.description || "A symphony of rare flavors, carefully roasted to perfection."}
                 </p>
                 <span className=" tracking-widest mb-6">Rp {Number(item.price).toLocaleString('id-ID')}</span>
-                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="text-xs uppercase tracking-[0.2em]  text-[var(--theme-primary,#D4AF37)] border-b border-[var(--theme-primary,#D4AF37)]/50 pb-2 hover:text-[#F3EFE0] hover:border-[#F3EFE0] transition-colors flex items-center gap-2">
+                <motion.button aria-label={`Add ${item.name} to cart`} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => handleAddToCart(item)} className="text-xs uppercase tracking-[0.2em]  text-[var(--theme-primary,#D4AF37)] border-b border-[var(--theme-primary,#D4AF37)]/50 pb-2 hover:text-[#F3EFE0] hover:border-[#F3EFE0] transition-colors flex items-center gap-2">
                   Acquire <ArrowRight className="w-4 h-4" strokeWidth={iconStroke || 2} />
                 </motion.button>
               </motion.div>
