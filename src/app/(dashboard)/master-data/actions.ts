@@ -25,6 +25,10 @@ export type CustomerRow = {
 export type PackagingRow = {
   id: string; code: string; name: string;
   weightGrams: number; costPerUnit: number; isActive: boolean;
+  reorderAlertEnabled: boolean;
+  leadTimeDays: number;
+  safetyStockQuantity: number;
+  reorderLookbackDays: number;
 };
 
 export type UserRow = {
@@ -54,6 +58,10 @@ export type ProductRow = {
   priceGold: number;
   latestHppPerKg?: number;
   recipe: ProductRecipe | null;
+  reorderAlertEnabled: boolean;
+  leadTimeDays: number;
+  safetyStockQuantity: number;
+  reorderLookbackDays: number;
 };
 
 export type MasterPageData = {
@@ -69,19 +77,20 @@ export type MasterPageData = {
 // =============================================================================
 
 export async function getMasterData(): Promise<MasterPageData> {
+  const tp = await requireTenantPrisma();
   const [suppliers, customers, products, packagings, users] = await Promise.all([
-    (await requireTenantPrisma()).supplier.findMany({
+    tp.supplier.findMany({
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { purchases: true } } },
     }),
 
-    (await requireTenantPrisma()).customer.findMany({
+    tp.customer.findMany({
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { invoices: true } } },
     }),
 
     // ✅ QUERY PRODUCT YANG SUDAH DIPERBAIKI
- (await requireTenantPrisma()).product.findMany({
+ tp.product.findMany({
   orderBy: [{ type: "asc" }, { name: "asc" }],
   select: {
     id: true,
@@ -98,6 +107,10 @@ export async function getMasterData(): Promise<MasterPageData> {
     price: true,
     priceSilver: true,
     priceGold: true,
+    reorderAlertEnabled: true,
+    leadTimeDays: true,
+    safetyStockQuantity: true,
+    reorderLookbackDays: true,
     recipes: {
       where: { isActive: true },
       select: {
@@ -133,11 +146,11 @@ export async function getMasterData(): Promise<MasterPageData> {
   },
 }),
 
-    (await requireTenantPrisma()).packaging.findMany({
+    tp.packaging.findMany({
       orderBy: { name: "asc" },
     }),
 
-    (await requireTenantPrisma()).user.findMany({
+    tp.user.findMany({
       orderBy: { createdAt: "desc" },
       select: { 
         id: true, 
@@ -155,7 +168,7 @@ export async function getMasterData(): Promise<MasterPageData> {
     .filter(p => p.type === "ROASTED_BEAN" && p.ledgerEntries[0])
     .map(p => p.ledgerEntries[0].refId);
 
-  const roastingBatches = rbLedgerRefIds.length > 0 ? await (await requireTenantPrisma()).parentRoastingBatch.findMany({
+  const roastingBatches = rbLedgerRefIds.length > 0 ? await tp.parentRoastingBatch.findMany({
     where: { id: { in: rbLedgerRefIds } },
     include: {
       inputProduct: {
@@ -245,6 +258,10 @@ export async function getMasterData(): Promise<MasterPageData> {
               })),
             }
           : null,
+        reorderAlertEnabled: p.reorderAlertEnabled,
+        leadTimeDays: p.leadTimeDays,
+        safetyStockQuantity: Number(p.safetyStockQuantity),
+        reorderLookbackDays: p.reorderLookbackDays,
       };
     }),
 
@@ -255,6 +272,10 @@ export async function getMasterData(): Promise<MasterPageData> {
       weightGrams: Number(pkg.weightGrams),
       costPerUnit: Number(pkg.costPerUnit),
       isActive: pkg.isActive,
+      reorderAlertEnabled: pkg.reorderAlertEnabled,
+      leadTimeDays: pkg.leadTimeDays,
+      safetyStockQuantity: pkg.safetyStockQuantity,
+      reorderLookbackDays: pkg.reorderLookbackDays,
     })),
 
     users: users.map((user) => ({
@@ -290,9 +311,10 @@ export async function createSupplier(input: CreateSupplierInput): Promise<Action
   try {
     await requireRole("OWNER", "MANAGER");
     if (!input.name?.trim()) return { success: false, error: "Nama supplier wajib diisi." };
-    const count = await (await requireTenantPrisma()).supplier.count();
+    const tp = await requireTenantPrisma();
+    const count = await tp.supplier.count();
     const code  = `SUP-${String(count + 1).padStart(3, "0")}`;
-    await (await requireTenantPrisma()).supplier.create({
+    await tp.supplier.create({
       data: { code, name: input.name.trim(), phone: input.phone?.trim() || null,
               address: input.address?.trim() || null, region: input.region?.trim() || null },
     });
@@ -312,9 +334,10 @@ export async function updateSupplier(input: UpdateSupplierInput): Promise<Action
   try {
     await requireRole("OWNER", "MANAGER");
     if (!input.name?.trim()) return { success: false, error: "Nama supplier wajib diisi." };
-    const existing = await (await requireTenantPrisma()).supplier.findUnique({ where: { id: input.id }, select: { code: true } });
+    const tp = await requireTenantPrisma();
+    const existing = await tp.supplier.findUnique({ where: { id: input.id }, select: { code: true } });
     if (!existing) return { success: false, error: "Supplier tidak ditemukan." };
-    await (await requireTenantPrisma()).supplier.update({
+    await tp.supplier.update({
       where: { id: input.id },
       data: { name: input.name.trim(), phone: input.phone?.trim() || null,
               address: input.address?.trim() || null, region: input.region?.trim() || null,
@@ -341,9 +364,10 @@ export async function createCustomer(input: CreateCustomerInput): Promise<Action
   try {
     await requireRole("OWNER", "MANAGER", "CASHIER");
     if (!input.name?.trim()) return { success: false, error: "Nama pelanggan wajib diisi." };
-    const count = await (await requireTenantPrisma()).customer.count();
+    const tp = await requireTenantPrisma();
+    const count = await tp.customer.count();
     const code  = `CST-${String(count + 1).padStart(3, "0")}`;
-    await (await requireTenantPrisma()).customer.create({
+    await tp.customer.create({
       data: { code, name: input.name.trim(), phone: input.phone?.trim() || null,
               email: input.email?.trim() || null, address: input.address?.trim() || null,
               tier: input.tier || "RETAIL" },
@@ -364,9 +388,10 @@ export async function updateCustomer(input: UpdateCustomerInput): Promise<Action
   try {
     await requireRole("OWNER", "MANAGER", "CASHIER");
     if (!input.name?.trim()) return { success: false, error: "Nama pelanggan wajib diisi." };
-    const existing = await (await requireTenantPrisma()).customer.findUnique({ where: { id: input.id }, select: { code: true } });
+    const tp = await requireTenantPrisma();
+    const existing = await tp.customer.findUnique({ where: { id: input.id }, select: { code: true } });
     if (!existing) return { success: false, error: "Pelanggan tidak ditemukan." };
-    await (await requireTenantPrisma()).customer.update({
+    await tp.customer.update({
       where: { id: input.id },
       data: { name: input.name.trim(), phone: input.phone?.trim() || null,
               email: input.email?.trim() || null, address: input.address?.trim() || null,
@@ -417,11 +442,12 @@ export async function createUser(input: CreateUserInput): Promise<ActionResult> 
     }
     if (!USER_ROLES.includes(input.role)) return { success: false, error: "Role pengguna tidak valid." };
 
-    const existing = await (await requireTenantPrisma()).user.findUnique({ where: { email }, select: { id: true } });
+    const tp = await requireTenantPrisma();
+    const existing = await tp.user.findUnique({ where: { email }, select: { id: true } });
     if (existing) return { success: false, error: "Email sudah digunakan pengguna lain." };
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await (await requireTenantPrisma()).user.create({
+    await tp.user.create({
       data: { name, email, password: hashedPassword, role: input.role },
     });
 
@@ -444,7 +470,8 @@ export async function updateUser(input: UpdateUserInput): Promise<ActionResult> 
     if (!email) return { success: false, error: "Email wajib diisi." };
     if (!USER_ROLES.includes(input.role)) return { success: false, error: "Role pengguna tidak valid." };
 
-    const existing = await (await requireTenantPrisma()).user.findUnique({
+    const tp = await requireTenantPrisma();
+    const existing = await tp.user.findUnique({
       where: { id: input.id },
       select: { id: true, role: true, isActive: true },
     });
@@ -464,7 +491,7 @@ export async function updateUser(input: UpdateUserInput): Promise<ActionResult> 
       existing.role === "OWNER" &&
       (input.role !== "OWNER" || !input.isActive)
     ) {
-      const otherActiveOwners = await (await requireTenantPrisma()).user.count({
+      const otherActiveOwners = await tp.user.count({
         where: {
           id: { not: input.id },
           role: "OWNER",
@@ -483,7 +510,7 @@ export async function updateUser(input: UpdateUserInput): Promise<ActionResult> 
       return { success: false, error: "Password minimal 8 karakter." };
     }
 
-    const duplicate = await (await requireTenantPrisma()).user.findFirst({
+    const duplicate = await tp.user.findFirst({
       where: { email, NOT: { id: input.id } },
       select: { id: true },
     });
@@ -506,7 +533,7 @@ export async function updateUser(input: UpdateUserInput): Promise<ActionResult> 
       data.password = await bcrypt.hash(password, 10);
     }
 
-    await (await requireTenantPrisma()).user.update({
+    await tp.user.update({
       where: { id: input.id },
       data,
     });
@@ -547,6 +574,10 @@ export type CreateProductInput = {
   priceSilver?: number; // Harga jual Wholesale Silver
   priceGold?:   number; // Harga jual Wholesale Gold
   recipe?:      RecipeInput;
+  reorderAlertEnabled?: boolean;
+  leadTimeDays?: number;
+  safetyStockQuantity?: number;
+  reorderLookbackDays?: number;
 };
 
 export type UpdateProductInput = Omit<CreateProductInput, "type"> & {
@@ -579,10 +610,11 @@ export async function createProduct(input: CreateProductInput): Promise<ActionRe
     }
 
     const prefix = TYPE_PREFIX[input.type];
-    const count  = await (await requireTenantPrisma()).product.count({ where: { type: input.type } });
+    const tp = await requireTenantPrisma();
+    const count  = await tp.product.count({ where: { type: input.type } });
     const code   = `${prefix}-${String(count + 1).padStart(3, "0")}`;
 
-    await (await requireTenantPrisma()).$transaction(async (tx) => {
+    await tp.$transaction(async (tx) => {
       const product = await tx.product.create({
         data: {
           code, name: input.name.trim(), type: input.type,
@@ -594,6 +626,10 @@ export async function createProduct(input: CreateProductInput): Promise<ActionRe
           price:       input.type === "FINISHED_GOODS" ? (input.price ?? 0) : null,
           priceSilver: input.type === "FINISHED_GOODS" ? (input.priceSilver ?? 0) : null,
           priceGold:   input.type === "FINISHED_GOODS" ? (input.priceGold ?? 0) : null,
+          reorderAlertEnabled:  input.reorderAlertEnabled ?? false,
+          leadTimeDays:         input.leadTimeDays ?? 7,
+          safetyStockQuantity:  input.safetyStockQuantity ?? 0,
+          reorderLookbackDays:  input.reorderLookbackDays ?? 30,
         },
       });
 
@@ -644,7 +680,8 @@ export async function updateProduct(input: UpdateProductInput): Promise<ActionRe
     await requireRole("OWNER", "MANAGER");
     if (!input.name?.trim()) return { success: false, error: "Nama produk wajib diisi." };
 
-    const existing = await (await requireTenantPrisma()).product.findUnique({
+    const tp = await requireTenantPrisma();
+    const existing = await tp.product.findUnique({
       where: { id: input.id },
       select: { code: true, type: true, recipes: { where: { isActive: true }, select: { id: true }, take: 1 } },
     });
@@ -657,7 +694,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<ActionRe
       }
     }
 
-    await (await requireTenantPrisma()).$transaction(async (tx) => {
+    await tp.$transaction(async (tx) => {
       // ✅ DITAMBAHKAN: Data price dikirim untuk update
       await tx.product.update({
         where: { id: input.id },
@@ -672,6 +709,10 @@ export async function updateProduct(input: UpdateProductInput): Promise<ActionRe
           price:       existing.type === "FINISHED_GOODS" && input.price !== undefined ? input.price : undefined,
           priceSilver: existing.type === "FINISHED_GOODS" && input.priceSilver !== undefined ? input.priceSilver : undefined,
           priceGold:   existing.type === "FINISHED_GOODS" && input.priceGold !== undefined ? input.priceGold : undefined,
+          reorderAlertEnabled:  input.reorderAlertEnabled ?? false,
+          leadTimeDays:         input.leadTimeDays ?? 7,
+          safetyStockQuantity:  input.safetyStockQuantity ?? 0,
+          reorderLookbackDays:  input.reorderLookbackDays ?? 30,
         },
       });
 

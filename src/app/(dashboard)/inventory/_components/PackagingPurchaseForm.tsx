@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Package } from "lucide-react";
@@ -11,12 +11,12 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PurchasePaymentSection } from "./PurchasePaymentSection";
 
 // Pastikan kamu punya server action ini (buat jika belum ada)
 import { createPackagingPurchase, createPackaging } from "../actions"; 
+import { getTodayString } from "@/lib/date-utils";
 
 // =============================================================================
 // Schemas
@@ -84,13 +84,13 @@ const glassCard = "rounded-[1rem] border border-white/60 bg-white/30 backdrop-bl
 // =============================================================================
 
 export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPendingChange }: PackagingPurchaseFormProps) {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayString();
   const [submitting, setSubmitting] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isAddingPkg, setIsAddingPkg] = useState(false);
 
   // Form Utama (Pembelian)
-  const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(purchaseSchema),
     defaultValues: {
       receivedAt: today,
@@ -243,61 +243,11 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700">Status Pembayaran</Label>
-            <select
-              className={cn("w-full h-9 rounded-lg border px-3 text-sm outline-none", glassInput)}
-              {...register("paymentStatus")}
-            >
-              <option value="PAID">Lunas</option>
-              <option value="PARTIAL">Bayar Sebagian</option>
-              <option value="UNPAID">Belum Dibayar</option>
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700">Metode</Label>
-            <select
-              disabled={paymentStatus === "UNPAID"}
-              className={cn("w-full h-9 rounded-lg border px-3 text-sm outline-none disabled:opacity-50", glassInput)}
-              {...register("paymentMethod")}
-            >
-              <option value="CASH">Tunai</option>
-              <option value="TRANSFER">Transfer</option>
-              <option value="QRIS">QRIS</option>
-            </select>
-          </div>
-        </div>
-
-        {paymentStatus === "PARTIAL" && (
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700">Uang Muka (Rp)</Label>
-            <Input
-              type="number"
-              min="1"
-              step="1"
-              className={cn(glassInput, "text-right tabular-nums")}
-              {...register("initialPaidAmount", { valueAsNumber: true })}
-            />
-            {errors.initialPaidAmount && (
-              <p className="text-xs text-red-500 font-medium">{errors.initialPaidAmount.message}</p>
-            )}
-          </div>
-        )}
-
-        {paymentStatus !== "PAID" && (
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700">Jatuh Tempo</Label>
-            <Input type="date" className={glassInput} {...register("dueDate")} />
-            {errors.dueDate && <p className="text-xs text-red-500 font-medium">{errors.dueDate.message}</p>}
-          </div>
-        )}
-
-        {/* Notes */}
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold text-slate-700">Catatan</Label>
-          <Textarea rows={2} placeholder="Opsional..." className={cn(glassInput, "resize-none")} {...register("notes")} />
-        </div>
+        <PurchasePaymentSection
+          register={register}
+          errors={errors}
+          paymentStatus={paymentStatus}
+        />
 
         <Button type="submit" disabled={submitting} className="hidden" />
       </form>

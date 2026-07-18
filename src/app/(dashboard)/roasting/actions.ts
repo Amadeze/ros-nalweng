@@ -6,6 +6,7 @@ import { getCurrentTenantId, getSystemUserId, requireRole, requireTenantPrisma }
 import { recordAudit } from "@/lib/audit";
 import { randomBytes } from "crypto";
 import { validateRoastingWeights } from "@/lib/operations";
+import { getCurrentDate } from "@/lib/date-utils";
 
 // =============================================================================
 // TYPES
@@ -66,7 +67,7 @@ export type RoastingActionResult =
 // =============================================================================
 
 async function generateBatchCode(): Promise<string> {
-  const now = new Date();
+  const now = getCurrentDate();
   const prefix = `RST-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
   const randStr = randomBytes(4).toString("hex").toUpperCase();
   return `${prefix}-${randStr}`;
@@ -162,7 +163,8 @@ export async function createParentRoastingBatch(
     const weightError = validateRoastingWeights(input);
     if (weightError) return { success: false, error: weightError };
 
-    const inputProduct = await (await requireTenantPrisma()).product.findUnique({
+    const tp = await requireTenantPrisma();
+    const inputProduct = await tp.product.findUnique({
       where: { id: input.inputProductId },
       select: { type: true, isActive: true, stockKg: true, avgCostPerKg: true },
     });
@@ -178,7 +180,7 @@ export async function createParentRoastingBatch(
     }
 
     let outputProduct = input.outputProductId
-      ? await (await requireTenantPrisma()).product.findUnique({ where: { id: input.outputProductId } })
+      ? await tp.product.findUnique({ where: { id: input.outputProductId } })
       : null;
     if (outputProduct && (outputProduct.type !== "ROASTED_BEAN" || !outputProduct.isActive)) {
       return { success: false, error: "Produk output harus Roasted Bean aktif." };
@@ -186,7 +188,7 @@ export async function createParentRoastingBatch(
 
     if (!outputProduct && input.outputProductName) {
       const code = await generateRBCode(input.outputProductName);
-      outputProduct = await (await requireTenantPrisma()).product.upsert({
+      outputProduct = await tp.product.upsert({
         where: { tenantId_code: { tenantId, code } },
         create: {
           code,
@@ -215,7 +217,7 @@ export async function createParentRoastingBatch(
 
     const batchCode = await generateBatchCode();
 
-    await (await requireTenantPrisma()).$transaction(async (tx) => {
+    await tp.$transaction(async (tx) => {
       const batch = await tx.parentRoastingBatch.create({
         data: {
           code: batchCode,
@@ -226,7 +228,7 @@ export async function createParentRoastingBatch(
           totalShrinkagePercent: totalShrinkagePercent,
           status:           input.mode === "MANUAL" ? "COMPLETED" : "PENDING",
           notes:            input.notes?.trim() || null,
-          completedAt:      input.mode === "MANUAL" ? new Date() : null,
+          completedAt:      input.mode === "MANUAL" ? getCurrentDate() : null,
           createdById:      userId,
         },
       });
@@ -322,7 +324,7 @@ export async function completeParentRoastingBatch(
           actualOutputKg,
           totalShrinkagePercent,
           status: "COMPLETED",
-          completedAt: new Date(),
+          completedAt: getCurrentDate(),
         },
       });
       if (claimed.count !== 1) {
@@ -398,7 +400,7 @@ export async function voidParentRoastingBatch(
         data: {
           status: "VOID",
           voidReason: reason.trim(),
-          voidAt: new Date(),
+          voidAt: getCurrentDate(),
         },
       });
 

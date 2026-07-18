@@ -98,7 +98,7 @@ export function PiutangTable({ rows, onTerimaPayment }: PiutangTableProps) {
                   {formatRupiah(row.grandTotal)}
                 </TableCell>
                 <TableCell  className="text-right font-mono text-sm text-emerald-700">
-                  {row.paidAmount > 0 ? formatRupiah(row.paidAmount) : <span className="text-zinc-300">â€”</span>}
+                  {row.paidAmount > 0 ? formatRupiah(row.paidAmount) : <span className="text-zinc-300">—</span>}
                 </TableCell>
                 <TableCell  className="text-right">
                   <p className="font-mono text-sm font-bold text-zinc-900">
@@ -118,7 +118,7 @@ export function PiutangTable({ rows, onTerimaPayment }: PiutangTableProps) {
                       )}
                     </div>
                   ) : (
-                    <span className="text-xs text-zinc-300">â€”</span>
+                    <span className="text-xs text-zinc-300">—</span>
                   )}
                 </TableCell>
                 <TableCell className="text-center">

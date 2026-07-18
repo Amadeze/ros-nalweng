@@ -1,5 +1,25 @@
 import { requireTenantPrisma } from "./auth";
 
+// Use a flexible type that works with both base and tenant-scoped Prisma clients
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TransactionClient = any;
+
+// Prisma Decimal is accepted as number | string for convenience
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FlexibleNumber = number | string | { toNumber(): number } | null | undefined;
+
+interface LedgerEntryData {
+  productId?: string | null;
+  packagingId?: string | null;
+  entryType: "IN" | "OUT";
+  quantityUnit?: FlexibleNumber;
+  quantityKg?: FlexibleNumber;
+  incomingPrice?: FlexibleNumber;
+  reference?: string;
+  notes?: string;
+  [key: string]: unknown;
+}
+
 /**
  * Hitung stok kopi (kg) untuk satu product dari agregasi InventoryLedger.
  * Digunakan oleh roasting & produksi untuk validasi stok sebelum transaksi.
@@ -42,8 +62,9 @@ export async function computeFGUnitStock(productId: string): Promise<number> {
  * Buat entri InventoryLedger baru dan otomatis update cache stock di Product/Packaging.
  * Harus dijalankan di dalam transaksi (tx).
  */
-export async function appendLedger(tx: any, data: any) {
-  const payload = data?.data ?? data;
+export async function appendLedger(tx: TransactionClient, data: LedgerEntryData | { data: LedgerEntryData }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payload = (data as any)?.data ?? data as LedgerEntryData;
   const quantityUnit = Number(payload.quantityUnit ?? 0);
   const quantityKg = Number(payload.quantityKg ?? 0);
 

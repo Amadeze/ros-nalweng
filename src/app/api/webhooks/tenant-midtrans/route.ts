@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { decryptCredential } from "@/lib/credentials";
 import { Prisma } from "@prisma/client";
 import { recordAudit } from "@/lib/audit";
+import { getCurrentDate } from "@/lib/date-utils";
 import {
   getRequestId,
   internalErrorResponse,
@@ -114,7 +115,7 @@ export async function POST(req: Request) {
         if (freshInvoice.status === "PAID") {
           await tx.webhookEvent.update({
             where: { id: webhookEventId! },
-            data: { status: "PROCESSED", processedAt: new Date() },
+            data: { status: "PROCESSED", processedAt: getCurrentDate() },
           });
           return;
         }
@@ -138,7 +139,7 @@ export async function POST(req: Request) {
         if (existingPayment) {
           await tx.webhookEvent.update({
             where: { id: webhookEventId! },
-            data: { status: "PROCESSED", processedAt: new Date() },
+            data: { status: "PROCESSED", processedAt: getCurrentDate() },
           });
           return;
         }
@@ -179,13 +180,13 @@ export async function POST(req: Request) {
         });
         await tx.webhookEvent.update({
           where: { id: webhookEventId! },
-          data: { status: "PROCESSED", processedAt: new Date() },
+          data: { status: "PROCESSED", processedAt: getCurrentDate() },
         });
       });
     } else {
       await prisma.webhookEvent.update({
         where: { id: webhookEventId! },
-        data: { status: "IGNORED", processedAt: new Date() },
+        data: { status: "IGNORED", processedAt: getCurrentDate() },
       });
     }
 
@@ -197,7 +198,7 @@ export async function POST(req: Request) {
         level: "warn",
         scope: "webhook.tenant-midtrans",
         requestId,
-        timestamp: new Date().toISOString(),
+        timestamp: getCurrentDate().toISOString(),
         errorMessage: error.message,
       }));
     } else {
@@ -210,7 +211,7 @@ export async function POST(req: Request) {
           data: {
             status: permanent ? "IGNORED" : "FAILED",
             error: error instanceof Error ? error.message : "Unknown error",
-            processedAt: new Date(),
+            processedAt: getCurrentDate(),
           },
         })
         .catch(() => undefined);

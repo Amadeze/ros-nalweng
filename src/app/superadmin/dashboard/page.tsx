@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { PLAN_CATALOG } from "@/lib/plans";
 import { getTenantAccessState } from "@/lib/subscription";
 import { SuperadminShell } from "./_components/SuperadminShell";
+import { getCurrentDate } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export default async function SuperadminDashboard() {
   });
 
   // Calculate new tenants this month
-  const now = new Date();
+  const now = getCurrentDate();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const newTenantsThisMonth = tenants.filter(t => new Date(t.createdAt) >= startOfMonth).length;
 

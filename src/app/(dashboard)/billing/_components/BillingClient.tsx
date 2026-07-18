@@ -35,9 +35,7 @@ export default function BillingClient({ tenant }: { tenant: Tenant }) {
       if (!res.ok) throw new Error(data.error || "Gagal membuat transaksi");
 
       // Midtrans Snap
-      // @ts-ignore
       if (window.snap) {
-        // @ts-ignore
         window.snap.pay(data.token, {
           onSuccess: function (result: any) {
             toast.success("Pembayaran berhasil! Mengupdate akun Anda...");

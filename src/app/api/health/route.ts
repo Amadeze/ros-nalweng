@@ -6,6 +6,7 @@ import {
   isEncryptedCredential,
 } from "@/lib/credentials";
 import { getRequestId, logServerError } from "@/lib/api-observability";
+import { getCurrentDate } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -40,17 +41,16 @@ export async function GET(req: Request) {
         credentialDecryptFailures += 1;
       }
     }
-    const ready =
-      missingConfiguration.length === 0
-      && credentialDecryptFailures === 0;
+    const hasMissingConfig = missingConfiguration.length > 0;
+    const hasDecryptFailures = credentialDecryptFailures > 0;
+    const ready = !hasMissingConfig && !hasDecryptFailures;
+    
     return NextResponse.json(
       {
         status: ready ? "ok" : "degraded",
         database: "reachable",
         configuration: ready ? "ready" : "incomplete",
-        missingConfigurationCount: missingConfiguration.length,
-        credentialDecryptFailures,
-        timestamp: new Date().toISOString(),
+        timestamp: getCurrentDate().toISOString(),
         latencyMs: Math.round(performance.now() - startedAt),
         version: process.env.npm_package_version || "unknown",
         release: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || null,
@@ -66,7 +66,7 @@ export async function GET(req: Request) {
       {
         status: "degraded",
         database: "unreachable",
-        timestamp: new Date().toISOString(),
+        timestamp: getCurrentDate().toISOString(),
         requestId,
       },
       {

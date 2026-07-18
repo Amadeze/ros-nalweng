@@ -1,25 +1,19 @@
 "use client";
 
 import { useForm, Controller } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PurchasePaymentSection } from "./PurchasePaymentSection";
 import { formatRupiah, calcHppPerKg } from "@/lib/format";
+import { getTodayString } from "@/lib/date-utils";
 import {
   createGreenBeanPurchase,
   type SupplierOption,
@@ -145,7 +139,7 @@ export function PurchaseForm({
   onSuccess,
   onPendingChange,
 }: PurchaseFormProps) {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayString();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -419,76 +413,11 @@ export function PurchaseForm({
         />
       </div>
 
-      <Separator className="bg-white/50" />
-
-      <div className="grid grid-cols-2 gap-4">
-        <FieldGroup>
-          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-            Status Pembayaran
-          </Label>
-          <select
-            className={cn("w-full h-9 rounded-lg border px-3 text-sm outline-none", glassInput)}
-            {...register("paymentStatus")}
-          >
-            <option value="PAID">Lunas</option>
-            <option value="PARTIAL">Bayar Sebagian</option>
-            <option value="UNPAID">Belum Dibayar</option>
-          </select>
-        </FieldGroup>
-        <FieldGroup>
-          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-            Metode Pembayaran
-          </Label>
-          <select
-            disabled={paymentStatus === "UNPAID"}
-            className={cn("w-full h-9 rounded-lg border px-3 text-sm outline-none disabled:opacity-50", glassInput)}
-            {...register("paymentMethod")}
-          >
-            <option value="CASH">Tunai</option>
-            <option value="TRANSFER">Transfer</option>
-            <option value="QRIS">QRIS</option>
-          </select>
-        </FieldGroup>
-      </div>
-
-      {paymentStatus === "PARTIAL" && (
-        <FieldGroup>
-          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-            Uang Muka
-          </Label>
-          <Input
-            type="number"
-            min="1"
-            step="1"
-            className={cn("h-9 tabular-nums", glassInput)}
-            {...register("initialPaidAmount", { valueAsNumber: true })}
-          />
-          <FieldError message={errors.initialPaidAmount?.message} />
-        </FieldGroup>
-      )}
-
-      {paymentStatus !== "PAID" && (
-        <FieldGroup>
-          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-            Jatuh Tempo
-          </Label>
-          <Input type="date" className={cn("h-9", glassInput)} {...register("dueDate")} />
-          <FieldError message={errors.dueDate?.message} />
-        </FieldGroup>
-      )}
-
-      <Separator className="bg-white/50" />
-
-      {/* ── Catatan ── */}
-      <FieldGroup>
-        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Catatan (opsional)</Label>
-        <Textarea
-          placeholder="Kualitas, kondisi saat tiba, dll."
-          rows={3}
-          className={cn("resize-none text-sm", glassInput)}
-          {...register("notes")}
-        />
-      </FieldGroup>
+      <PurchasePaymentSection
+        register={register}
+        errors={errors}
+        paymentStatus={paymentStatus}
+      />
 
       {/* Hidden submit — dipanggil via tombol di drawer footer */}
       <button type="submit" className="hidden" aria-hidden disabled={isSubmitting} />

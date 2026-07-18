@@ -171,7 +171,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
                     inv.balance > 0 ? "text-amber-600" : "text-slate-400"
                   }`}
                 >
-                  {inv.balance > 0 ? formatRupiah(inv.balance) : "â€”"}
+                  {inv.balance > 0 ? formatRupiah(inv.balance) : "—"}
                 </TableCell>
                 <TableCell className="text-sm font-semibold text-slate-500">
                   <p>{formatDate(inv.issuedAt)}</p>
@@ -310,7 +310,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
       open={!!voidTarget}
       onOpenChange={(v) => { if (!v) setVoidTarget(null); }}
       title={`Void Nota ${voidTarget?.code ?? ""}`}
-      description="Stok Finished Goods akan dikembalikan. Nota yang sudah LUNAS tidak bisa di-void."
+      description="Stok Produk Jadi akan dikembalikan. Nota yang sudah LUNAS tidak bisa di-void."
       onConfirm={async (reason) => voidInvoice(voidTarget!.id, reason)}
     />
 

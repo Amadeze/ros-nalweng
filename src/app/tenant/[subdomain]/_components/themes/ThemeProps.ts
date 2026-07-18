@@ -1,13 +1,25 @@
 import { Tenant, Product } from "@prisma/client";
+import { CustomerTier } from "./pricing";
+import type { CartItem } from "../../_store/cartStore";
 
 export type ExtendedTenant = Tenant & {
   // We can just rely on the Tenant type from @prisma/client, which already includes the new fields now!
 };
 
+export interface CartStore {
+  items: Record<string, CartItem[]>;
+  addItem: (tenantId: string, product: { id: string; code: string; name: string; imageUrl: string | null; price: number }) => void;
+  removeItem: (tenantId: string, id: string) => void;
+  updateQuantity: (tenantId: string, id: string, delta: number) => void;
+  clearCart: (tenantId: string) => void;
+  getTotalItems: (tenantId: string) => number;
+  getTotalPrice: (tenantId: string) => number;
+}
+
 export interface ThemeProps {
   tenant: ExtendedTenant & { products: Product[] };
-  products?: any[];
-  cart: any; // We'll pass the cart store from the main client component
+  products?: Product[];
+  cart: CartStore;
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
   customerName: string;
@@ -18,7 +30,7 @@ export interface ThemeProps {
   setCustomerAddress: (val: string) => void;
   shippingMethod: string;
   setShippingMethod: (val: string) => void;
-  handleAddToCart: (product: any) => void;
+  handleAddToCart: (product: Product) => void;
   handleCheckout: () => void;
   isCheckingOut?: boolean;
   mounted: boolean;
@@ -34,4 +46,6 @@ export interface ThemeProps {
   iconStroke?: number;
   iconProps: { weight: "thin" | "light" | "regular" | "bold" | "fill" | "duotone" };
   isDark: boolean;
+  /** Customer wholesale tier for tiered pricing display */
+  customerTier?: CustomerTier;
 }

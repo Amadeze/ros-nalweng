@@ -179,6 +179,8 @@ model Tenant {
   packagings          Packaging[]
   recipes             Recipe[]
   purchases           Purchase[]
+  purchaseOrders      PurchaseOrder[]
+  purchaseOrderItems  PurchaseOrderItem[]
   parentRoastingBatches ParentRoastingBatch[]
   productionBatches   ProductionBatch[]
   invoices            Invoice[]
@@ -234,6 +236,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   purchases         Purchase[]
+  purchaseOrders    PurchaseOrder[]
   parentRoastingBatches ParentRoastingBatch[]
   productionBatches ProductionBatch[]
   invoices          Invoice[]
@@ -305,6 +308,7 @@ model Supplier {
   updatedAt DateTime @updatedAt
 
   purchases Purchase[]
+  purchaseOrders PurchaseOrder[]
   tenantId  String     @default("default")
   tenant    Tenant     @relation(fields: [tenantId], references: [id])
 
@@ -342,8 +346,15 @@ model Product {
   lastHpp      Decimal?    @db.Decimal(12, 2) // HPP terakhir untuk FG
   avgCostPerKg Decimal?    @default(0) @db.Decimal(12, 2) // Moving average HPP
 
+  // Reorder alert configuration
+  reorderAlertEnabled  Boolean   @default(false)
+  leadTimeDays         Int       @default(7)
+  safetyStockQuantity  Decimal   @default(0) @db.Decimal(10, 3)
+  reorderLookbackDays  Int       @default(30)
+
   // Relasi transaksi hulu
   purchases       Purchase[]
+  purchaseOrderItems PurchaseOrderItem[]
   roastingInputs  ParentRoastingBatch[] @relation("RoastingInput")
   roastingOutputs ParentRoastingBatch[] @relation("RoastingOutput")
 
@@ -385,7 +396,14 @@ model Packaging {
   // Caching Field untuk Performa
   stockUnit   Int      @default(0) // Cache jumlah unit tersedia
 
+  // Reorder alert configuration
+  reorderAlertEnabled  Boolean   @default(false)
+  leadTimeDays         Int       @default(7)
+  safetyStockQuantity  Int       @default(0)
+  reorderLookbackDays  Int       @default(30)
+
   purchases         Purchase[]
+  purchaseOrderItems PurchaseOrderItem[]
   recipes           Recipe[]
   productionBatches ProductionBatch[]
   ledgerEntries     InventoryLedger[]
@@ -488,6 +506,10 @@ model Purchase {
   createdById String
   createdAt   DateTime @default(now())
 
+  // PO Lite reference (nullable untuk backward compat)
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+
   supplier  Supplier   @relation(fields: [supplierId], references: [id])
   product   Product?   @relation(fields: [productId], references: [id])
   packaging Packaging? @relation(fields: [packagingId], references: [id])
@@ -500,6 +522,7 @@ model Purchase {
   @@index([tenantId, receivedAt])
   @@index([tenantId, status])
   @@index([tenantId, paymentStatus, dueDate])
+  @@index([tenantId, purchaseOrderId])
   @@map("purchases")
 }
 
@@ -901,4 +924,85 @@ model RateLimitBucket {
 
   @@index([expiresAt])
   @@map("rate_limit_buckets")
+}
+
+// =============================================================================
+// TABLE · PurchaseOrder (PO Lite)
+// Purchase Order sederhana yang terintegrasi dengan Reorder Point Alert.
+// =============================================================================
+
+enum POStatus {
+  DRAFT       // Belum dikirim
+  SENT        // Sudah dikirim ke supplier
+  PARTIAL     // Sebagian barang diterima
+  RECEIVED    // Semua barang diterima
+  CANCELLED   // Dibatalkan
+}
+
+model PurchaseOrder {
+  id              String    @id @default(cuid())
+  code            String    // PO-YYYYMM-NNN
+  status          POStatus  @default(DRAFT)
+  
+  // Supplier
+  supplierId      String
+  supplier        Supplier  @relation(fields: [supplierId], references: [id])
+  
+  // Snapshot data saat PO dibuat
+  expectedDate    DateTime? // Tanggal perkiraan barang datang
+  notes           String?
+  
+  // Financial
+  totalEstimate   Decimal?  @db.Decimal(12, 2) // Total estimasi biaya
+  
+  // Tracking
+  sentAt          DateTime? // Kapan PO dikirim ke supplier
+  receivedAt      DateTime? // Kapan barang diterima
+  
+  // Audit
+  createdById     String
+  createdBy       User      @relation(fields: [createdById], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Tenant
+  tenantId        String    @default("default")
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  
+  // Relations
+  items           PurchaseOrderItem[]
+  purchases       Purchase[]  // Link ke Purchase saat barang datang (bisa multi untuk partial receipt)
+  
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String         @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  
+  // Produk
+  productId       String?
+  product         Product?       @relation(fields: [productId], references: [id])
+  packagingId     String?
+  packaging       Packaging?     @relation(fields: [packagingId], references: [id])
+  
+  // Quantity & Harga
+  quantity        Decimal        @db.Decimal(10, 3) // kg atau unit
+  unitPrice       Decimal        @db.Decimal(12, 2) // Harga per kg/unit
+  totalPrice      Decimal        @db.Decimal(12, 2) // quantity × unitPrice
+  
+  // Reorder reference (dari mana data ini)
+  reorderPoint    Decimal?       @db.Decimal(10, 3) // Snapshot reorder point saat PO dibuat
+  currentStock    Decimal?       @db.Decimal(10, 3) // Snapshot stok saat PO dibuat
+  
+  createdAt       DateTime       @default(now())
+  
+  tenantId        String         @default("default")
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  
+  @@index([tenantId, purchaseOrderId])
+  @@map("purchase_order_items")
 }

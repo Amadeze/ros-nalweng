@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getCurrentDate } from "@/lib/date-utils";
 
 const CATEGORY_MAP: Record<string, { label: string, icon: React.ReactNode }> = {
   GREEN_BEAN: { label: "Green Bean", icon: <Database size={16} /> },
@@ -18,7 +19,7 @@ const CATEGORY_MAP: Record<string, { label: string, icon: React.ReactNode }> = {
 
 function exportToCSV(report: InventoryValuationReport) {
   const rows = [
-    ["Laporan Valuasi Persediaan", `Beanslab Roastery - ${new Date().toLocaleDateString("id-ID")}`],
+    ["Laporan Valuasi Persediaan", `Beanslab Roastery - ${getCurrentDate().toLocaleDateString("id-ID")}`],
     [],
     ["Ringkasan Valuasi", "Nilai (IDR)"],
     ["Green Bean", report.totalGreenBeanValue],
@@ -42,7 +43,7 @@ function exportToCSV(report: InventoryValuationReport) {
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement("a");
   link.setAttribute("href", encodedUri);
-  link.setAttribute("download", `Valuasi_Persediaan_${new Date().toISOString().slice(0,10)}.csv`);
+  link.setAttribute("download", `Valuasi_Persediaan_${getCurrentDate().toISOString().slice(0,10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

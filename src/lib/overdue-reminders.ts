@@ -4,6 +4,7 @@ import {
   sendOverdueReminderWhatsApp,
 } from "./notifications";
 import { getTenantAccessState } from "./subscription";
+import { getCurrentDate } from "@/lib/date-utils";
 
 function reminderDate(now: Date) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -11,7 +12,7 @@ function reminderDate(now: Date) {
 
 export async function sendOverdueReminders(
   prisma: PrismaClient,
-  now = new Date(),
+  now = getCurrentDate(),
 ) {
   const invoices = await prisma.invoice.findMany({
     where: {
@@ -121,7 +122,7 @@ export async function sendOverdueReminders(
         }
         await prisma.reminderDelivery.update({
           where: { id: deliveryId },
-          data: { status: "SENT", sentAt: new Date() },
+          data: { status: "SENT", sentAt: getCurrentDate() },
         });
         result.sent += 1;
       } catch (error) {

@@ -14,6 +14,7 @@ import { TopProductsChart } from "./TopProductsChart";
 import { TopCustomersChart } from "./TopCustomersChart";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { getCurrentDate } from "@/lib/date-utils";
 
 // =============================================================================
 // Helpers
@@ -77,7 +78,7 @@ function KpiCard({ label, value, sub, icon, accent = "zinc", href }: KpiCardProp
         <p className={`font-mono text-2xl md:text-3xl font-black tabular-nums leading-none ${valueCls[accent]}`}>
           {value}
         </p>
-        {sub && <div className="mt-2 text-xs text-slate-500">{sub}</div>}
+        {sub && <div className="mt-2 text-xs text-slate-600">{sub}</div>}
       </div>
       {href && (
         <ArrowRight
@@ -137,14 +138,14 @@ function LowStockCard({ items }: { items: LowStockItem[] }) {
           <p className="font-mono text-2xl md:text-3xl font-black tabular-nums text-slate-800 leading-none">
             Semua aman
           </p>
-          <p className="mt-2 text-xs text-slate-500">Tidak ada stok di bawah batas minimum</p>
+          <p className="mt-2 text-xs text-slate-600">Tidak ada stok di bawah batas minimum</p>
         </div>
       ) : (
         <div>
           <p className={`font-mono text-2xl md:text-3xl font-black tabular-nums leading-none ${valueCls[accent]}`}>
             {items.length} item
           </p>
-          <p className="mt-1.5 mb-3 text-xs text-slate-500">Perlu segera diisi ulang</p>
+          <p className="mt-1.5 mb-3 text-xs text-slate-600">Perlu segera diisi ulang</p>
           <div className="space-y-2">
             {items.slice(0, 4).map((item) => (
               <Link 
@@ -166,7 +167,7 @@ function LowStockCard({ items }: { items: LowStockItem[] }) {
               </Link>
             ))}
             {items.length > 4 && (
-              <p className="text-[11px] text-slate-500 font-medium pt-1">+{items.length - 4} lainnya</p>
+              <p className="text-[11px] text-slate-600 font-medium pt-1">+{items.length - 4} lainnya</p>
             )}
           </div>
         </div>
@@ -306,7 +307,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
 
   const todayLabel = mounted ? new Intl.DateTimeFormat("id-ID", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
-  }).format(new Date()) : "";
+  }).format(getCurrentDate()) : "";
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -325,21 +326,21 @@ export function DashboardShell({ data }: { data: DashboardData }) {
       <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6">
 
         {/* ── Quick Actions ── */}
-        <div className="flex flex-wrap items-center gap-3">
-          <Link href="/penjualan" className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-900/20 transition-all hover:scale-105 hover:bg-blue-700 hover:shadow-lg">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/penjualan" className="flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-900/20 transition-all hover:bg-blue-700 hover:shadow-lg active:scale-95">
             <ReceiptText size={16} />
             Buat Nota
           </Link>
-          <Link href="/roasting" className="flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-orange-900/20 transition-all hover:scale-105 hover:bg-orange-700 hover:shadow-lg">
-            <Flame size={16} />
+          <Link href="/roasting" className="flex items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md transition-all hover:bg-white/60 hover:text-slate-900">
+            <Flame size={14} />
             Roasting
           </Link>
-          <Link href="/produksi" className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-violet-900/20 transition-all hover:scale-105 hover:bg-violet-700 hover:shadow-lg">
-            <Factory size={16} />
+          <Link href="/produksi" className="flex items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md transition-all hover:bg-white/60 hover:text-slate-900">
+            <Factory size={14} />
             Produksi
           </Link>
-          <Link href="/inventory" className="flex items-center gap-2 rounded-xl bg-lime-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-lime-900/20 transition-all hover:scale-105 hover:bg-lime-700 hover:shadow-lg">
-            <Package size={16} />
+          <Link href="/inventory" className="flex items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md transition-all hover:bg-white/60 hover:text-slate-900">
+            <Package size={14} />
             Terima Barang
           </Link>
         </div>
@@ -398,7 +399,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
           {/* Card 4 — Total Kopi Terjual */}
           <KpiCard
             label="Total Kopi Terjual"
-            value={`${formatKg(kpi.totalKopiTerjual)} kg`}
+            value={formatKg(kpi.totalKopiTerjual)}
             sub="Total penjualan sepanjang waktu"
             icon={<ShoppingCart size={14} />}
             accent="emerald"
@@ -407,9 +408,9 @@ export function DashboardShell({ data }: { data: DashboardData }) {
 
           {/* Card 5 — Average Roast Yield */}
           <KpiCard
-            label="Average Roast Yield"
+            label="Rata-rata Hasil Roasting"
             value={`${kpi.averageRoastYield.toFixed(1)}%`}
-            sub="Rata-rata output roasting (30 hr terakhir)"
+            sub="Rata-rata output roasting (30 jam terakhir)"
             icon={<Flame size={14} />}
             accent={kpi.averageRoastYield >= 80 ? "emerald" : "amber"}
             href="/roasting"
@@ -417,7 +418,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
 
           {/* Card 6 — Gross Margin */}
           <KpiCard
-            label="Est. Gross Margin"
+            label="Estimasi Margin Kotor"
             value={`${kpi.averageGrossMargin.toFixed(1)}%`}
             sub="Estimasi profit margin kotor"
             icon={<TrendingUp size={14} />}

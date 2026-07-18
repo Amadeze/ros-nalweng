@@ -1,3 +1,4 @@
+import { getCurrentDate } from "@/lib/date-utils";
 export type TenantAccessInput = {
   isActive: boolean;
   subscriptionTier: "TRIAL" | "BASIC" | "PRO" | "ENTERPRISE";
@@ -13,7 +14,7 @@ export type TenantAccessState =
 
 export function getTenantAccessState(
   tenant: TenantAccessInput,
-  now = new Date(),
+  now = getCurrentDate(),
 ): TenantAccessState {
   if (!tenant.isActive) return "INACTIVE";
 

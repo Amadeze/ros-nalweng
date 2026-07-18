@@ -1,13 +1,14 @@
 import { getPnLReport } from "../keuangan/actions";
 import { SuperDashboardClient } from "./_components/SuperDashboardClient";
 import { requireFeature } from "@/lib/auth";
+import { getCurrentDate } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function LaporanPage({ searchParams }: { searchParams: Promise<{ month?: string; year?: string }> }) {
   await requireFeature("ADVANCED_REPORTS");
   const resolvedParams = await searchParams;
-  const now = new Date();
+  const now = getCurrentDate();
   
   let month = now.getMonth() + 1;
   let year = now.getFullYear();

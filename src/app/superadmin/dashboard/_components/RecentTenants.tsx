@@ -33,7 +33,7 @@ export function RecentTenants({ tenants }: { tenants: any[] }) {
             </div>
           </div>
           <a 
-            href={`http://${tenant.subdomain}.localhost:3000`} 
+            href={`${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/tenant/${tenant.subdomain}`} 
             target="_blank" rel="noreferrer"
             className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 text-on-surface-variant hover:text-white transition-colors"
           >

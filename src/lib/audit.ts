@@ -1,5 +1,9 @@
 import type { Prisma } from "@prisma/client";
 
+// Use a flexible type that works with both base and tenant-scoped Prisma clients
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TransactionClient = any;
+
 type AuditInput = {
   tenantId: string;
   userId?: string | null;
@@ -16,7 +20,7 @@ function toJsonValue(value: unknown): Prisma.InputJsonValue | undefined {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
-export async function recordAudit(tx: any, input: AuditInput) {
+export async function recordAudit(tx: TransactionClient, input: AuditInput) {
   return tx.auditLog.create({
     data: {
       tenantId: input.tenantId,

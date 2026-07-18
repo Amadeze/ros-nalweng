@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatRupiah } from "@/lib/format";
 import { recordPayment, type PiutangRow } from "../actions";
+import { getCurrentDate, getTodayString } from "@/lib/date-utils";
 
 // =============================================================================
 // Schema
@@ -67,7 +68,7 @@ export function TerimaPaymentDialog({
 }: TerimaPaymentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayString();
 
   const {
     register,
@@ -101,6 +102,7 @@ export function TerimaPaymentDialog({
         notes:     "",
       });
     }
+  // Intentional: only reset form when invoice changes or dialog opens
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoice?.id, open]);
 
@@ -127,8 +129,8 @@ export function TerimaPaymentDialog({
         return;
       }
 
-      const statusLabel = result.newStatus === "PAID" ? "Nota LUNAS âœ“" : "Pembayaran sebagian tercatat";
-      toast.success(`${result.paymentCode} Â· ${statusLabel}`);
+      const statusLabel = result.newStatus === "PAID" ? "Nota LUNAS ✔" : "Pembayaran sebagian tercatat";
+      toast.success(`${result.paymentCode} · ${statusLabel}`);
       reset();
       onSuccess();
     } catch {
@@ -150,7 +152,7 @@ export function TerimaPaymentDialog({
           <DialogTitle>Terima Pembayaran</DialogTitle>
           <DialogDescription>
             Nota <span className="font-mono font-semibold">{invoice.code}</span>
-            {" Â· "}{invoice.customerName}
+            {" · "}{invoice.customerName}
           </DialogDescription>
         </DialogHeader>
 
@@ -218,7 +220,7 @@ export function TerimaPaymentDialog({
             {Number(amount) > 0 && (
               <p className={`text-[11px] font-medium ${isFullPayment ? "text-emerald-600" : "text-blue-600"}`}>
                 {isFullPayment
-                  ? "âœ“ Nota akan berstatus LUNAS setelah pembayaran ini"
+                  ? "✔ Nota akan berstatus LUNAS setelah pembayaran ini"
                   : `Sisa tagihan setelah ini: ${formatRupiah(balance - Number(amount))}`}
               </p>
             )}

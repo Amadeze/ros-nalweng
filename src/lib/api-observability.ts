@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { getCurrentDate } from "@/lib/date-utils";
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{1,80}$/;
 
@@ -24,7 +25,7 @@ export function logServerError(
   console.error(JSON.stringify({
     level: "error",
     scope,
-    timestamp: new Date().toISOString(),
+    timestamp: getCurrentDate().toISOString(),
     ...context,
     ...normalized,
   }));

@@ -76,7 +76,7 @@ export function ExpenseTable({ rows, onVoid }: ExpenseTableProps) {
                   </Badge>
                 </TableCell>
                 <TableCell  className="text-sm text-zinc-500">
-                  {row.description ?? <span className="italic text-zinc-300">â€”</span>}
+                  {row.description ?? <span className="italic text-zinc-300">—</span>}
                 </TableCell>
                 <TableCell  className="text-right font-mono text-sm font-semibold text-red-600">
                   {formatRupiah(row.amount)}

@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatRupiah } from "@/lib/format";
 import { recordSupplierPayment, type PurchaseRow } from "../actions";
+import { getCurrentDate, getTodayString } from "@/lib/date-utils";
 
 const schema = z.object({
   amount: z.number().positive("Nominal harus lebih dari 0"),
@@ -44,7 +45,7 @@ export function SupplierPaymentDialog({
   onSuccess: () => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayString();
   const {
     register,
     handleSubmit,

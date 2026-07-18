@@ -48,7 +48,7 @@ export function ProductionClient({
     <>
       <StandardPageLayout
         title="Produksi"
-        description={`${batches.length} batch tercatat Â· stok RB & FG diupdate otomatis`}
+        description={`${batches.length} batch tercatat · stok RB & FG diupdate otomatis`}
         actionButton={
           <Button
             size="default"
@@ -59,6 +59,12 @@ export function ProductionClient({
             Batch Baru
           </Button>
         }
+        mobileFabAction={{
+          label: "Batch Baru",
+          icon: <Factory size={22} />,
+          onClick: () => setDrawerOpen(true),
+          "aria-label": "Buat batch baru",
+        }}
       >
         <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="rounded-2xl border border-white/60 bg-gradient-to-br from-indigo-50 to-blue-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">

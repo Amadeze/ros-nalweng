@@ -39,7 +39,7 @@ export function RoastingClient({ batches, gbOptions, rbOptions }: RoastingClient
     <>
       <StandardPageLayout
         title="Roasting"
-        description={`${batches.length} batch tercatat Â· stok GB & RB diupdate otomatis`}
+        description={`${batches.length} batch tercatat · stok GB & RB diupdate otomatis`}
         actionButton={
           <Button
             size="default"
@@ -50,6 +50,12 @@ export function RoastingClient({ batches, gbOptions, rbOptions }: RoastingClient
             Mulai Roasting
           </Button>
         }
+        mobileFabAction={{
+          label: "Mulai Roasting",
+          icon: <Flame size={22} />,
+          onClick: () => setDrawerOpen(true),
+          "aria-label": "Mulai roasting",
+        }}
       >
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <div className="rounded-2xl border border-white/60 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">

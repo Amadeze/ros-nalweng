@@ -9,6 +9,7 @@ import {
   resolveInitialPurchasePayment,
   type PurchasePaymentState,
 } from "@/lib/purchase-payments";
+import { getBatchReorderSummaries } from "@/lib/reorder";
 
 // =============================================================================
 // TYPES — semua Decimal dikonversi ke number agar bisa di-serialize ke client
@@ -290,6 +291,7 @@ async function fetchLedgerHistory(): Promise<LedgerHistoryRow[]> {
 // =============================================================================
 
 export async function getInventoryPageData(): Promise<InventoryPageData> {
+  const tp = await requireTenantPrisma();
   const [gbStocks, rbStocks, pkgStocks, fgStocks, ledgerEntries, suppliers, gbProducts] =
     await Promise.all([
       fetchProductStocks("GREEN_BEAN"),
@@ -297,12 +299,12 @@ export async function getInventoryPageData(): Promise<InventoryPageData> {
       fetchPackagingStocks(),
       fetchFGStocks(),
       fetchLedgerHistory(),
-      (await requireTenantPrisma()).supplier.findMany({
+      tp.supplier.findMany({
         where: { isActive: true },
         select: { id: true, code: true, name: true },
         orderBy: { name: "asc" },
       }),
-      (await requireTenantPrisma()).product.findMany({
+      tp.product.findMany({
         where: { type: "GREEN_BEAN", isActive: true },
         select: { id: true, name: true, origin: true },
         orderBy: { name: "asc" },
@@ -669,4 +671,12 @@ export async function adjustStock(input: {
     console.error("[adjustStock]", err);
     return { success: false, error: err instanceof Error ? err.message : "Terjadi kesalahan." };
   }
+}
+
+/**
+ * Get reorder alert data for all products and packaging
+ */
+export async function getReorderAlertData() {
+  const { prisma } = await import("@/lib/prisma");
+  return getBatchReorderSummaries(prisma);
 }

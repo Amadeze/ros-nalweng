@@ -56,7 +56,8 @@ export async function requestPasswordReset(emailInput: string) {
       }),
     ]);
 
-    const appUrl = process.env.APP_URL || "http://localhost:3000";
+    const appUrl = process.env.APP_URL;
+    if (!appUrl) throw new Error("APP_URL environment variable is required");
     await sendPasswordResetEmail(
       user.email,
       user.name,

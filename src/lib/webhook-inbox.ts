@@ -1,5 +1,10 @@
 import { Prisma } from "@prisma/client";
 import crypto from "node:crypto";
+import { getCurrentDate } from "@/lib/date-utils";
+
+// Use a flexible type that works with both base and tenant-scoped Prisma clients
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TransactionClient = any;
 
 const DEFAULT_LEASE_MS = 5 * 60 * 1000;
 
@@ -21,7 +26,7 @@ export function timingSafeEqualText(expected: string, received: string) {
 }
 
 export async function claimWebhookEvent(
-  client: any,
+  client: TransactionClient,
   input: {
     tenantId: string;
     provider: string;
@@ -32,7 +37,7 @@ export async function claimWebhookEvent(
     leaseMs?: number;
   },
 ) {
-  const now = input.now ?? new Date();
+  const now = input.now ?? getCurrentDate();
   try {
     const event = await client.webhookEvent.create({
       data: {

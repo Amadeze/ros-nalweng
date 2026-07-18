@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { Prisma } from "@prisma/client";
 import { claimWebhookEvent, timingSafeEqualText } from "@/lib/webhook-inbox";
+import { getCurrentDate } from "@/lib/date-utils";
 import {
   getRequestId,
   internalErrorResponse,
@@ -97,7 +98,7 @@ export async function POST(req: Request) {
         where: { id: webhookEventId! },
         data: {
           status: isSuccess ? "PROCESSED" : "IGNORED",
-          processedAt: new Date(),
+          processedAt: getCurrentDate(),
         },
       });
       return NextResponse.json({ success: true, duplicate: true });
@@ -112,12 +113,12 @@ export async function POST(req: Request) {
       if (!isSuccess) {
         await tx.webhookEvent.update({
           where: { id: webhookEventId! },
-          data: { status: "IGNORED", processedAt: new Date() },
+          data: { status: "IGNORED", processedAt: getCurrentDate() },
         });
         return;
       }
 
-      const now = new Date();
+      const now = getCurrentDate();
       const nextBilling =
         payment.tenant.nextBillingDate && payment.tenant.nextBillingDate > now
           ? new Date(payment.tenant.nextBillingDate)
@@ -134,7 +135,7 @@ export async function POST(req: Request) {
       });
       await tx.webhookEvent.update({
         where: { id: webhookEventId! },
-        data: { status: "PROCESSED", processedAt: new Date() },
+        data: { status: "PROCESSED", processedAt: getCurrentDate() },
       });
     });
 
@@ -149,7 +150,7 @@ export async function POST(req: Request) {
           data: {
             status: "FAILED",
             error: error instanceof Error ? error.message : "Unknown error",
-            processedAt: new Date(),
+            processedAt: getCurrentDate(),
           },
         })
         .catch(() => undefined);

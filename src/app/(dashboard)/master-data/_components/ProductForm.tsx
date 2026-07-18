@@ -24,7 +24,7 @@ const glassCard = "rounded-[1.25rem] border border-white/60 bg-white/30 backdrop
 const PRODUCT_TYPES = [
   { value: "GREEN_BEAN",     label: "Green Bean (Mentah)" },
   { value: "ROASTED_BEAN",   label: "Roasted Bean (Matang)" },
-  { value: "FINISHED_GOODS", label: "Finished Goods (Produk Jadi)" },
+  { value: "FINISHED_GOODS", label: "Produk Jadi" },
 ] as const;
 
 const ROAST_LEVELS = [
@@ -59,6 +59,10 @@ const schema = z.object({
   recipeOutputGrams: z.number().optional(),
   recipeNotes:       z.string().optional(),
   recipeItems:       z.array(recipeItemSchema).optional(),
+  reorderAlertEnabled:  z.boolean(),
+  leadTimeDays:         z.number().int().min(1).max(365),
+  safetyStockQuantity:  z.number().min(0),
+  reorderLookbackDays:  z.number().int().min(7).max(365),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -111,11 +115,16 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
           recipeOutputGrams: existingRecipe?.outputGrams ?? 0,
           recipeNotes:       existingRecipe?.notes ?? "",
           recipeItems:       defaultRecipeItems,
+          reorderAlertEnabled:  initialData.reorderAlertEnabled ?? false,
+          leadTimeDays:         initialData.leadTimeDays ?? 7,
+          safetyStockQuantity:  initialData.safetyStockQuantity ?? 0,
+          reorderLookbackDays:  initialData.reorderLookbackDays ?? 30,
         }
       : {
           name: "", type: "GREEN_BEAN", category: "", origin: "", roastLevel: null,
           description: "", imageUrl: "", price: 0, priceSilver: 0, priceGold: 0, isActive: true,
           recipePackagingId: "", recipeOutputGrams: 0, recipeNotes: "", recipeItems: [],
+          reorderAlertEnabled: false, leadTimeDays: 7, safetyStockQuantity: 0, reorderLookbackDays: 30,
         },
   });
 
@@ -538,6 +547,97 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
           </div>
         </div>
       )}
+
+      {/* ——— Reorder Configuration ——— */}
+      <div className={cn(glassCard, "space-y-4")}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700">Konfigurasi Stok Minimum</h3>
+            <p className="text-[10px] text-slate-500">Atur alarm reorder otomatis berdasarkan konsumsi harian</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <Controller
+              name="reorderAlertEnabled"
+              control={control}
+              render={({ field }) => (
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
+          </label>
+        </div>
+
+        <p className="text-[10px] text-slate-500 italic">
+          Reorder point dihitung dari rata-rata pemakaian harian × lead time supplier + safety stock.
+        </p>
+
+        {watch("reorderAlertEnabled") && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                Lead Time Supplier (hari)
+              </Label>
+              <Controller
+                name="leadTimeDays"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    max={365}
+                    className={cn("h-9", glassInput)}
+                    value={field.value}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                  />
+                )}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                Safety Stock {selectedType === "FINISHED_GOODS" ? "(pcs)" : "(kg)"}
+              </Label>
+              <Controller
+                name="safetyStockQuantity"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.1}
+                    className={cn("h-9", glassInput)}
+                    value={field.value}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                  />
+                )}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                Periode Analisis (hari)
+              </Label>
+              <Controller
+                name="reorderLookbackDays"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    type="number"
+                    min={7}
+                    max={365}
+                    className={cn("h-9", glassInput)}
+                    value={field.value}
+                    onChange={(e) => field.onChange(parseInt(e.target.value) || 7)}
+                  />
+                )}
+              />
+            </div>
+          </div>
+        )}
+      </div>
 
       <button type="submit" className="hidden" disabled={isSubmitting} />
     </form>

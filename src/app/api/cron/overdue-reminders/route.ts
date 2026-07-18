@@ -15,6 +15,11 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const result = await sendOverdueReminders(prisma);
-  return NextResponse.json({ ok: true, ...result });
+  try {
+    const result = await sendOverdueReminders(prisma);
+    return NextResponse.json({ ok: true, ...result });
+  } catch (error) {
+    console.error("[cron/overdue-reminders]", error);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
 }

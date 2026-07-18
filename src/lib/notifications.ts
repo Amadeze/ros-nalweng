@@ -45,19 +45,17 @@ async function sendWhatsAppMessage(phone: string, message: string) {
 export async function sendInvoiceEmail(to: string, invoiceCode: string, paymentUrl: string | null) {
   try {
     if (!process.env.RESEND_API_KEY) {
-      console.log("Mocking Email Send. RESEND_API_KEY is not set.");
-      console.log(`To: ${to}, Invoice: ${invoiceCode}, URL: ${paymentUrl}`);
       return { success: true, mocked: true };
     }
 
     const { data, error } = await resend.emails.send({
-      from: 'Roastery OS <hello@beanslab.vercel.app>', // Change this to verified domain
+      from: process.env.EMAIL_FROM || 'Roastery OS <hello@beanslab.vercel.app>',
       to: [to],
       subject: `Invoice Anda: ${invoiceCode}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #d4a373;">Terima Kasih Atas Pesanan Anda!</h2>
-          <p>Berikut adalah invoice untuk pesanan Anda dengan kode: <strong>${invoiceCode}</strong>.</p>
+          <p>Berikut adalah invoice untuk pesanan Anda dengan kode: <strong>${escapeHtml(invoiceCode)}</strong>.</p>
           ${paymentUrl ? `
             <p>Silakan selesaikan pembayaran Anda melalui tautan aman Midtrans berikut:</p>
             <a href="${paymentUrl}" style="display: inline-block; padding: 12px 24px; background-color: #d4a373; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 16px 0;">
@@ -103,7 +101,7 @@ export async function sendPasswordResetEmail(
     html: `
       <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
         <h2>Reset password</h2>
-        <p>Halo ${name}, kami menerima permintaan reset password untuk akun Roastery OS Anda.</p>
+        <p>Halo ${escapeHtml(name)}, kami menerima permintaan reset password untuk akun Roastery OS Anda.</p>
         <p>
           <a href="${resetUrl}" style="display:inline-block;padding:12px 20px;background:#0f172a;color:#fff;text-decoration:none;border-radius:6px">
             Buat password baru

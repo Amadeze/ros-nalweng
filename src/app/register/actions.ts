@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { cookies, headers } from "next/headers";
 import { getIronSession } from "iron-session";
 import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
+import { getCurrentDate } from "@/lib/date-utils";
 import {
   enforceRateLimit,
   RateLimitError,
@@ -81,7 +82,7 @@ export async function registerTenant(data: {
 
     // 5. Create Tenant and User in transaction
     // Set 14 days trial
-    const trialEndsAt = new Date();
+    const trialEndsAt = getCurrentDate();
     trialEndsAt.setDate(trialEndsAt.getDate() + 14);
 
     const result = await prisma.$transaction(async (tx) => {

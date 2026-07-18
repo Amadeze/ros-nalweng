@@ -6,6 +6,7 @@ import { recordAudit } from "@/lib/audit";
 import { randomBytes } from "crypto";
 import { appendLedger } from "@/lib/stock";
 import { getPurchasePaymentStatus } from "@/lib/purchase-payments";
+import { getCurrentDate } from "@/lib/date-utils";
 
 // =============================================================================
 // TYPES
@@ -143,7 +144,7 @@ export type PnLReport = {
 // =============================================================================
 
 export async function getKeuanganPageData(): Promise<KeuanganPageData> {
-  const now = new Date();
+  const now = getCurrentDate();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
@@ -355,23 +356,25 @@ export async function getPnLReport(month: number, year: number): Promise<PnLRepo
   const prevStartDate = new Date(prevYear, prevMonth - 1, 1);
   const prevEndDate   = new Date(prevYear, prevMonth, 0, 23, 59, 59, 999);
 
+  const tp = await requireTenantPrisma();
+
   const [invoices, expenses, prevInvoices, prevExpenses] = await Promise.all([
-    (await requireTenantPrisma()).invoice.findMany({
+    tp.invoice.findMany({
       where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: startDate, lte: endDate } },
       select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, hpp: true, unitPrice: true, discount: true, product: { select: { type: true, name: true } } } } },
     }),
-    (await requireTenantPrisma()).expense.findMany({ where: { voidAt: null, date: { gte: startDate, lte: endDate } }, select: { category: true, amount: true } }),
-    (await requireTenantPrisma()).invoice.findMany({
+    tp.expense.findMany({ where: { voidAt: null, date: { gte: startDate, lte: endDate } }, select: { category: true, amount: true } }),
+    tp.invoice.findMany({
       where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: prevStartDate, lte: prevEndDate } },
       select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, hpp: true, unitPrice: true, discount: true, product: { select: { type: true, name: true } } } } },
     }),
-    (await requireTenantPrisma()).expense.findMany({ where: { voidAt: null, date: { gte: prevStartDate, lte: prevEndDate } }, select: { category: true, amount: true } }),
+    tp.expense.findMany({ where: { voidAt: null, date: { gte: prevStartDate, lte: prevEndDate } }, select: { category: true, amount: true } }),
   ]);
 
   // ==========================================
   // MATERIAL LOSSES / GAINS (ABNORMAL SHRINKAGE / OPNAME)
   // ==========================================
-  const adjustments = await (await requireTenantPrisma()).inventoryLedger.findMany({
+  const adjustments = await tp.inventoryLedger.findMany({
     where: { refType: { in: ["ADJUSTMENT_IN", "ADJUSTMENT_OUT"] }, createdAt: { gte: startDate, lte: endDate } },
     include: { product: { include: { purchases: { where: { status: "COMPLETED" }, orderBy: { receivedAt: "desc" }, take: 1 }, productionBatches: { where: { status: "COMPLETED" }, orderBy: { producedAt: "desc" }, take: 1 } } }, packaging: true }
   });
@@ -391,7 +394,7 @@ export async function getPnLReport(month: number, year: number): Promise<PnLRepo
       } else if (adj.product.type === "FINISHED_GOODS" && adj.product.productionBatches?.[0]) {
         unitCost = Number(adj.product.productionBatches[0].hppPerUnit);
       } else if (adj.product.type === "ROASTED_BEAN") {
-        const lastRoast = await (await requireTenantPrisma()).parentRoastingBatch.findFirst({
+        const lastRoast = await tp.parentRoastingBatch.findFirst({
           where: { outputProductId: adj.productId as string, status: "COMPLETED" },
           orderBy: { createdAt: "desc" },
           include: { inputProduct: { include: { purchases: { where: { status: "COMPLETED" }, orderBy: { receivedAt: "desc" }, take: 1 } } } }
@@ -528,7 +531,7 @@ export async function voidExpense(expenseId: string, reason: string) {
       if (expense.voidAt) throw new Error("Pengeluaran sudah di-void.");
       await tx.expense.update({
         where: { id: expense.id },
-        data: { voidReason: reason.trim(), voidAt: new Date() },
+        data: { voidReason: reason.trim(), voidAt: getCurrentDate() },
       });
       await recordAudit(tx, {
         tenantId,
@@ -541,7 +544,7 @@ export async function voidExpense(expenseId: string, reason: string) {
           category: expense.category,
           amount: Number(expense.amount),
         },
-        after: { voidAt: new Date(), reason: reason.trim() },
+        after: { voidAt: getCurrentDate(), reason: reason.trim() },
       });
     }, { isolationLevel: "Serializable" });
     revalidatePath("/keuangan");
@@ -596,7 +599,7 @@ export async function getPurchaseHistory(): Promise<PurchaseRow[]> {
       balance: Math.max(0, Number(p.totalCost) - Number(p.paidAmount)),
       paymentStatus: p.paymentStatus,
       dueDate: p.dueDate?.toISOString() ?? null,
-      isOverdue: p.paymentStatus !== "PAID" && Boolean(p.dueDate && p.dueDate < new Date()),
+      isOverdue: p.paymentStatus !== "PAID" && Boolean(p.dueDate && p.dueDate < getCurrentDate()),
       createdAt: p.createdAt.toISOString()
     };
   });
@@ -754,7 +757,7 @@ export async function voidSupplierPayment(paymentId: string, reason: string) {
       );
       await tx.supplierPayment.update({
         where: { id: payment.id },
-        data: { voidReason: reason.trim(), voidAt: new Date() },
+        data: { voidReason: reason.trim(), voidAt: getCurrentDate() },
       });
       await tx.purchase.update({
         where: { id: payment.purchaseId },
@@ -844,7 +847,7 @@ export async function voidPayment(paymentId: string, reason: string) {
         newPaidAmount <= 0.01 ? "ISSUED" : "PARTIAL";
       await tx.payment.update({
         where: { id: payment.id },
-        data: { voidReason: reason.trim(), voidAt: new Date() },
+        data: { voidReason: reason.trim(), voidAt: getCurrentDate() },
       });
       await tx.invoice.update({
         where: { id: payment.invoiceId },
@@ -934,7 +937,7 @@ export async function voidPurchase(purchaseId: string, reason: string) {
         data: {
           status: "VOID",
           voidReason: reason.trim(),
-          voidAt: new Date(),
+          voidAt: getCurrentDate(),
         },
       });
       await recordAudit(tx, {

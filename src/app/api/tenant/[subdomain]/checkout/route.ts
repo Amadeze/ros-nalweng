@@ -20,6 +20,7 @@ import {
   logServerError,
 } from "@/lib/api-observability";
 import { z } from "zod";
+import { getCurrentDate } from "@/lib/date-utils";
 
 type CheckoutItemInput = {
   id?: string;
@@ -176,17 +177,20 @@ export async function POST(
       }
     }
 
-    const hppEntries = await Promise.all(
-      products.map(async (product) => {
-        const lastBatch = await prisma.productionBatch.findFirst({
-          where: { tenantId: tenant.id, outputProductId: product.id, status: "COMPLETED" },
-          orderBy: { producedAt: "desc" },
-          select: { hppPerUnit: true },
-        });
-        return [product.id, Number(lastBatch?.hppPerUnit || 0)] as const;
-      })
+    // Batch HPP lookup to avoid N+1 queries
+    const lastBatches = await prisma.productionBatch.findMany({
+      where: {
+        tenantId: tenant.id,
+        status: "COMPLETED",
+        outputProductId: { in: products.map(p => p.id) },
+      },
+      orderBy: { producedAt: "desc" },
+      select: { outputProductId: true, hppPerUnit: true },
+      distinct: ["outputProductId"],
+    });
+    const hppByProduct = new Map(
+      lastBatches.map(b => [b.outputProductId, Number(b.hppPerUnit || 0)])
     );
-    const hppByProduct = new Map(hppEntries);
 
     // 2. Kalkulasi Subtotal & Buat Items Array dari data server
     let subtotal = 0;
@@ -227,7 +231,7 @@ export async function POST(
     let paymentUrl = null;
     let snapToken = null;
 
-    const invoiceCode = `INV-${tenant.code}-${new Date().getFullYear()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+    const invoiceCode = `INV-${tenant.code}-${getCurrentDate().getFullYear()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 
     if (hasMidtrans) {
       const serverKey = decryptCredential(tenant.midtransServerKey);

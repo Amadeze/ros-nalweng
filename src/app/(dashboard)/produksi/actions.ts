@@ -6,6 +6,7 @@ import { getCurrentTenantId, getSystemUserId, requireRole, requireTenantPrisma }
 import { recordAudit } from "@/lib/audit";
 import { randomBytes } from "crypto";
 import { normalizeProductionComponents } from "@/lib/operations";
+import { getCurrentDate } from "@/lib/date-utils";
 
 // =============================================================================
 // TYPES
@@ -97,7 +98,7 @@ export type ProductionPageData = {
 
 
 async function generateBatchCode(): Promise<string> {
-  const now = new Date();
+  const now = getCurrentDate();
   const prefix = `PRD-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
   const randStr = randomBytes(4).toString("hex").toUpperCase();
   return `${prefix}-${randStr}`;
@@ -535,7 +536,7 @@ export async function voidProductionBatch(
 
       await tx.productionBatch.update({
         where: { id: batchId },
-        data: { status: "VOID", voidReason: reason.trim(), voidAt: new Date() },
+        data: { status: "VOID", voidReason: reason.trim(), voidAt: getCurrentDate() },
       });
       const previousBatch = await tx.productionBatch.findFirst({
         where: {

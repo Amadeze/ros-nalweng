@@ -1,3 +1,4 @@
+import { getCurrentDate } from "@/lib/date-utils";
 export type PurchasePaymentState = "UNPAID" | "PARTIAL" | "PAID";
 export type PayableAgingBucket =
   | "CURRENT"
@@ -40,7 +41,7 @@ export function getPurchasePaymentStatus(
 
 export function getPayableAgingBucket(
   dueDate: Date | null,
-  asOf = new Date(),
+  asOf = getCurrentDate(),
 ): PayableAgingBucket {
   if (!dueDate || dueDate >= asOf) return "CURRENT";
   const daysOverdue = Math.max(

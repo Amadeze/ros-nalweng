@@ -11,12 +11,15 @@ export interface SessionUser {
 
 const sessionPassword = process.env.SESSION_SECRET;
 
-if (process.env.NODE_ENV === "production" && !sessionPassword) {
-  throw new Error("SESSION_SECRET must be configured in production.");
+if (!sessionPassword) {
+  throw new Error("SESSION_SECRET must be configured in environment variables (minimum 32 characters).");
+}
+if (sessionPassword.length < 32) {
+  throw new Error("SESSION_SECRET must be at least 32 characters long.");
 }
 
 export const SESSION_OPTIONS = {
-  password: sessionPassword ?? "ros-development-session-secret-minimum-32-characters",
+  password: sessionPassword,
   cookieName: "ros_session",
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getInvoiceForPrint } from "@/app/(dashboard)/penjualan/actions";
 import { PrintButton } from "./PrintButton";
+import { getCurrentDate } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -277,7 +278,7 @@ export default async function InvoicePrintPage({
                 <p className="text-xs text-zinc-400">
                   Dokumen ini dicetak dari Roastery Operating System (ROS)
                 </p>
-                <p className="text-xs text-zinc-400">Beanslab Roastery · {new Date().getFullYear()}</p>
+                <p className="text-xs text-zinc-400">Beanslab Roastery · {getCurrentDate().getFullYear()}</p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-zinc-400 mb-8">Hormat kami,</p>

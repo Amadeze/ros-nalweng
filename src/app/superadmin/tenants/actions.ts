@@ -101,7 +101,8 @@ export async function createTenant(data: {
       return user;
     });
 
-    const appUrl = process.env.APP_URL || "http://localhost:3000";
+    const appUrl = process.env.APP_URL;
+    if (!appUrl) throw new Error("APP_URL environment variable is required");
     const emailResult = await sendPasswordResetEmail(
       owner.email,
       owner.name,

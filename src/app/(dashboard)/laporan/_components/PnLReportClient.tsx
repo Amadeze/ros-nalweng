@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
+import { getCurrentDate } from "@/lib/date-utils";
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Helpers
@@ -31,7 +32,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 function pct(part: number, total: number): string {
-  if (total === 0) return "â€“";
+  if (total === 0) return "–";
   return `${((part / total) * 100).toFixed(1)}%`;
 }
 
@@ -189,14 +190,14 @@ function MonthNavigator({ month, year }: { month: number; year: number }) {
   };
 
   const next = () => {
-    const now = new Date();
+    const now = getCurrentDate();
     const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear();
     if (isCurrentMonth) return;
     if (month === 12) navigate(1, year + 1);
     else navigate(month + 1, year);
   };
 
-  const now = new Date();
+  const now = getCurrentDate();
   const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear();
 
   return (
@@ -404,7 +405,7 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
                 Laporan Laba Rugi
               </h2>
               <p className="text-xs text-zinc-400">
-                Periode: 1 {MONTHS[month - 1]} â€“ {new Date(year, month, 0).getDate()} {MONTHS[month - 1]} {year}
+                Periode: 1 {MONTHS[month - 1]} – {new Date(year, month, 0).getDate()} {MONTHS[month - 1]} {year}
               </p>
             </div>
             <div className="ml-auto text-right">
@@ -518,10 +519,10 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
         <div className="border-t border-zinc-100 bg-zinc-50/60 px-5 py-3">
           <div className="flex items-center justify-between text-[11px] text-zinc-400">
             <span>
-              Laporan ini digenerate otomatis oleh Roastery OS Â· Beanslab
+              Laporan ini digenerate otomatis oleh Roastery OS · Beanslab
             </span>
             <span className="tabular-nums">
-              Dicetak: {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+              Dicetak: {getCurrentDate().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
             </span>
           </div>
         </div>
@@ -651,7 +652,7 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
           </div>
           <div>
             <p className="text-xs font-medium text-zinc-500">
-              Laba Bersih Â· {MONTHS[month - 1]} {year}
+              Laba Bersih · {MONTHS[month - 1]} {year}
             </p>
             <p className={cn(
               "text-xl font-black font-mono tabular-nums",
@@ -681,7 +682,7 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
   return (
     <StandardPageLayout
       title="Laporan Laba Rugi"
-      description={`Profit & Loss Statement Â· ${MONTHS[month - 1]} ${year}`}
+      description={`Profit & Loss Statement · ${MONTHS[month - 1]} ${year}`}
       actionButton={
         <div className="flex items-center gap-2">
           <MonthNavigator month={month} year={year} />

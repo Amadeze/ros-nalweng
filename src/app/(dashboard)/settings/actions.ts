@@ -1,11 +1,10 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/audit";
 import { encryptCredential } from "@/lib/credentials";
 import { revalidatePath } from "next/cache";
 
-import { requireRole } from "@/lib/auth";
+import { requireRole, requireTenantPrisma } from "@/lib/auth";
 
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
@@ -73,13 +72,14 @@ const SettingsSchema = z.object({
   faqs: z.array(FaqSchema).max(20).optional(),
 }).strict();
 
-export async function updateTenantSettings(_tenantId: string, data: any) {
+export async function updateTenantSettings(_tenantId: string, data: unknown) {
   const user = await requireRole("OWNER");
+  const tenantPrisma = await requireTenantPrisma();
+  const tenantId = user.tenantId;
   
   const parsed = SettingsSchema.parse(data);
-  const tenantId = user.tenantId;
 
-  const updatedTenant = await prisma.$transaction(async (tx) => {
+  const updatedTenant = await tenantPrisma.$transaction(async (tx) => {
     const updated = await tx.tenant.update({
       where: { id: tenantId },
       data: {

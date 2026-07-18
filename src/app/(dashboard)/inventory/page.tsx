@@ -1,12 +1,15 @@
-import { getInventoryPageData, getPackagingOptions } from "./actions";
+import { getInventoryPageData, getPackagingOptions, getReorderAlertData } from "./actions";
+import { getPOSummary } from "./po-actions";
 import { InventoryClient } from "./_components/InventoryClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
-  const [data, packagings] = await Promise.all([
+  const [data, packagings, reorderData, poSummary] = await Promise.all([
     getInventoryPageData(),
     getPackagingOptions(),
+    getReorderAlertData(),
+    getPOSummary(),
   ]);
 
   return (
@@ -24,7 +27,9 @@ export default async function InventoryPage() {
         code:        p.code,
         costPerUnit: Number(p.costPerUnit),
       }))}
+      productReorderSummaries={reorderData.productSummaries}
+      packagingReorderSummaries={reorderData.packagingSummaries}
+      poSummary={poSummary}
     />
   );
 }
-

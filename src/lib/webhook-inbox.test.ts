@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { describe, expect, it, vi } from "vitest";
 
 import { claimWebhookEvent, timingSafeEqualText } from "./webhook-inbox";
+import { getCurrentDate } from "@/lib/date-utils";
 
 function duplicateError() {
   return new Prisma.PrismaClientKnownRequestError("duplicate", {
@@ -33,7 +34,7 @@ describe("claimWebhookEvent", () => {
         findUnique: vi.fn().mockResolvedValue({
           id: "event-1",
           status: "PROCESSED",
-          receivedAt: new Date(),
+          receivedAt: getCurrentDate(),
         }),
         updateMany: vi.fn(),
       },

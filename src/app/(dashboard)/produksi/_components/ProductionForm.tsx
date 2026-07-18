@@ -196,6 +196,7 @@ export function ProductionForm({
         }))
       );
     }
+  // Intentional: only trigger when outputProductId changes, not on every form value change
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outputProductId]);
 
@@ -214,6 +215,7 @@ export function ProductionForm({
         setValue(`rbComponents.${i}.actualGrams`, Math.round(item.gramsPerUnit * units));
       });
     }
+  // Intentional: only trigger when unitsProduced changes to recalculate grams
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unitsProduced]);
 
@@ -258,7 +260,7 @@ export function ProductionForm({
       {/* ── Pilih FG ── */}
       <FieldGroup>
         <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-          Produk Akhir (Finished Goods) <span className="text-red-500">*</span>
+          Produk Jadi <span className="text-red-500">*</span>
         </Label>
         <Controller
           control={control}
@@ -269,7 +271,7 @@ export function ProductionForm({
               onValueChange={(val: string | null) => field.onChange(val ?? "")}
             >
               <SelectTrigger className={cn("w-full h-9", glassInput)}>
-                <SelectValue placeholder="Pilih SKU Finished Goods...">
+                <SelectValue placeholder="Pilih SKU Produk Jadi...">
                   {field.value ? fgOptions.find((f) => f.id === field.value)?.name : null}
                 </SelectValue>
               </SelectTrigger>

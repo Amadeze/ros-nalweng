@@ -127,6 +127,12 @@ export function KeuanganClient({
             Catat Pengeluaran
           </Button>
         }
+        mobileFabAction={{
+          label: "Catat Pengeluaran",
+          icon: <Minus size={22} />,
+          onClick: () => setExpenseOpen(true),
+          "aria-label": "Catat pengeluaran",
+        }}
       >
         {/* ── KPI Summary ── */}
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">

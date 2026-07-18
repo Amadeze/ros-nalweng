@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { headers } from "next/headers";
 
 import { prisma } from "@/lib/prisma";
+import { getCurrentDate } from "@/lib/date-utils";
 import {
   consumePasswordResetToken,
   hashPasswordResetToken,
@@ -43,7 +44,7 @@ export async function resetPassword(token: string, password: string) {
     if (
       !resetToken ||
       resetToken.usedAt ||
-      resetToken.expiresAt <= new Date() ||
+      resetToken.expiresAt <= getCurrentDate() ||
       !resetToken.user.isActive
     ) {
       return {

@@ -5,7 +5,7 @@ import { TenantPortalClient } from "./_components/TenantPortalClient";
 import { getTenantAccessState } from "@/lib/subscription";
 import { planHasFeature } from "@/lib/plans";
 
-export const revalidate = 3600; // 1 hour caching for performance
+export const dynamic = "force-dynamic";
 
 interface TenantPageProps {
   params: Promise<{
@@ -67,7 +67,7 @@ export default async function TenantB2BPortal({ params }: TenantPageProps) {
   } = tenant;
 
   // Next.js App Router Server -> Client serialization doesn't support Prisma Decimal
-  // We need to map over products and convert decimals to numbers
+  // We need to map over products and convert ALL decimals to numbers
   const serializedTenant = {
     ...publicTenant,
     products: tenant.products.map(product => ({
@@ -77,7 +77,9 @@ export default async function TenantB2BPortal({ params }: TenantPageProps) {
       priceGold: product.priceGold ? Number(product.priceGold) : null,
       lastHpp: product.lastHpp ? Number(product.lastHpp) : null,
       stockKg: product.stockKg ? Number(product.stockKg) : null,
+      stockUnit: product.stockUnit ? Number(product.stockUnit) : null,
       avgCostPerKg: product.avgCostPerKg ? Number(product.avgCostPerKg) : null,
+      safetyStockQuantity: product.safetyStockQuantity ? Number(product.safetyStockQuantity) : null,
     }))
   };
 

@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Coffee, Package, Phone, X } from "@phosphor-icons/react";
 import { ThemeProps } from "./ThemeProps";
+import { resolveSkin } from "./skins";
 
 // =============================================================================
 // UNIVERSAL PREMIUM THEME
@@ -13,13 +14,13 @@ import { ThemeProps } from "./ThemeProps";
 // Everything reads from --t-* variables.
 // =============================================================================
 
-import { ThemeRouter } from "./ThemeRouter";
+import { TenantPortalLayout } from "./TenantPortalLayout";
 
 export function UniversalTheme({
   tenant, cart, isCartOpen, setIsCartOpen, customerName, setCustomerName, customerPhone, setCustomerPhone,
   customerAddress, setCustomerAddress, shippingMethod, setShippingMethod, handleAddToCart, handleCheckout, mounted, heroGreeting, aboutText,
   catalogTitle, catalogSubtitle, footerText, waLink, emailLink, igLink, iconProps, iconStroke, isDark,
-  isCheckingOut,
+  isCheckingOut, customerTier,
 }: ThemeProps) {
 
   const products = tenant.products || [];
@@ -29,18 +30,21 @@ export function UniversalTheme({
     backgroundImageUrl: tenant.heroImageUrl || tenant.backgroundImageUrl,
   };
 
+  // Resolve the visual skin from tenant's layoutStyle
+  const skin = resolveSkin(tenant.layoutStyle);
+
   const themeProps = {
     tenant: themeTenant, products, cart, isCartOpen, setIsCartOpen, customerName, setCustomerName, customerPhone, setCustomerPhone,
     customerAddress, setCustomerAddress, shippingMethod, setShippingMethod, handleAddToCart, handleCheckout, mounted, heroGreeting, aboutText,
-    catalogTitle, catalogSubtitle, footerText, waLink, emailLink, igLink, iconProps, iconStroke, isDark
+    catalogTitle, catalogSubtitle, footerText, waLink, emailLink, igLink, iconProps, iconStroke, isDark, isCheckingOut, customerTier
   };
 
   return (
     <div className="relative w-full min-h-screen overflow-x-clip">
       
       {/* ═══ THEME MATRIX RENDERER ═══ */}
-      {/* Ini akan memuat salah satu dari 10 tema eksklusif berdasarkan tenant.layoutStyle */}
-      <ThemeRouter {...themeProps} />
+      {/* Ini akan memuat layout bersama dengan skin dinamis */}
+      <TenantPortalLayout {...themeProps} skin={skin} />
 
       {/* ═══ MOBILE FLOATING CART BUTTON ═══ */}
 
@@ -108,7 +112,7 @@ export function UniversalTheme({
                         </p>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => cart.updateQuantity(tenant.subdomain, item.id, -1)}
+                            onClick={() => cart.updateQuantity(tenant.subdomain || "", item.id, -1)}
                             aria-label={`Kurangi ${item.name}`}
                             className="w-7 h-7 rounded-[var(--theme-radius)] flex items-center justify-center text-xs font-bold transition-colors border border-[var(--theme-border)] hover:bg-[var(--theme-background)] text-[var(--theme-text)]"
                           >
@@ -118,7 +122,7 @@ export function UniversalTheme({
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => cart.updateQuantity(tenant.subdomain, item.id, 1)}
+                            onClick={() => cart.updateQuantity(tenant.subdomain || "", item.id, 1)}
                             aria-label={`Tambah ${item.name}`}
                             className="w-7 h-7 rounded-[var(--theme-radius)] flex items-center justify-center text-xs font-bold transition-colors border border-[var(--theme-border)] hover:bg-[var(--theme-background)] text-[var(--theme-text)]"
                           >
@@ -131,7 +135,7 @@ export function UniversalTheme({
                           Rp {(item.price * item.quantity).toLocaleString("id-ID")}
                         </p>
                         <button
-                          onClick={() => cart.removeItem(tenant.subdomain, item.id)}
+                          onClick={() => cart.removeItem(tenant.subdomain || "", item.id)}
                           className="text-xs mt-1 font-semibold text-red-500 hover:text-red-700"
                         >
                           Remove
@@ -190,7 +194,7 @@ export function UniversalTheme({
                   <div className="flex justify-between items-center mb-5">
                     <span className="text-sm text-[var(--theme-text-muted)] font-medium">Total</span>
                     <span className="text-2xl font-black text-[var(--theme-text)]">
-                      Rp {cart.getTotalPrice(tenant.subdomain).toLocaleString("id-ID")}
+                      Rp {cart.getTotalPrice(tenant.subdomain || "").toLocaleString("id-ID")}
                     </span>
                   </div>
                   <button

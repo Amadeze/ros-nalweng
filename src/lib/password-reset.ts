@@ -1,4 +1,9 @@
 import crypto from "crypto";
+import { getCurrentDate } from "@/lib/date-utils";
+
+// Use a flexible type that works with both base and tenant-scoped Prisma clients
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TransactionClient = any;
 
 export function createPasswordResetToken() {
   return crypto.randomBytes(32).toString("base64url");
@@ -9,7 +14,7 @@ export function hashPasswordResetToken(token: string) {
 }
 
 export async function consumePasswordResetToken(
-  tx: any,
+  tx: TransactionClient,
   input: {
     tokenId: string;
     userId: string;
@@ -18,7 +23,7 @@ export async function consumePasswordResetToken(
     now?: Date;
   },
 ) {
-  const now = input.now ?? new Date();
+  const now = input.now ?? getCurrentDate();
   const claimed = await tx.passwordResetToken.updateMany({
     where: {
       id: input.tokenId,

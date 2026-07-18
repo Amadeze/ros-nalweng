@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StandardDrawer } from "@/components/StandardDrawer";
 import { createExpense } from "../actions";
 import { toast } from "sonner";
+import { getCurrentDate, getTodayString } from "@/lib/date-utils";
 
 const CATEGORIES = [
   { value: "UTILITAS",    label: "Utilitas (Listrik, Air, Internet)" },
@@ -40,7 +41,7 @@ interface Props {
 }
 
 export function CatatPengeluaranDrawer({ open, onOpenChange }: Props) {
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayString();
   const [submitting, setSubmitting]       = useState(false);
   const [selectedCat, setSelectedCat]     = useState<string>("");
 

@@ -131,8 +131,9 @@ const CreateInvoiceSchema = z.object({
 // =============================================================================
 
 export async function getSalesPageData(): Promise<SalesPageData> {
+  const tp = await requireTenantPrisma();
   const [invoicesRaw, customers, fgProducts] = await Promise.all([
-    (await requireTenantPrisma()).invoice.findMany({
+    tp.invoice.findMany({
       include: {
         customer: { select: { name: true } },
         _count: { select: { items: true } },
@@ -140,12 +141,12 @@ export async function getSalesPageData(): Promise<SalesPageData> {
       orderBy: { issuedAt: "desc" },
       take: 200,
     }),
-    (await requireTenantPrisma()).customer.findMany({
+    tp.customer.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
       select: { id: true, code: true, name: true, phone: true, tier: true },
     }),
-    (await requireTenantPrisma()).product.findMany({
+    tp.product.findMany({
       where: { type: "FINISHED_GOODS", isActive: true },
       orderBy: { name: "asc" },
       select: { 
@@ -262,7 +263,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
 
     // ── HPP snapshot per product ──
     // ── Generate invoice code ──
-    const now = new Date();
+    const now = getCurrentDate();
     const prefix = `INV-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
     const randStr = randomBytes(4).toString("hex").toUpperCase();
     const invoiceCode = `${prefix}-${randStr}`;
@@ -502,7 +503,7 @@ export async function voidInvoice(
 
       await tx.invoice.update({
         where: { id: invoiceId },
-        data: { status: "VOID", voidReason: reason, voidAt: new Date() },
+        data: { status: "VOID", voidReason: reason, voidAt: getCurrentDate() },
       });
 
       await recordAudit(tx, {
@@ -530,6 +531,7 @@ export async function voidInvoice(
 // =============================================================================
 
 import { createMidtransSnapTransaction } from "@/lib/midtrans";
+import { getCurrentDate } from "@/lib/date-utils";
 
 export async function approveInvoiceForMidtrans(invoiceId: string) {
   try {

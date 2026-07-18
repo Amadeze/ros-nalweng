@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, AlertCircle, Loader2, Coffee } from "lucide-react";
 import Link from "next/link";
+import { getCurrentDate } from "@/lib/date-utils";
 
 // 1. PISAHKAN LOGIKA FORM KE KOMPONEN TERSENDIRI
 function LoginForm() {
@@ -147,7 +148,7 @@ export default function LoginPage() {
           </div>
 
           <p className="mt-8 text-center text-xs text-slate-500">
-            &copy; {new Date().getFullYear()} Roastery OS. All rights reserved.
+            &copy; {getCurrentDate().getFullYear()} Roastery OS. All rights reserved.
           </p>
         </div>
       </div>

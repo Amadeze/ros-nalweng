@@ -1,83 +1,52 @@
 // =============================================================================
-// THEME CONFIG — $10k Ultra-Premium Configuration Schema
+// THEME CONFIG — Coffee World Theme System
 // =============================================================================
-// Ini adalah kontrak JSON yang mengatur SELURUH tampilan tema.
-// Setiap tenant menyimpan ini di field `themeConfig` (Prisma Json).
-// ThemeEngine membaca ini dan menginjeksi CSS custom properties.
+// Each preset represents a different expression of coffee culture.
+// All rooted in warm, artisanal aesthetics with distinct personalities.
 // =============================================================================
 
 export interface ThemeColors {
-  /** Primary brand color — hex or CSS gradient string */
   primary: string;
-  /** Secondary accent color */
   secondary: string;
-  /** Background — hex or gradient string like "linear-gradient(135deg, #0a0a0a, #1a1a2e)" */
   background: string;
-  /** Surface color for cards, panels */
   surface: string;
-  /** Text color on background */
   text: string;
-  /** Muted text color */
   textMuted: string;
-  /** Border/separator color */
   border: string;
-  /** Accent for CTAs, highlights */
   accent: string;
 }
 
 export interface ThemeTypography {
-  /** Font family category: 'serif' | 'sans' | 'mono' | or a specific Google Font name */
   fontFamily: string;
-  /** Display/heading font (can differ from body) */
   displayFont: string;
-  /** Base font size in px */
   baseFontSize: number;
-  /** Font weight for body text: 300-900 */
   bodyWeight: number;
-  /** Font weight for headings: 300-900 */
   headingWeight: number;
-  /** Letter spacing for headings in em */
   headingTracking: number;
-  /** Line height ratio for body text */
   bodyLineHeight: number;
-  /** Text transform for headings: 'none' | 'uppercase' | 'capitalize' */
   headingTransform: 'none' | 'uppercase' | 'capitalize';
 }
 
 export interface ThemeShadows {
-  /** Shadow preset: 'none' | 'soft' | 'sharp' | 'deep3d' | 'glow' | 'brutalist' */
   type: 'none' | 'soft' | 'sharp' | 'deep3d' | 'glow' | 'brutalist';
-  /** Shadow color — hex with alpha or rgba */
   color: string;
-  /** Shadow intensity 0-100 */
   intensity: number;
 }
 
 export interface ThemeAnimations {
-  /** Animation level: 'none' | 'subtle' | 'moderate' | 'high-tech' | 'cinematic' */
   level: 'none' | 'subtle' | 'moderate' | 'high-tech' | 'cinematic';
-  /** Easing curve name or array [x1,y1,x2,y2] */
   easing: string | number[];
-  /** Duration multiplier — 1.0 = normal, 0.5 = fast, 2.0 = slow */
   durationScale: number;
-  /** Enable scroll-triggered animations */
   scrollTrigger: boolean;
-  /** Enable hover micro-interactions */
   hoverEffects: boolean;
 }
 
 export interface ThemeLayout {
-  /** Border radius preset in px */
   borderRadius: number;
-  /** Border thickness in px */
   borderWidth: number;
-  /** Content max width in px */
   maxWidth: number;
-  /** Spacing scale multiplier — 1.0 = normal */
   spacingScale: number;
-  /** Card style: 'flat' | 'elevated' | 'outlined' | 'glass' */
   cardStyle: 'flat' | 'elevated' | 'outlined' | 'glass';
-  /** Header style: 'fixed' | 'static' | 'floating' */
   headerStyle: 'fixed' | 'static' | 'floating';
 }
 
@@ -89,175 +58,264 @@ export interface ThemeConfig {
   layout: ThemeLayout;
 }
 
+// =============================================================================
+// THEME PRESET ALIASES
+// =============================================================================
+
 export const THEME_PRESET_ALIASES: Record<string, string> = {
-  heritage: 'vintage',
-  neomodern: 'bauhaus',
-  cyber: 'cyberpunk',
-  botanical: 'organic',
-  editorial: 'magazine',
-  liquid: 'glass',
-  industrial: 'industrial',
-  club: 'organic',
-  luxury: 'cinematic',
-  playful: 'neobrutalism',
-  classic: 'cinematic',
-  futuristic: 'cyberpunk',
-  minimalist: 'bauhaus',
-  modern: 'bauhaus',
-  bento: 'bauhaus',
+  // Legacy aliases -> new names
+  vintage: 'heritage',
+  neomodern: 'artisan',
+  cyber: 'noir',
+  botanical: 'botanical',
+  editorial: 'kinfolk',
+  liquid: 'ceramic',
+  industrial: 'roastery',
+  club: 'origin',
+  luxury: 'specialty',
+  playful: 'cupping',
+  classic: 'heritage',
+  futuristic: 'noir',
+  minimalist: 'kinfolk',
+  modern: 'artisan',
+  bento: 'artisan',
+  glass: 'ceramic',
+  cinematic: 'noir',
+  zen: 'kinfolk',
+  neobrutalism: 'cupping',
+  heritage: 'heritage',
+  artisan: 'artisan',
+  noir: 'noir',
+  kinfolk: 'kinfolk',
+  ceramic: 'ceramic',
+  origin: 'origin',
+  roastery: 'roastery',
+  cupping: 'cupping',
+  specialty: 'specialty',
 };
 
 // =============================================================================
-// PRESET CONFIGURATIONS — 10 Premium Themes
+// 10 COFFEE WORLD PRESETS
 // =============================================================================
 
 export const THEME_PRESETS: Record<string, ThemeConfig> = {
-  // ─── 1. VINTAGE ───────────────────────────────────────────────────────
-  vintage: {
+
+  // ─── 1. HERITAGE — Vintage Coffee House ──────────────────────────────
+  // Old-world charm, aged paper, hand-drawn typography
+  // Like a 1920s European café
+  heritage: {
     colors: {
-      primary: '#8B4513',
-      secondary: '#D2691E',
-      background: '#F4EBD0',
-      surface: '#E8DCC8',
-      text: '#3B2F2F',
-      textMuted: '#6B5B4F',
-      border: '#C4A882',
-      accent: '#C0392B',
+      primary: '#5C3D2E',
+      secondary: '#8B6F47',
+      background: '#F5EDE0',
+      surface: '#FDF8F0',
+      text: '#3E2723',
+      textMuted: '#7D6B5D',
+      border: '#D4C4B0',
+      accent: '#C17817',
     },
     typography: {
-      fontFamily: 'Playfair Display',
+      fontFamily: 'EB Garamond',
       displayFont: 'Playfair Display',
-      baseFontSize: 17,
-      bodyWeight: 400,
-      headingWeight: 700,
-      headingTracking: 0.08,
-      bodyLineHeight: 1.75,
-      headingTransform: 'uppercase',
-    },
-    shadows: { type: 'soft', color: 'rgba(59,47,47,0.15)', intensity: 40 },
-    animations: { level: 'subtle', easing: [0.25, 0.1, 0.25, 1], durationScale: 1.3, scrollTrigger: true, hoverEffects: true },
-    layout: { borderRadius: 0, borderWidth: 2, maxWidth: 1200, spacingScale: 1.2, cardStyle: 'outlined', headerStyle: 'static' },
-  },
-
-  // ─── 2. CYBERPUNK ─────────────────────────────────────────────────────
-  cyberpunk: {
-    colors: {
-      primary: '#00FF41',
-      secondary: '#FF00FF',
-      background: 'linear-gradient(180deg, #0a0a0a 0%, #0d001a 100%)',
-      surface: 'rgba(0,255,65,0.05)',
-      text: '#00FF41',
-      textMuted: 'rgba(0,255,65,0.6)',
-      border: 'rgba(0,255,65,0.2)',
-      accent: '#FF00FF',
-    },
-    typography: {
-      fontFamily: 'JetBrains Mono',
-      displayFont: 'Orbitron',
-      baseFontSize: 15,
-      bodyWeight: 400,
-      headingWeight: 900,
-      headingTracking: 0.15,
-      bodyLineHeight: 1.6,
-      headingTransform: 'uppercase',
-    },
-    shadows: { type: 'glow', color: 'rgba(0,255,65,0.4)', intensity: 70 },
-    animations: { level: 'high-tech', easing: [0.77, 0, 0.175, 1], durationScale: 0.8, scrollTrigger: true, hoverEffects: true },
-    layout: { borderRadius: 2, borderWidth: 1, maxWidth: 1400, spacingScale: 1.0, cardStyle: 'outlined', headerStyle: 'fixed' },
-  },
-
-  // ─── 3. BAUHAUS ───────────────────────────────────────────────────────
-  bauhaus: {
-    colors: {
-      primary: '#E53935',
-      secondary: '#1565C0',
-      background: '#FAFAFA',
-      surface: '#FFFFFF',
-      text: '#212121',
-      textMuted: '#757575',
-      border: '#212121',
-      accent: '#FFD600',
-    },
-    typography: {
-      fontFamily: 'DM Sans',
-      displayFont: 'DM Sans',
-      baseFontSize: 16,
-      bodyWeight: 400,
-      headingWeight: 800,
-      headingTracking: -0.02,
-      bodyLineHeight: 1.6,
-      headingTransform: 'uppercase',
-    },
-    shadows: { type: 'sharp', color: '#212121', intensity: 100 },
-    animations: { level: 'moderate', easing: [0.16, 1, 0.3, 1], durationScale: 0.9, scrollTrigger: true, hoverEffects: true },
-    layout: { borderRadius: 0, borderWidth: 3, maxWidth: 1200, spacingScale: 1.1, cardStyle: 'outlined', headerStyle: 'static' },
-  },
-
-  // ─── 4. MAGAZINE ──────────────────────────────────────────────────────
-  magazine: {
-    colors: {
-      primary: '#1A1A1A',
-      secondary: '#C5A47E',
-      background: '#FEFCF6',
-      surface: '#FFFFFF',
-      text: '#1A1A1A',
-      textMuted: '#8E8E8E',
-      border: '#E5E1DA',
-      accent: '#C5A47E',
-    },
-    typography: {
-      fontFamily: 'Source Serif 4',
-      displayFont: 'Source Serif 4',
       baseFontSize: 18,
       bodyWeight: 400,
       headingWeight: 700,
-      headingTracking: -0.03,
+      headingTracking: 0.06,
       bodyLineHeight: 1.8,
       headingTransform: 'none',
     },
-    shadows: { type: 'soft', color: 'rgba(0,0,0,0.06)', intensity: 30 },
-    animations: { level: 'subtle', easing: [0.22, 1, 0.36, 1], durationScale: 1.2, scrollTrigger: true, hoverEffects: true },
-    layout: { borderRadius: 4, borderWidth: 1, maxWidth: 1100, spacingScale: 1.3, cardStyle: 'flat', headerStyle: 'static' },
+    shadows: { type: 'soft', color: 'rgba(62,39,35,0.12)', intensity: 35 },
+    animations: { level: 'subtle', easing: [0.25, 0.1, 0.25, 1], durationScale: 1.4, scrollTrigger: true, hoverEffects: true },
+    layout: { borderRadius: 4, borderWidth: 2, maxWidth: 1100, spacingScale: 1.3, cardStyle: 'outlined', headerStyle: 'static' },
   },
 
-  // ─── 5. ORGANIC ───────────────────────────────────────────────────────
-  organic: {
+  // ─── 2. ARTISAN — Modern Craft Roastery ──────────────────────────────
+  // Clean lines, copper accents, confident minimalism
+  // Like Blue Bottle Coffee meets Aesop
+  artisan: {
     colors: {
-      primary: '#4A7C59',
-      secondary: '#8B6914',
-      background: '#F5F0E8',
-      surface: '#FFFDF7',
-      text: '#2D3A2D',
-      textMuted: '#6B7B6B',
-      border: '#D4CBB8',
-      accent: '#D4A03C',
+      primary: '#6B4423',
+      secondary: '#A67C52',
+      background: '#FAF8F5',
+      surface: '#FFFFFF',
+      text: '#2C2420',
+      textMuted: '#8B7E74',
+      border: '#E8E0D8',
+      accent: '#C8956C',
+    },
+    typography: {
+      fontFamily: 'DM Sans',
+      displayFont: 'Playfair Display',
+      baseFontSize: 16,
+      bodyWeight: 400,
+      headingWeight: 600,
+      headingTracking: -0.02,
+      bodyLineHeight: 1.75,
+      headingTransform: 'none',
+    },
+    shadows: { type: 'soft', color: 'rgba(44,36,32,0.08)', intensity: 25 },
+    animations: { level: 'moderate', easing: [0.22, 1, 0.36, 1], durationScale: 1.0, scrollTrigger: true, hoverEffects: true },
+    layout: { borderRadius: 16, borderWidth: 1, maxWidth: 1200, spacingScale: 1.1, cardStyle: 'elevated', headerStyle: 'floating' },
+  },
+
+  // ─── 3. NOIR — Dark Roast Sophistication ─────────────────────────────
+  // Moody, deep, intense like a double espresso
+  // Dark backgrounds with warm amber highlights
+  noir: {
+    colors: {
+      primary: '#E8D5B7',
+      secondary: '#A89279',
+      background: '#1A1612',
+      surface: '#231F1B',
+      text: '#E8D5B7',
+      textMuted: '#9A8B7A',
+      border: '#3D352D',
+      accent: '#D4A574',
+    },
+    typography: {
+      fontFamily: 'Inter',
+      displayFont: 'Source Serif 4',
+      baseFontSize: 16,
+      bodyWeight: 300,
+      headingWeight: 600,
+      headingTracking: -0.03,
+      bodyLineHeight: 1.7,
+      headingTransform: 'none',
+    },
+    shadows: { type: 'soft', color: 'rgba(0,0,0,0.4)', intensity: 60 },
+    animations: { level: 'subtle', easing: [0.16, 1, 0.3, 1], durationScale: 1.2, scrollTrigger: true, hoverEffects: true },
+    layout: { borderRadius: 8, borderWidth: 1, maxWidth: 1200, spacingScale: 1.2, cardStyle: 'elevated', headerStyle: 'fixed' },
+  },
+
+  // ─── 4. BOTANICAL — Green Coffee Origins ─────────────────────────────
+  // Earthy, organic, like a coffee farm at dawn
+  // Green tones with warm soil browns
+  botanical: {
+    colors: {
+      primary: '#4A6741',
+      secondary: '#7D9B6D',
+      background: '#F2F5EF',
+      surface: '#FAFCF8',
+      text: '#2D3B28',
+      textMuted: '#6B7D63',
+      border: '#C8D4BC',
+      accent: '#8B6F47',
     },
     typography: {
       fontFamily: 'Nunito',
-      displayFont: 'Nunito',
+      displayFont: 'Source Serif 4',
       baseFontSize: 17,
       bodyWeight: 400,
       headingWeight: 700,
       headingTracking: -0.01,
-      bodyLineHeight: 1.7,
+      bodyLineHeight: 1.75,
       headingTransform: 'none',
     },
-    shadows: { type: 'soft', color: 'rgba(74,124,89,0.12)', intensity: 35 },
+    shadows: { type: 'soft', color: 'rgba(74,103,65,0.1)', intensity: 30 },
     animations: { level: 'moderate', easing: [0.34, 1.56, 0.64, 1], durationScale: 1.1, scrollTrigger: true, hoverEffects: true },
-    layout: { borderRadius: 24, borderWidth: 2, maxWidth: 1200, spacingScale: 1.15, cardStyle: 'elevated', headerStyle: 'floating' },
+    layout: { borderRadius: 20, borderWidth: 2, maxWidth: 1200, spacingScale: 1.15, cardStyle: 'elevated', headerStyle: 'floating' },
   },
 
-  // ─── 6. INDUSTRIAL ────────────────────────────────────────────────────
-  industrial: {
+  // ─── 5. KINFOLK — Editorial Minimalism ───────────────────────────────
+  // Clean, lots of whitespace, serif typography
+  // Like Kinfolk magazine or Cereal magazine
+  kinfolk: {
     colors: {
-      primary: '#E8E8E8',
-      secondary: '#FFD600',
-      background: '#1A1A1A',
-      surface: '#242424',
-      text: '#E8E8E8',
-      textMuted: '#888888',
-      border: '#333333',
-      accent: '#FFD600',
+      primary: '#1A1A1A',
+      secondary: '#6B6B6B',
+      background: '#FEFEFE',
+      surface: '#FFFFFF',
+      text: '#1A1A1A',
+      textMuted: '#999999',
+      border: '#EAEAEA',
+      accent: '#B8956A',
+    },
+    typography: {
+      fontFamily: 'Source Serif 4',
+      displayFont: 'Playfair Display',
+      baseFontSize: 18,
+      bodyWeight: 400,
+      headingWeight: 600,
+      headingTracking: -0.02,
+      bodyLineHeight: 1.85,
+      headingTransform: 'none',
+    },
+    shadows: { type: 'none', color: 'transparent', intensity: 0 },
+    animations: { level: 'subtle', easing: [0.22, 1, 0.36, 1], durationScale: 1.3, scrollTrigger: true, hoverEffects: false },
+    layout: { borderRadius: 0, borderWidth: 1, maxWidth: 1000, spacingScale: 1.5, cardStyle: 'flat', headerStyle: 'static' },
+  },
+
+  // ─── 6. CERAMIC — Coffee Cup Aesthetics ──────────────────────────────
+  // Warm clay tones, handcrafted feel, like pottery
+  // Inspired by handmade ceramic cups
+  ceramic: {
+    colors: {
+      primary: '#9C6B3A',
+      secondary: '#C4956A',
+      background: '#F7F2EC',
+      surface: '#FFFDF9',
+      text: '#4A3728',
+      textMuted: '#8C7A6B',
+      border: '#DDD0C2',
+      accent: '#B85C38',
+    },
+    typography: {
+      fontFamily: 'DM Sans',
+      displayFont: 'EB Garamond',
+      baseFontSize: 17,
+      bodyWeight: 400,
+      headingWeight: 600,
+      headingTracking: 0.01,
+      bodyLineHeight: 1.75,
+      headingTransform: 'none',
+    },
+    shadows: { type: 'soft', color: 'rgba(156,107,58,0.1)', intensity: 30 },
+    animations: { level: 'subtle', easing: [0.25, 0.1, 0.25, 1], durationScale: 1.2, scrollTrigger: true, hoverEffects: true },
+    layout: { borderRadius: 24, borderWidth: 2, maxWidth: 1100, spacingScale: 1.2, cardStyle: 'elevated', headerStyle: 'floating' },
+  },
+
+  // ─── 7. ORIGIN — Terroir & Geography ─────────────────────────────────
+  // Warm earth tones, maps and exploration vibes
+  // Like a coffee origin catalog
+  origin: {
+    colors: {
+      primary: '#6B4E3D',
+      secondary: '#A0845C',
+      background: '#F0EBE3',
+      surface: '#FAF7F2',
+      text: '#3D2E24',
+      textMuted: '#7A6B5C',
+      border: '#D4C8B8',
+      accent: '#C75B39',
+    },
+    typography: {
+      fontFamily: 'Space Grotesk',
+      displayFont: 'Source Serif 4',
+      baseFontSize: 16,
+      bodyWeight: 400,
+      headingWeight: 700,
+      headingTracking: 0.02,
+      bodyLineHeight: 1.7,
+      headingTransform: 'uppercase',
+    },
+    shadows: { type: 'soft', color: 'rgba(107,78,61,0.12)', intensity: 35 },
+    animations: { level: 'moderate', easing: [0.16, 1, 0.3, 1], durationScale: 1.0, scrollTrigger: true, hoverEffects: true },
+    layout: { borderRadius: 8, borderWidth: 2, maxWidth: 1300, spacingScale: 1.1, cardStyle: 'outlined', headerStyle: 'fixed' },
+  },
+
+  // ─── 8. ROASTERY — Industrial Craft ──────────────────────────────────
+  // Exposed elements, warm metals, workshop feel
+  // Like a roastery floor with copper and steel
+  roastery: {
+    colors: {
+      primary: '#C8A882',
+      secondary: '#8B7355',
+      background: '#1E1B18',
+      surface: '#2A2520',
+      text: '#E8DDD0',
+      textMuted: '#9A8B78',
+      border: '#3D352C',
+      accent: '#D4944A',
     },
     typography: {
       fontFamily: 'Space Mono',
@@ -265,131 +323,82 @@ export const THEME_PRESETS: Record<string, ThemeConfig> = {
       baseFontSize: 15,
       bodyWeight: 400,
       headingWeight: 700,
-      headingTracking: 0.05,
-      bodyLineHeight: 1.6,
+      headingTracking: 0.04,
+      bodyLineHeight: 1.65,
       headingTransform: 'uppercase',
     },
     shadows: { type: 'none', color: 'transparent', intensity: 0 },
-    animations: { level: 'moderate', easing: [0.16, 1, 0.3, 1], durationScale: 0.7, scrollTrigger: true, hoverEffects: true },
-    layout: { borderRadius: 0, borderWidth: 1, maxWidth: 1400, spacingScale: 1.0, cardStyle: 'outlined', headerStyle: 'fixed' },
+    animations: { level: 'moderate', easing: [0.16, 1, 0.3, 1], durationScale: 0.8, scrollTrigger: true, hoverEffects: true },
+    layout: { borderRadius: 4, borderWidth: 1, maxWidth: 1400, spacingScale: 1.0, cardStyle: 'outlined', headerStyle: 'fixed' },
   },
 
-  // ─── 7. GLASSMORPHISM ─────────────────────────────────────────────────
-  glass: {
+  // ─── 9. CUPPING — Professional Tasting Room ──────────────────────────
+  // Clean, precise, neutral like a cupping lab
+  // White, gray, with subtle warm accents
+  cupping: {
     colors: {
-      primary: '#818CF8',
-      secondary: '#F472B6',
-      background: 'linear-gradient(135deg, #0F0F23 0%, #1A0A2E 50%, #0F172A 100%)',
-      surface: 'rgba(255,255,255,0.05)',
-      text: '#F8FAFC',
-      textMuted: 'rgba(248,250,252,0.6)',
-      border: 'rgba(255,255,255,0.1)',
-      accent: '#A78BFA',
+      primary: '#4A4A4A',
+      secondary: '#7A7A7A',
+      background: '#FAFAFA',
+      surface: '#FFFFFF',
+      text: '#2A2A2A',
+      textMuted: '#8A8A8A',
+      border: '#E5E5E5',
+      accent: '#A67C52',
     },
     typography: {
       fontFamily: 'Inter',
       displayFont: 'Inter',
-      baseFontSize: 16,
+      baseFontSize: 15,
       bodyWeight: 400,
       headingWeight: 600,
-      headingTracking: -0.03,
-      bodyLineHeight: 1.6,
+      headingTracking: -0.02,
+      bodyLineHeight: 1.65,
       headingTransform: 'none',
     },
-    shadows: { type: 'glow', color: 'rgba(129,140,248,0.2)', intensity: 50 },
-    animations: { level: 'moderate', easing: [0.16, 1, 0.3, 1], durationScale: 1.0, scrollTrigger: true, hoverEffects: true },
-    layout: { borderRadius: 24, borderWidth: 1, maxWidth: 1200, spacingScale: 1.1, cardStyle: 'glass', headerStyle: 'floating' },
+    shadows: { type: 'soft', color: 'rgba(0,0,0,0.06)', intensity: 20 },
+    animations: { level: 'subtle', easing: [0.22, 1, 0.36, 1], durationScale: 1.0, scrollTrigger: true, hoverEffects: true },
+    layout: { borderRadius: 8, borderWidth: 1, maxWidth: 1200, spacingScale: 1.1, cardStyle: 'elevated', headerStyle: 'static' },
   },
 
-  // ─── 8. CINEMATIC DARK ────────────────────────────────────────────────
-  cinematic: {
+  // ─── 10. SPECIALTY — Premium Single-Origin ───────────────────────────
+  // Elegant, refined, like a high-end coffee subscription
+  // Dark with gold accents, luxurious feel
+  specialty: {
     colors: {
-      primary: '#FFFFFF',
-      secondary: '#A0A0A0',
-      background: '#000000',
-      surface: '#0A0A0A',
-      text: '#FFFFFF',
-      textMuted: 'rgba(255,255,255,0.4)',
-      border: 'rgba(255,255,255,0.08)',
-      accent: '#FFFFFF',
+      primary: '#D4AF37',
+      secondary: '#B8972E',
+      background: '#0F0E0C',
+      surface: '#1A1815',
+      text: '#F5F0E8',
+      textMuted: '#A09880',
+      border: '#2D2820',
+      accent: '#D4AF37',
     },
     typography: {
-      fontFamily: 'Inter',
-      displayFont: 'Inter',
+      fontFamily: 'Playfair Display',
+      displayFont: 'Playfair Display',
       baseFontSize: 17,
-      bodyWeight: 300,
-      headingWeight: 300,
-      headingTracking: -0.04,
-      bodyLineHeight: 1.7,
+      bodyWeight: 400,
+      headingWeight: 700,
+      headingTracking: 0.03,
+      bodyLineHeight: 1.75,
       headingTransform: 'none',
     },
-    shadows: { type: 'none', color: 'transparent', intensity: 0 },
-    animations: { level: 'cinematic', easing: [0.16, 1, 0.3, 1], durationScale: 2.0, scrollTrigger: true, hoverEffects: true },
-    layout: { borderRadius: 0, borderWidth: 0, maxWidth: 1400, spacingScale: 1.5, cardStyle: 'flat', headerStyle: 'static' },
-  },
-
-  // ─── 9. ZEN MINIMALIST ────────────────────────────────────────────────
-  zen: {
-    colors: {
-      primary: '#2C2C2C',
-      secondary: '#9CA3AF',
-      background: '#F9F7F2',
-      surface: '#FFFFFF',
-      text: '#2C2C2C',
-      textMuted: '#9CA3AF',
-      border: '#E8E4DD',
-      accent: '#2C2C2C',
-    },
-    typography: {
-      fontFamily: 'EB Garamond',
-      displayFont: 'EB Garamond',
-      baseFontSize: 18,
-      bodyWeight: 400,
-      headingWeight: 400,
-      headingTracking: 0.08,
-      bodyLineHeight: 1.85,
-      headingTransform: 'uppercase',
-    },
-    shadows: { type: 'none', color: 'transparent', intensity: 0 },
-    animations: { level: 'subtle', easing: [0.22, 1, 0.36, 1], durationScale: 1.5, scrollTrigger: true, hoverEffects: false },
-    layout: { borderRadius: 0, borderWidth: 1, maxWidth: 900, spacingScale: 1.5, cardStyle: 'flat', headerStyle: 'static' },
-  },
-
-  // ─── 10. NEO-BRUTALISM ────────────────────────────────────────────────
-  neobrutalism: {
-    colors: {
-      primary: '#111111',
-      secondary: '#4ECDC4',
-      background: '#FFE873',
-      surface: '#FFFFFF',
-      text: '#111111',
-      textMuted: '#333333',
-      border: '#111111',
-      accent: '#FF5C5C',
-    },
-    typography: {
-      fontFamily: 'Space Grotesk',
-      displayFont: 'Space Grotesk',
-      baseFontSize: 16,
-      bodyWeight: 500,
-      headingWeight: 900,
-      headingTracking: -0.04,
-      bodyLineHeight: 1.5,
-      headingTransform: 'uppercase',
-    },
-    shadows: { type: 'brutalist', color: '#111111', intensity: 100 },
-    animations: { level: 'moderate', easing: [0.34, 1.56, 0.64, 1], durationScale: 0.6, scrollTrigger: true, hoverEffects: true },
-    layout: { borderRadius: 0, borderWidth: 4, maxWidth: 1300, spacingScale: 1.0, cardStyle: 'outlined', headerStyle: 'fixed' },
+    shadows: { type: 'soft', color: 'rgba(212,175,55,0.1)', intensity: 40 },
+    animations: { level: 'cinematic', easing: [0.16, 1, 0.3, 1], durationScale: 1.5, scrollTrigger: true, hoverEffects: true },
+    layout: { borderRadius: 2, borderWidth: 1, maxWidth: 1200, spacingScale: 1.4, cardStyle: 'elevated', headerStyle: 'static' },
   },
 };
 
 // =============================================================================
 // DEFAULT CONFIG
 // =============================================================================
-export const DEFAULT_THEME_CONFIG: ThemeConfig = THEME_PRESETS.glass;
+
+export const DEFAULT_THEME_CONFIG: ThemeConfig = THEME_PRESETS.artisan;
 
 export function getThemePreset(layoutStyle?: string | null): ThemeConfig {
-  const normalized = layoutStyle?.toLowerCase() || 'neomodern';
+  const normalized = layoutStyle?.toLowerCase() || 'artisan';
   const presetId = THEME_PRESET_ALIASES[normalized] || normalized;
-  return THEME_PRESETS[presetId] || THEME_PRESETS.bauhaus;
+  return THEME_PRESETS[presetId] || THEME_PRESETS.artisan;
 }

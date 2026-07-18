@@ -201,11 +201,11 @@ test("all owner dashboard modules render", async ({ context, page }) => {
       expect(response?.status(), route).toBe(200);
       await expect(page, route).not.toHaveURL(/\/login/);
       if (route === "/inventory") {
-        const ledgerButton = page.getByRole("button", { name: "Ledger", exact: true });
-        const ledgerSearch = page.getByPlaceholder("Cari item, referensi, catatan, atau operator");
+        const mutationsButton = page.getByRole("button", { name: "Mutasi Stok", exact: true });
+        const mutationsSearch = page.getByPlaceholder("Cari item, referensi, atau operator...");
         await expect(async () => {
-          await ledgerButton.click();
-          await expect(ledgerSearch).toBeVisible();
+          await mutationsButton.click();
+          await expect(mutationsSearch).toBeVisible();
         }).toPass({ timeout: 15_000 });
       }
       if (route === "/keuangan") {

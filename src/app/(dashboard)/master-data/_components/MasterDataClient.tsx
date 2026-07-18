@@ -60,8 +60,8 @@ const PROD_TYPE_COLOR: Record<ProductRow["type"], string> = {
 const PROD_TYPE_FULL: Record<ProductRow["type"], string> = {
   GREEN_BEAN:     "Green Bean",
   ROASTED_BEAN:   "Roasted Bean",
-  FINISHED_GOODS: "Finished Goods",
-  PACKAGING:      "Packaging",
+  FINISHED_GOODS: "Produk Jadi",
+  PACKAGING:      "Kemasan",
 };
 
 // =============================================================================
@@ -421,6 +421,12 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
             Tambah {activeTabMeta.label}
           </Button>
         }
+        mobileFabAction={{
+          label: `Tambah ${activeTabMeta.label}`,
+          icon: <Plus size={22} />,
+          onClick: openCreate,
+          "aria-label": `Tambah ${activeTabMeta.label}`,
+        }}
       >
         {/* ── Tab pills ── */}
         <div className="mb-6 grid grid-cols-2 md:grid-cols-5 gap-2 bg-white/20 p-2 rounded-2xl backdrop-blur-md border border-white/50">

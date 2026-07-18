@@ -191,7 +191,7 @@ export function ProductionHistoryTable({ batches }: ProductionHistoryTableProps)
       open={!!voidTarget}
       onOpenChange={(v) => { if (!v) setVoidTarget(null); }}
       title={`Void Batch ${voidTarget?.code ?? ""}`}
-      description="Tindakan ini akan membalik mutasi stok Roasted Bean (kembali) dan Finished Goods (berkurang). Tidak dapat dibatalkan."
+      description="Tindakan ini akan membalik mutasi stok Roasted Bean (kembali) dan Produk Jadi (berkurang). Tidak dapat dibatalkan."
       onConfirm={async (reason) => {
         const result = await voidProductionBatch(voidTarget!.id, reason);
         return result;

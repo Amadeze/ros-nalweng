@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { planHasFeature } from "@/lib/plans";
 import { getTenantAccessState } from "@/lib/subscription";
 import { claimWebhookEvent } from "@/lib/webhook-inbox";
+import { getCurrentDate } from "@/lib/date-utils";
 import {
   getRequestId,
   internalErrorResponse,
@@ -27,7 +28,7 @@ const ArtisanPayloadSchema = z.object({
 });
 
 function recordedAt(timestamp: string | number | undefined) {
-  if (timestamp === undefined) return new Date();
+  if (timestamp === undefined) return getCurrentDate();
   const date = new Date(timestamp);
   return Number.isNaN(date.getTime()) ? null : date;
 }
@@ -106,7 +107,7 @@ export async function POST(req: Request) {
     if (data.event !== "DROP") {
       await prisma.webhookEvent.update({
         where: { id: webhookEventId! },
-        data: { status: "IGNORED", processedAt: new Date() },
+        data: { status: "IGNORED", processedAt: getCurrentDate() },
       });
       return NextResponse.json({ success: true, ignored: true });
     }
@@ -128,7 +129,7 @@ export async function POST(req: Request) {
         data: {
           status: "FAILED",
           error: "No pending roasting batch found.",
-          processedAt: new Date(),
+          processedAt: getCurrentDate(),
         },
       });
       return NextResponse.json({ error: "No pending roasting batch found" }, { status: 404 });
@@ -140,7 +141,7 @@ export async function POST(req: Request) {
         data: {
           status: "FAILED",
           error: "Multiple pending batches require parent_batch_id.",
-          processedAt: new Date(),
+          processedAt: getCurrentDate(),
         },
       });
       return NextResponse.json(
@@ -176,7 +177,7 @@ export async function POST(req: Request) {
       });
       await tx.webhookEvent.update({
         where: { id: webhookEventId! },
-        data: { status: "PROCESSED", processedAt: new Date() },
+        data: { status: "PROCESSED", processedAt: getCurrentDate() },
       });
     });
 
@@ -195,7 +196,7 @@ export async function POST(req: Request) {
           data: {
             status: "FAILED",
             error: error instanceof Error ? error.message : "Unknown error",
-            processedAt: new Date(),
+            processedAt: getCurrentDate(),
           },
         })
         .catch(() => undefined);

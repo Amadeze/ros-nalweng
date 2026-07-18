@@ -1,6 +1,7 @@
 "use server";
 import { requireTenantPrisma } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/session";
+import { getCurrentDate } from "@/lib/date-utils";
 
 
 // =============================================================================
@@ -80,14 +81,16 @@ type UnitAggRow  = { refId: string; stockUnit: number };
 export async function getDashboardData(): Promise<DashboardData> {
   const user = await getCurrentUser();
   if (!user || !user.tenantId) throw new Error("Unauthorized");
-  const tenantId = user.tenantId;
 
-  const now          = new Date();
+  const now          = getCurrentDate();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const endOfToday   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   
   const sevenDaysAgo = new Date(startOfToday);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+
+  const tp = await requireTenantPrisma();
+  const tenantId = user.tenantId;
 
   // ── All queries fire in parallel ──
   const [
@@ -112,56 +115,56 @@ export async function getDashboardData(): Promise<DashboardData> {
   ] = await Promise.all([
 
     // 1. Revenue hari ini (nota PAID yang diterbitkan hari ini)
-    (await requireTenantPrisma()).invoice.aggregate({
+    tp.invoice.aggregate({
       where: { status: "PAID", issuedAt: { gte: startOfToday, lte: endOfToday } },
       _sum: { grandTotal: true },
     }),
 
     // 2. Kas diterima hari ini (semua Payment yang paidAt hari ini)
-    (await requireTenantPrisma()).payment.aggregate({
+    tp.payment.aggregate({
       where: { paidAt: { gte: startOfToday, lte: endOfToday } },
       _sum: { amount: true },
     }),
 
     // 3. Total piutang outstanding
-    (await requireTenantPrisma()).invoice.findMany({
+    tp.invoice.findMany({
       where: { status: { in: ["ISSUED", "PARTIAL"] } },
       select: { grandTotal: true, paidAmount: true },
     }),
 
     // 4a. Stok kg: GB + RB — fetch dari Product cache
-    (await requireTenantPrisma()).product.findMany({
+    tp.product.findMany({
       where: { type: { in: ["GREEN_BEAN", "ROASTED_BEAN"] } },
       select: { id: true, stockKg: true },
     }).then(rows => rows.map(r => ({ productId: r.id, stockKg: Number(r.stockKg) }))),
 
     // 4b. Stok FG (unit) — fetch dari Product cache
-    (await requireTenantPrisma()).product.findMany({
+    tp.product.findMany({
       where: { type: "FINISHED_GOODS" },
       select: { id: true, stockUnit: true },
     }).then(rows => rows.map(r => ({ refId: r.id, stockUnit: Number(r.stockUnit) }))),
 
     // 4c. Stok Packaging (unit) — fetch dari Packaging cache
-    (await requireTenantPrisma()).packaging.findMany({
+    tp.packaging.findMany({
       select: { id: true, stockUnit: true },
     }).then(rows => rows.map(r => ({ refId: r.id, stockUnit: Number(r.stockUnit) }))),
 
     // 5a. Master produk aktif (GB+RB+FG)
-    (await requireTenantPrisma()).product.findMany({
+    tp.product.findMany({
       where: { isActive: true, type: { in: ["GREEN_BEAN", "ROASTED_BEAN", "FINISHED_GOODS"] } },
       select: { id: true, name: true, type: true },
       orderBy: { name: "asc" },
     }),
 
     // 5b. Master kemasan aktif
-    (await requireTenantPrisma()).packaging.findMany({
+    tp.packaging.findMany({
       where: { isActive: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
 
     // 6. Activity: 8 Purchase terbaru
-    (await requireTenantPrisma()).purchase.findMany({
+    tp.purchase.findMany({
       take: 8,
       orderBy: { createdAt: "desc" },
       select: {
@@ -174,7 +177,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     }),
 
     // 7. Activity: 8 ParentRoastingBatch terbaru
-    (await requireTenantPrisma()).parentRoastingBatch.findMany({
+    tp.parentRoastingBatch.findMany({
       take: 8,
       orderBy: { createdAt: "desc" },
       select: {
@@ -186,7 +189,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     }),
 
     // 8. Activity: 8 ProductionBatch terbaru
-    (await requireTenantPrisma()).productionBatch.findMany({
+    tp.productionBatch.findMany({
       take: 8,
       orderBy: { createdAt: "desc" },
       select: {
@@ -198,7 +201,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     }),
 
     // 9. Activity: 8 Invoice terbaru
-    (await requireTenantPrisma()).invoice.findMany({
+    tp.invoice.findMany({
       take: 8,
       orderBy: { createdAt: "desc" },
       select: {
@@ -210,7 +213,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     }),
 
     // 10. Revenue Trend (Last 7 Days)
-    (await requireTenantPrisma()).$queryRaw<{ date: Date; revenue: number }[]>`
+    tp.$queryRaw<{ date: Date; revenue: number }[]>`
       SELECT DATE_TRUNC('day', "issuedAt") as "date", SUM("grandTotal")::float as "revenue"
       FROM "invoices"
       WHERE "tenantId" = ${tenantId} AND "status" = 'PAID' AND "issuedAt" >= ${sevenDaysAgo}
@@ -219,7 +222,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     `,
 
     // 11. Top 5 Products
-    (await requireTenantPrisma()).$queryRaw<{ id: string; name: string; sold: number }[]>`
+    tp.$queryRaw<{ id: string; name: string; sold: number }[]>`
       SELECT p.id, p."name", SUM(ii."quantity")::int as "sold"
       FROM "invoice_items" ii
       JOIN "products" p ON ii."productId" = p.id
@@ -231,7 +234,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     `,
 
     // 12. Top 5 Customers
-    (await requireTenantPrisma()).$queryRaw<{ id: string; name: string; totalSpent: number }[]>`
+    tp.$queryRaw<{ id: string; name: string; totalSpent: number }[]>`
       SELECT c.id, c."name", SUM(i."grandTotal")::float as "totalSpent"
       FROM "invoices" i
       JOIN "customers" c ON i."customerId" = c.id
@@ -241,7 +244,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     `,
 
     // 13. Total Kopi Terjual
-    (await requireTenantPrisma()).$queryRaw<{ totalSoldKg: number }[]>`
+    tp.$queryRaw<{ totalSoldKg: number }[]>`
       SELECT COALESCE(SUM(il."quantityUnit" * r."outputGrams" / 1000.0), 0)::float as "totalSoldKg"
       FROM "inventory_ledger" il
       JOIN "products" p ON il."productId" = p.id
@@ -250,13 +253,13 @@ export async function getDashboardData(): Promise<DashboardData> {
     `,
 
     // 14. Average Roast Yield
-    (await requireTenantPrisma()).parentRoastingBatch.aggregate({
+    tp.parentRoastingBatch.aggregate({
       _avg: { totalShrinkagePercent: true },
       where: { status: "COMPLETED" }
     }),
 
     // 15. Gross Margin (All time)
-    (await requireTenantPrisma()).$queryRaw<{ totalRevenue: number, totalCogs: number }[]>`
+    tp.$queryRaw<{ totalRevenue: number, totalCogs: number }[]>`
       SELECT 
         COALESCE(SUM(ii."subtotal"), 0)::float as "totalRevenue",
         COALESCE(SUM(ii."hpp" * ii."quantity"), 0)::float as "totalCogs"

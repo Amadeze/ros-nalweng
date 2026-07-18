@@ -33,8 +33,9 @@ export type InventoryValuationReport = {
 
 export async function getInventoryValuationReport(): Promise<InventoryValuationReport> {
   await requireFeature("ADVANCED_REPORTS");
+  const tp = await requireTenantPrisma();
   // 1. Fetch GB and RB
-  const products = await (await requireTenantPrisma()).product.findMany({
+  const products = await tp.product.findMany({
     where: { isActive: true },
     include: {
       purchases: {
@@ -57,7 +58,7 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
     .filter((product) => product.type === "ROASTED_BEAN")
     .map((product) => product.id);
   const latestRoasts = roastedBeanIds.length
-    ? await (await requireTenantPrisma()).parentRoastingBatch.findMany({
+    ? await tp.parentRoastingBatch.findMany({
         where: {
           outputProductId: { in: roastedBeanIds },
           status: "COMPLETED",
@@ -158,7 +159,7 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
   }
 
   // 2. Fetch Packaging
-  const packagings = await (await requireTenantPrisma()).packaging.findMany({
+  const packagings = await tp.packaging.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
   });
@@ -241,20 +242,21 @@ export type BalanceSheetReport = {
 
 export async function getBalanceSheetReport(inventoryValue?: number): Promise<BalanceSheetReport> {
   await requireFeature("ADVANCED_REPORTS");
+  const tp = await requireTenantPrisma();
   // Cash & Bank = customer receipts - operating expenses - actual supplier payments.
-  const paidInvoices = await (await requireTenantPrisma()).invoice.aggregate({
+  const paidInvoices = await tp.invoice.aggregate({
     where: { status: "PAID" },
     _sum: { paidAmount: true }
   });
-  const partialInvoices = await (await requireTenantPrisma()).invoice.aggregate({
+  const partialInvoices = await tp.invoice.aggregate({
     where: { status: "PARTIAL" },
     _sum: { paidAmount: true }
   });
-  const expenses = await (await requireTenantPrisma()).expense.aggregate({
+  const expenses = await tp.expense.aggregate({
     where: { voidAt: null },
     _sum: { amount: true }
   });
-  const supplierPayments = await (await requireTenantPrisma()).supplierPayment.aggregate({
+  const supplierPayments = await tp.supplierPayment.aggregate({
     where: { voidAt: null },
     _sum: { amount: true }
   });
@@ -270,7 +272,7 @@ export async function getBalanceSheetReport(inventoryValue?: number): Promise<Ba
   const cashAndBank = cashIn - cashOut + totalInjected - totalWithdrawn - totalDistributed;
 
   // Accounts Receivable (Piutang)
-  const piutangInvoices = await (await requireTenantPrisma()).invoice.findMany({
+  const piutangInvoices = await tp.invoice.findMany({
     where: { status: { in: ["ISSUED", "PARTIAL"] } },
     select: { grandTotal: true, paidAmount: true }
   });
@@ -285,7 +287,7 @@ export async function getBalanceSheetReport(inventoryValue?: number): Promise<Ba
 
   const totalAssets = cashAndBank + accountsReceivable + inventory;
 
-  const payablePurchases = await (await requireTenantPrisma()).purchase.findMany({
+  const payablePurchases = await tp.purchase.findMany({
     where: {
       status: "COMPLETED",
       paymentStatus: { in: ["UNPAID", "PARTIAL"] },
@@ -385,7 +387,8 @@ export type CoffeeFlowReport = {
 
 export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
   await requireFeature("ADVANCED_REPORTS");
-  const products = await (await requireTenantPrisma()).product.findMany({
+  const tp = await requireTenantPrisma();
+  const products = await tp.product.findMany({
     where: { isActive: true },
     include: {
       ledgerEntries: true,
@@ -475,7 +478,7 @@ export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
   }
 
   // Calculate Roast Loss for RBs based on actual roasting batches
-  const roastingBatches = await (await requireTenantPrisma()).parentRoastingBatch.findMany({
+  const roastingBatches = await tp.parentRoastingBatch.findMany({
     where: { status: "COMPLETED" },
     select: { outputProductId: true, inputProductId: true, targetWeightKg: true, actualOutputKg: true }
   });

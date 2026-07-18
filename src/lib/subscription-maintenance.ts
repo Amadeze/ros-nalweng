@@ -1,8 +1,9 @@
 import type { PrismaClient } from "@prisma/client";
+import { getCurrentDate } from "@/lib/date-utils";
 
 export async function synchronizeSubscriptionStatuses(
   prisma: Pick<PrismaClient, "tenant">,
-  now = new Date(),
+  now = getCurrentDate(),
 ) {
   const [expiredTrials, pastDueSubscriptions] = await Promise.all([
     prisma.tenant.updateMany({

@@ -25,6 +25,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 
 import { formatRupiah } from "@/lib/format";
 import { createInvoice, type CustomerOption, type FGStockOption } from "../actions";
+import { getCurrentDate, getTodayString } from "@/lib/date-utils";
 
 // =============================================================================
 // Schema
@@ -150,7 +151,7 @@ export function InvoiceForm({
   onAddCustomer,
 }: InvoiceFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const today = new Date().toISOString().split("T")[0];
+  const today = getTodayString();
 
   const {
     register,
