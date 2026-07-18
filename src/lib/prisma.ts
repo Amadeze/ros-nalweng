@@ -5,7 +5,12 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL || "";
-  const pool = new Pool({ connectionString });
+  const pool = new Pool({
+    connectionString,
+    max: 2, // Limit pool size in serverless environments to prevent connection exhaustion
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+  });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
