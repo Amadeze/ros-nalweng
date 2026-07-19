@@ -147,6 +147,16 @@ Artisan events are stored in the webhook inbox. When more than one roasting batc
 The legacy `?token=` query parameter remains supported for existing Artisan
 setups, but the authorization header avoids exposing tokens in access logs.
 
+## Reporting and Scheduled Operations
+
+- Financial reports use the tenant timezone configured in Settings and exclusive calendar-period boundaries.
+- Inventory valuation is reconstructed from the immutable ledger as of the report timestamp using weighted-average cost.
+- The daily operations workflow records durable `JobRun` history for subscription maintenance, overdue reminders, and Morning Brief generation.
+- Morning Brief snapshots are generated once per tenant/report date and shown on the dashboard with sales, cash, roasting, production, aging, inventory, and integration exceptions.
+- `/api/health` exposes job freshness without preventing a stale job from running its own recovery schedule.
+
+Before enabling the new reporting jobs, deploy the database migration and configure `PRODUCTION_APP_URL` and `PRODUCTION_CRON_SECRET` in the repository workflow secrets.
+
 ## Recovery and Maintenance
 
 - Use managed PostgreSQL point-in-time recovery where available.

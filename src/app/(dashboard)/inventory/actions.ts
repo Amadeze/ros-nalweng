@@ -5,8 +5,9 @@ import { getCurrentTenantId, getSystemUserId, requireRole, requireTenantPrisma }
 import { revalidatePath } from "next/cache";
 import { recordAudit } from "@/lib/audit";
 import { randomBytes } from "crypto";
+import { Prisma } from "@prisma/client";
 import {
-  resolveInitialPurchasePayment,
+  resolvePurchasePaymentFromAmount,
   type PurchasePaymentState,
 } from "@/lib/purchase-payments";
 import { getBatchReorderSummaries } from "@/lib/reorder";
@@ -82,30 +83,30 @@ export type LedgerHistoryRow = {
 };
 
 export type PurchaseActionInput = {
+  operationKey: string;
   supplierId: string;
   receivedAt: string;       // "YYYY-MM-DD"
   productId?: string;       // ID produk GB existing
   productName?: string;     // nama produk baru
   productOrigin?: string;
   weightKg: number;
-  pricePerKg: number;
+  totalCost: number;
   shippingCost: number;
-  paymentStatus?: PurchasePaymentState;
-  initialPaidAmount?: number;
+  paidAmount?: number;
   paymentMethod?: "CASH" | "TRANSFER" | "QRIS";
   dueDate?: string;
   notes?: string;
 };
 
 export type PackagingPurchaseInput = {
+  operationKey: string;
   supplierId: string;
   receivedAt: string;
   packagingId: string;
   quantityUnits: number;
-  pricePerUnit: number;
+  totalCost: number;
   shippingCost: number;
-  paymentStatus?: PurchasePaymentState;
-  initialPaidAmount?: number;
+  paidAmount?: number;
   paymentMethod?: "CASH" | "TRANSFER" | "QRIS";
   dueDate?: string;
   notes?: string;
@@ -121,28 +122,20 @@ export type ActionResult =
 
 
 /** Generate kode Purchase: PUR-YYYYMM-NNN */
-async function generatePurchaseCode(): Promise<string> {
-  const now = new Date();
-  const prefix = `PUR-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const count = await (await requireTenantPrisma()).purchase.count({
-    where: { code: { startsWith: prefix } },
-  });
-  return `${prefix}-${String(count + 1).padStart(3, "0")}`;
+function generatePurchaseCode(receivedAt = new Date()): string {
+  const prefix = `PUR-${receivedAt.getFullYear()}${String(receivedAt.getMonth() + 1).padStart(2, "0")}`;
+  return `${prefix}-${randomBytes(4).toString("hex").toUpperCase()}`;
 }
 
 /** Generate kode Product untuk Green Bean baru: GB-SLUG */
-async function generateProductCode(name: string): Promise<string> {
+function generateProductCode(name: string): string {
   const slug = name
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 12);
-  const prefix = `GB-${slug}`;
-  const existing = await (await requireTenantPrisma()).product.count({
-    where: { code: { startsWith: prefix } },
-  });
-  return existing === 0 ? prefix : `${prefix}-${existing + 1}`;
+  return `GB-${slug || "BARU"}-${randomBytes(2).toString("hex").toUpperCase()}`;
 }
 
 // =============================================================================
@@ -205,10 +198,10 @@ async function fetchPackagingStocks(): Promise<PackagingStockRow[]> {
     }));
 }
 
-function parsePurchaseDueDate(status: PurchasePaymentState, dueDate?: string) {
+function parsePurchaseDueDate(status: PurchasePaymentState, dueDate: string | undefined, receivedAt: Date) {
   if (status === "PAID") return null;
-  if (!dueDate) throw new Error("Tanggal jatuh tempo wajib diisi untuk pembelian kredit.");
-  const parsed = new Date(`${dueDate}T23:59:59`);
+  const parsed = dueDate ? new Date(`${dueDate}T23:59:59`) : new Date(receivedAt);
+  if (!dueDate) parsed.setDate(parsed.getDate() + 14);
   if (Number.isNaN(parsed.getTime())) throw new Error("Tanggal jatuh tempo tidak valid.");
   return parsed;
 }
@@ -330,13 +323,8 @@ export async function getPackagingOptions() {
  *   1. Find-or-create Product (GREEN_BEAN)
  *   2. Insert Purchase (status = COMPLETED)
  *   3. Insert InventoryLedger (IN, refType = PURCHASE_GB)
- *
- * HPP per kg = (pricePerKg * weightKg + shippingCost) / weightKg — disimpan
- * sebagai snapshot di Purchase.pricePerUnit setelah disesuaikan ke HPP.
- * Harga asli (harga beli) tetap bisa direkon dari Purchase.pricePerUnit × weightKg.
- *
- * Catatan: pricePerUnit di schema = harga beli per kg (bukan HPP).
- * HPP dihitung from (pricePerUnit * weight + shipping) / weight untuk laporan.
+ * Pengguna cukup mengirim total nota. Server memisahkan harga barang dan ongkir,
+ * menghitung harga per kg, status pembayaran, utang, dan HPP ledger secara atomik.
  */
 export async function createGreenBeanPurchase(
   input: PurchaseActionInput
@@ -345,61 +333,76 @@ export async function createGreenBeanPurchase(
     await requireRole("OWNER", "MANAGER", "OPERATOR");
     const userId = await getSystemUserId();
     const tenantId = await getCurrentTenantId();
-
-    // 1. Find or create Product
-    let product = input.productId
-      ? await (await requireTenantPrisma()).product.findUnique({ where: { id: input.productId } })
-      : null;
-
-    if (!product && input.productName) {
-      const code = await generateProductCode(input.productName);
-      product = await (await requireTenantPrisma()).product.upsert({
-        where: { tenantId_code: { tenantId, code } },
-        create: {
-          code,
-          name: input.productName,
-          type: "GREEN_BEAN",
-          origin: input.productOrigin ?? null,
-        },
-        update: {},
-      });
+    if (!input.operationKey || !/^[0-9a-f-]{36}$/i.test(input.operationKey)) {
+      return { success: false, error: "Identitas transaksi tidak valid. Buka ulang form lalu coba lagi." };
+    }
+    if (!Number.isFinite(input.weightKg) || input.weightKg <= 0) {
+      return { success: false, error: "Berat Green Bean harus lebih dari 0 kg." };
+    }
+    if (!Number.isFinite(input.totalCost) || input.totalCost <= 0) {
+      return { success: false, error: "Total pembelian harus lebih dari 0." };
+    }
+    const shippingCost = Number(input.shippingCost ?? 0);
+    if (!Number.isFinite(shippingCost) || shippingCost < 0 || shippingCost >= input.totalCost) {
+      return { success: false, error: "Ongkos kirim harus lebih kecil dari total pembelian." };
     }
 
-    if (!product) {
-      return { success: false, error: "Produk tidak ditemukan atau nama tidak valid." };
-    }
+    const tenantPrisma = await requireTenantPrisma();
+    const previousAttempt = await tenantPrisma.purchase.findFirst({
+      where: { operationKey: input.operationKey },
+      select: { code: true },
+    });
+    if (previousAttempt) return { success: true, purchaseCode: previousAttempt.code };
 
-    // 2. Hitung total biaya
-    const weightKg = input.weightKg;
-    const pricePerKg = input.pricePerKg;
-    const shippingCost = input.shippingCost ?? 0;
-    const totalCost = pricePerKg * weightKg + shippingCost;
-    const payment = resolveInitialPurchasePayment(
-      totalCost,
-      input.paymentStatus,
-      input.initialPaidAmount,
-    );
-    const dueDate = parsePurchaseDueDate(payment.paymentStatus, input.dueDate);
+    const payment = resolvePurchasePaymentFromAmount(input.totalCost, input.paidAmount);
     const receivedAt = new Date(`${input.receivedAt}T00:00:00`);
     if (Number.isNaN(receivedAt.getTime())) {
       return { success: false, error: "Tanggal penerimaan tidak valid." };
     }
+    const dueDate = parsePurchaseDueDate(payment.paymentStatus, input.dueDate, receivedAt);
+    const purchaseCode = generatePurchaseCode(receivedAt);
+    const itemCost = input.totalCost - shippingCost;
+    const pricePerKg = itemCost / input.weightKg;
 
-    // 3. Generate kode
-    const purchaseCode = await generatePurchaseCode();
+    await tenantPrisma.$transaction(async (tx) => {
+      const supplier = await tx.supplier.findUnique({ where: { id: input.supplierId }, select: { id: true, isActive: true } });
+      if (!supplier?.isActive) throw new Error("Supplier tidak ditemukan atau sudah nonaktif.");
 
-    // 4. ACID transaction
-    await (await requireTenantPrisma()).$transaction(async (tx) => {
+      let product = input.productId
+        ? await tx.product.findUnique({ where: { id: input.productId } })
+        : null;
+      if (product && (product.type !== "GREEN_BEAN" || !product.isActive)) {
+        throw new Error("Produk bukan Green Bean aktif.");
+      }
+      if (!product && input.productName?.trim()) {
+        const productName = input.productName.trim();
+        product = await tx.product.findFirst({
+          where: { name: { equals: productName, mode: "insensitive" }, type: "GREEN_BEAN", isActive: true },
+        });
+        if (!product) {
+          product = await tx.product.create({
+            data: {
+              code: generateProductCode(productName),
+              name: productName,
+              type: "GREEN_BEAN",
+              origin: input.productOrigin?.trim() || null,
+            },
+          });
+        }
+      }
+      if (!product) throw new Error("Pilih Green Bean atau tulis nama Green Bean baru.");
+
       const purchase = await tx.purchase.create({
         data: {
           code: purchaseCode,
+          operationKey: input.operationKey,
           type: "GREEN_BEAN",
           supplierId: input.supplierId,
-          productId: product!.id,
-          weightKg: weightKg,
+          productId: product.id,
+          weightKg: input.weightKg,
           pricePerUnit: pricePerKg,
-          shippingCost: shippingCost,
-          totalCost: totalCost,
+          shippingCost,
+          totalCost: input.totalCost,
           status: "COMPLETED",
           paymentStatus: payment.paymentStatus,
           paidAmount: payment.paidAmount,
@@ -426,12 +429,12 @@ export async function createGreenBeanPurchase(
 
       await appendLedger(tx, {
         data: {
-          productId: product!.id,
+          productId: product.id,
           entryType: "IN",
           refType: "PURCHASE_GB",
           refId: purchase.id,
-          quantityKg: weightKg,
-          incomingPrice: totalCost / weightKg,
+          quantityKg: input.weightKg,
+          incomingPrice: input.totalCost / input.weightKg,
           notes: `Barang datang: ${purchase.code}`,
           createdById: userId,
         },
@@ -450,13 +453,24 @@ export async function createGreenBeanPurchase(
           paymentStatus: purchase.paymentStatus,
           paidAmount: Number(purchase.paidAmount),
         },
+        metadata: { operationKey: input.operationKey, balance: payment.balance },
       });
     });
 
     revalidatePath("/inventory");
+    revalidatePath("/dashboard");
+    revalidatePath("/keuangan");
+    revalidatePath("/laporan");
     return { success: true, purchaseCode };
   } catch (err) {
     console.error("[createGreenBeanPurchase]", err);
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002" && input.operationKey) {
+      const existing = await (await requireTenantPrisma()).purchase.findFirst({
+        where: { operationKey: input.operationKey },
+        select: { code: true },
+      });
+      if (existing) return { success: true, purchaseCode: existing.code };
+    }
     return {
       success: false,
       error: err instanceof Error ? err.message : "Terjadi kesalahan sistem.",
@@ -475,36 +489,55 @@ export async function createPackagingPurchase(
     await requireRole("OWNER", "MANAGER", "OPERATOR");
     const userId = await getSystemUserId();
     const tenantId = await getCurrentTenantId();
+    if (!input.operationKey || !/^[0-9a-f-]{36}$/i.test(input.operationKey)) {
+      return { success: false, error: "Identitas transaksi tidak valid. Buka ulang form lalu coba lagi." };
+    }
+    if (!Number.isInteger(input.quantityUnits) || input.quantityUnits <= 0) {
+      return { success: false, error: "Jumlah kemasan harus berupa unit lebih dari 0." };
+    }
+    if (!Number.isFinite(input.totalCost) || input.totalCost <= 0) {
+      return { success: false, error: "Total pembelian harus lebih dari 0." };
+    }
+    const shippingCost = Number(input.shippingCost ?? 0);
+    if (!Number.isFinite(shippingCost) || shippingCost < 0 || shippingCost >= input.totalCost) {
+      return { success: false, error: "Ongkos kirim harus lebih kecil dari total pembelian." };
+    }
 
-    const packaging = await (await requireTenantPrisma()).packaging.findUnique({
-      where: { id: input.packagingId },
+    const tenantPrisma = await requireTenantPrisma();
+    const previousAttempt = await tenantPrisma.purchase.findFirst({
+      where: { operationKey: input.operationKey },
+      select: { code: true },
     });
-    if (!packaging) return { success: false, error: "Kemasan tidak ditemukan." };
+    if (previousAttempt) return { success: true, purchaseCode: previousAttempt.code };
 
-    const totalCost = input.pricePerUnit * input.quantityUnits + input.shippingCost;
-    const payment = resolveInitialPurchasePayment(
-      totalCost,
-      input.paymentStatus,
-      input.initialPaidAmount,
-    );
-    const dueDate = parsePurchaseDueDate(payment.paymentStatus, input.dueDate);
+    const payment = resolvePurchasePaymentFromAmount(input.totalCost, input.paidAmount);
     const receivedAt = new Date(`${input.receivedAt}T00:00:00`);
     if (Number.isNaN(receivedAt.getTime())) {
       return { success: false, error: "Tanggal penerimaan tidak valid." };
     }
-    const purchaseCode = await generatePurchaseCode();
+    const dueDate = parsePurchaseDueDate(payment.paymentStatus, input.dueDate, receivedAt);
+    const purchaseCode = generatePurchaseCode(receivedAt);
+    const pricePerUnit = (input.totalCost - shippingCost) / input.quantityUnits;
 
-    await (await requireTenantPrisma()).$transaction(async (tx) => {
+    await tenantPrisma.$transaction(async (tx) => {
+      const [supplier, packaging] = await Promise.all([
+        tx.supplier.findUnique({ where: { id: input.supplierId }, select: { id: true, isActive: true } }),
+        tx.packaging.findUnique({ where: { id: input.packagingId }, select: { id: true, isActive: true } }),
+      ]);
+      if (!supplier?.isActive) throw new Error("Supplier tidak ditemukan atau sudah nonaktif.");
+      if (!packaging?.isActive) throw new Error("Kemasan tidak ditemukan atau sudah nonaktif.");
+
       const purchase = await tx.purchase.create({
         data: {
           code:         purchaseCode,
+          operationKey: input.operationKey,
           type:         "PACKAGING",
           supplierId:   input.supplierId,
           packagingId:  input.packagingId,
           quantityUnits: input.quantityUnits,
-          pricePerUnit: input.pricePerUnit,
-          shippingCost: input.shippingCost,
-          totalCost,
+          pricePerUnit,
+          shippingCost,
+          totalCost: input.totalCost,
           status:       "COMPLETED",
           paymentStatus: payment.paymentStatus,
           paidAmount:   payment.paidAmount,
@@ -536,7 +569,7 @@ export async function createPackagingPurchase(
           refType:      "PURCHASE_PKG",
           refId:        purchase.id,
           quantityUnit: input.quantityUnits,
-          incomingPrice: totalCost / input.quantityUnits,
+          incomingPrice: input.totalCost / input.quantityUnits,
           notes:        `Kemasan datang: ${purchase.code}`,
           createdById:  userId,
         },
@@ -555,13 +588,24 @@ export async function createPackagingPurchase(
           paymentStatus: purchase.paymentStatus,
           paidAmount: Number(purchase.paidAmount),
         },
+        metadata: { operationKey: input.operationKey, balance: payment.balance },
       });
     });
 
     revalidatePath("/inventory");
+    revalidatePath("/dashboard");
+    revalidatePath("/keuangan");
+    revalidatePath("/laporan");
     return { success: true, purchaseCode };
   } catch (err) {
     console.error("[createPackagingPurchase]", err);
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002" && input.operationKey) {
+      const existing = await (await requireTenantPrisma()).purchase.findFirst({
+        where: { operationKey: input.operationKey },
+        select: { code: true },
+      });
+      if (existing) return { success: true, purchaseCode: existing.code };
+    }
     return { success: false, error: err instanceof Error ? err.message : "Terjadi kesalahan." };
   }
 }
@@ -570,17 +614,36 @@ export async function createPackagingPurchase(
 // =============================================================================
 
 export async function createPackaging(data: {
-  code: string;
+  code?: string;
   name: string;
   weightGrams: number;
   costPerUnit: number;
 }) {
   try {
-    await requireRole("OWNER", "MANAGER");
-    const newPkg = await (await requireTenantPrisma()).packaging.create({
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
+    const name = data.name?.trim();
+    if (!name) return { success: false as const, error: "Nama kemasan wajib diisi." };
+    if (!Number.isFinite(data.weightGrams) || data.weightGrams < 0) {
+      return { success: false as const, error: "Berat kemasan tidak valid." };
+    }
+    if (!Number.isFinite(data.costPerUnit) || data.costPerUnit < 0) {
+      return { success: false as const, error: "Harga kemasan tidak valid." };
+    }
+
+    const tp = await requireTenantPrisma();
+    const duplicate = await tp.packaging.findFirst({
+      where: { name: { equals: name, mode: "insensitive" } },
+      select: { code: true, name: true },
+    });
+    if (duplicate) {
+      return { success: false as const, error: `${duplicate.code} · ${duplicate.name} sudah terdaftar.` };
+    }
+
+    const code = data.code?.trim().toUpperCase() || `PKG-${randomBytes(3).toString("hex").toUpperCase()}`;
+    const newPkg = await tp.packaging.create({
       data: {
-        code: data.code,
-        name: data.name,
+        code,
+        name,
         weightGrams: data.weightGrams,
         costPerUnit: data.costPerUnit,
         isActive: true,
@@ -590,7 +653,16 @@ export async function createPackaging(data: {
     // Refresh halaman agar dropdown kemasan otomatis mendapatkan data terbaru
     revalidatePath("/inventory"); 
 
-    return { success: true as const, packagingId: newPkg.id };
+    return {
+      success: true as const,
+      packagingId: newPkg.id,
+      packaging: {
+        id: newPkg.id,
+        code: newPkg.code,
+        name: newPkg.name,
+        costPerUnit: Number(newPkg.costPerUnit),
+      },
+    };
   } catch (err) {
     console.error("[createPackaging]", err);
     return { 

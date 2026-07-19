@@ -4,6 +4,7 @@ import {
   getPayableAgingBucket,
   getPurchasePaymentStatus,
   resolveInitialPurchasePayment,
+  resolvePurchasePaymentFromAmount,
 } from "./purchase-payments";
 
 describe("resolveInitialPurchasePayment", () => {
@@ -36,6 +37,24 @@ describe("getPurchasePaymentStatus", () => {
     expect(getPurchasePaymentStatus(0, 100)).toBe("UNPAID");
     expect(getPurchasePaymentStatus(50, 100)).toBe("PARTIAL");
     expect(getPurchasePaymentStatus(99.995, 100)).toBe("PAID");
+  });
+});
+
+describe("resolvePurchasePaymentFromAmount", () => {
+  it("derives paid, partial, and unpaid state without asking the user for a status", () => {
+    expect(resolvePurchasePaymentFromAmount(150_000, 150_000)).toEqual({
+      paymentStatus: "PAID", paidAmount: 150_000, balance: 0,
+    });
+    expect(resolvePurchasePaymentFromAmount(150_000, 50_000)).toEqual({
+      paymentStatus: "PARTIAL", paidAmount: 50_000, balance: 100_000,
+    });
+    expect(resolvePurchasePaymentFromAmount(150_000, 0)).toEqual({
+      paymentStatus: "UNPAID", paidAmount: 0, balance: 150_000,
+    });
+  });
+
+  it("rejects overpayment", () => {
+    expect(() => resolvePurchasePaymentFromAmount(150_000, 150_001)).toThrow(/melebihi/);
   });
 });
 

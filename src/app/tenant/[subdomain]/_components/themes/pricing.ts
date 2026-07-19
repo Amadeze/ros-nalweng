@@ -21,7 +21,7 @@ export interface PriceDisplay {
 }
 
 const TIER_CONFIG: Record<CustomerTier, { label: string; color: string }> = {
-  RETAIL: { label: "Reguler", color: "text-[var(--theme-text-muted)]" },
+  RETAIL: { label: "Reguler", color: "text-[var(--t-text-muted)]" },
   WHOLESALE_SILVER: { label: "Silver", color: "text-slate-500" },
   WHOLESALE_GOLD: { label: "Gold", color: "text-amber-500" },
 };

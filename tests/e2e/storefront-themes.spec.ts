@@ -88,18 +88,17 @@ test("all tenant storefront themes render settings, content, and cart responsive
       await expect(page.getByText(`Catalog ${layoutStyle}`, { exact: false }).first()).toBeAttached();
       await expect(page.locator("header img").first()).toBeVisible();
 
-      const themeWrapper = page.locator(".rep-theme-wrapper");
+      const themeWrapper = page.locator(".t-root");
       await expect(themeWrapper).toHaveAttribute("data-animation", "fast");
       await expect(themeWrapper).toHaveAttribute("data-animation-direction", "left");
-      await expect(themeWrapper).toHaveAttribute("data-icon-style", "duotone");
       expect(await themeWrapper.evaluate((element) =>
-        getComputedStyle(element).getPropertyValue("--theme-primary").trim()
+        getComputedStyle(element).getPropertyValue("--t-primary").trim()
       )).toBe("#3b82f6");
       expect(await themeWrapper.evaluate((element) =>
-        getComputedStyle(element).getPropertyValue("--theme-radius").trim()
+        getComputedStyle(element).getPropertyValue("--t-radius").trim()
       )).toBe("12px");
       expect(await themeWrapper.evaluate((element) =>
-        getComputedStyle(element).getPropertyValue("--theme-font").trim()
+        getComputedStyle(element).getPropertyValue("--t-font-body").trim()
       )).toContain("JetBrains Mono");
 
       await page.locator("#catalog").scrollIntoViewIfNeeded();

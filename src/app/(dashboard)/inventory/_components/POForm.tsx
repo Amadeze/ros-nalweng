@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -66,6 +66,8 @@ interface POFormProps {
   products: Array<{ id: string; name: string; type: string; stockKg: number }>;
   packagings: Array<{ id: string; name: string; stockUnit: number }>;
   isReadOnly?: boolean;
+  onAddSupplier?: () => void;
+  preferredSupplierId?: string | null;
 }
 
 // =============================================================================
@@ -81,11 +83,13 @@ export function POForm({
   products,
   packagings,
   isReadOnly = false,
+  onAddSupplier,
+  preferredSupplierId,
 }: POFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditMode = !!initialData;
 
-  const { register, handleSubmit, control, watch, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: initialData
       ? {
@@ -108,6 +112,12 @@ export function POForm({
           items: [{ productId: "", packagingId: "", quantity: 0, unitPrice: 0 }],
         },
   });
+
+  useEffect(() => {
+    if (!isEditMode && preferredSupplierId && suppliers.some((supplier) => supplier.id === preferredSupplierId)) {
+      setValue("supplierId", preferredSupplierId, { shouldDirty: true, shouldValidate: true });
+    }
+  }, [isEditMode, preferredSupplierId, setValue, suppliers]);
 
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
   const items = watch("items") ?? [];
@@ -184,9 +194,14 @@ export function POForm({
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-              Supplier *
-            </Label>
+            <div className="flex items-center justify-between gap-3">
+              <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Supplier *</Label>
+              {!isReadOnly && onAddSupplier && (
+                <button type="button" onClick={onAddSupplier} className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 hover:text-amber-800">
+                  <Plus size={12} /> Supplier baru
+                </button>
+              )}
+            </div>
             <Controller
               name="supplierId"
               control={control}
@@ -242,7 +257,7 @@ export function POForm({
             <button
               type="button"
               onClick={() => append({ productId: "", packagingId: "", quantity: 0, unitPrice: 0 })}
-              className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800"
+              className="flex items-center gap-1 text-xs font-bold text-amber-800 hover:text-blue-800"
             >
               <Plus size={14} /> Tambah Item
             </button>
@@ -366,7 +381,7 @@ export function POForm({
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="bg-blue-500 hover:bg-blue-600 text-white"
+            className="bg-amber-700 hover:bg-amber-800 text-white"
           >
             {isSubmitting ? "Menyimpan..." : isEditMode ? "Update PO" : "Simpan Draft"}
           </Button>

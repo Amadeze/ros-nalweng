@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Plus, Trash2, CreditCard, Banknote, QrCode, Clock, Check, ChevronsUpDown, Search } from "lucide-react";
+import { Plus, Trash2, CreditCard, Banknote, QrCode, Clock, Check, ChevronsUpDown, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { formatRupiah } from "@/lib/format";
 import { createInvoice, type CustomerOption, type FGStockOption } from "../actions";
 import { getCurrentDate, getTodayString } from "@/lib/date-utils";
+import { defaultDueDate, resolveSalePrice } from "@/lib/sale-intent";
 
 // =============================================================================
 // Schema
@@ -33,7 +34,6 @@ import { getCurrentDate, getTodayString } from "@/lib/date-utils";
 const itemSchema = z.object({
   productId: z.string().min(1, "Pilih produk"),
   quantity: z.number().int().min(1, "Minimal 1"),
-  unitPrice: z.number().min(1, "Harga harus > 0"),
   discount: z.number().min(0),
 });
 
@@ -140,6 +140,7 @@ interface InvoiceFormProps {
   onSuccess: (invoiceId: string) => void;
   onPendingChange: (pending: boolean) => void;
   onAddCustomer?: () => void;
+  preferredCustomerId?: string | null;
 }
 
 export function InvoiceForm({
@@ -149,8 +150,11 @@ export function InvoiceForm({
   onSuccess,
   onPendingChange,
   onAddCustomer,
+  preferredCustomerId,
 }: InvoiceFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [operationKey, setOperationKey] = useState(() => crypto.randomUUID());
   const today = getTodayString();
 
   const {
@@ -165,7 +169,7 @@ export function InvoiceForm({
     resolver: zodResolver(schema),
     defaultValues: {
       customerId: "",
-      items: [{ productId: "", quantity: 1, unitPrice: 0, discount: 0 }],
+      items: [{ productId: "", quantity: 1, discount: 0 }],
       invoiceDiscount: 0,
       tax: 0,
       status: "PAID",
@@ -174,6 +178,12 @@ export function InvoiceForm({
       notes: "",
     },
   });
+
+  useEffect(() => {
+    if (preferredCustomerId && customers.some((customer) => customer.id === preferredCustomerId)) {
+      setValue("customerId", preferredCustomerId, { shouldDirty: true, shouldValidate: true });
+    }
+  }, [customers, preferredCustomerId, setValue]);
 
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
 
@@ -187,7 +197,9 @@ export function InvoiceForm({
   ]);
 
   const subtotal = (watchedItems ?? []).reduce((acc, item) => {
-    const price = Number(item.unitPrice) || 0;
+    const customer = customers.find((option) => option.id === selectedCustomerId);
+    const product = fgOptions.find((option) => option.id === item.productId);
+    const price = product ? resolveSalePrice(product, customer?.tier ?? "RETAIL") : 0;
     const disc = Number(item.discount) || 0;
     const qty = Number(item.quantity) || 0;
     return acc + (price - disc) * qty;
@@ -196,6 +208,7 @@ export function InvoiceForm({
   const grandTotal = subtotal - (Number(invoiceDiscount) || 0) + (Number(tax) || 0);
 
   const onSubmit = async (values: FormValues) => {
+    if (isSubmitting) return;
     // Cross-field validation
     if (values.status === "PAID" && !values.paymentMethod) {
       toast.error("Pilih metode pembayaran untuk nota Lunas.");
@@ -211,8 +224,9 @@ export function InvoiceForm({
 
     try {
       const result = await createInvoice({
+        operationKey,
         customerId: values.customerId,
-        items: values.items as any,
+        items: values.items,
         invoiceDiscount: values.invoiceDiscount,
         tax: values.tax,
         status: values.status,
@@ -228,6 +242,8 @@ export function InvoiceForm({
 
       toast.success(`Nota ${result.invoiceCode || ""} berhasil diterbitkan!`);
       reset();
+      setShowAdvanced(false);
+      setOperationKey(crypto.randomUUID());
       onSuccess(result.invoiceId);
     } catch {
       toast.error("Terjadi kesalahan sistem.");
@@ -325,7 +341,7 @@ export function InvoiceForm({
           </Label>
           <button
             type="button"
-            onClick={() => append({ productId: "", quantity: 1, unitPrice: 0, discount: 0 })}
+            onClick={() => append({ productId: "", quantity: 1, discount: 0 })}
             className="flex items-center gap-1 rounded-lg border border-white/60 bg-white/30 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-white/50 transition-colors shadow-sm"
           >
             <Plus size={14} /> Tambah Item
@@ -339,7 +355,9 @@ export function InvoiceForm({
         <div className="space-y-4">
           {fields.map((field, index) => {
             const item = watchedItems?.[index];
-            const price = Number(item?.unitPrice) || 0;
+            const customer = customers.find((option) => option.id === selectedCustomerId);
+            const product = fgOptions.find((option) => option.id === item?.productId);
+            const price = product ? resolveSalePrice(product, customer?.tier ?? "RETAIL") : 0;
             const disc = Number(item?.discount) || 0;
             const qty = Number(item?.quantity) || 0;
             const rowSubtotal = (price - disc) * qty;
@@ -396,25 +414,12 @@ export function InvoiceForm({
                                   <CommandItem
                                     key={fg.id}
                                     value={`${fg.name} ${fg.stockUnit}`}
+                                    disabled={
+                                      fg.stockUnit <= 0
+                                      || watchedItems.some((other, otherIndex) => otherIndex !== index && other.productId === fg.id)
+                                    }
                                     onSelect={() => {
                                       f.onChange(fg.id);
-                                      
-                                      const prod = fgOptions.find((p) => p.id === fg.id);
-                                      if (prod) {
-                                        const cust = customers.find(c => c.id === selectedCustomerId);
-                                        const tier = cust?.tier || "RETAIL";
-                                        
-                                        let assignedPrice = 0;
-                                        if (tier === "WHOLESALE_GOLD" && prod.priceGold > 0) assignedPrice = prod.priceGold;
-                                        else if (tier === "WHOLESALE_SILVER" && prod.priceSilver > 0) assignedPrice = prod.priceSilver;
-                                        else assignedPrice = prod.price;
-
-                                        if (assignedPrice > 0) {
-                                          setValue(`items.${index}.unitPrice`, Math.round(assignedPrice));
-                                        } else if (prod.lastHppPerUnit) {
-                                          setValue(`items.${index}.unitPrice`, Math.round(prod.lastHppPerUnit));
-                                        }
-                                      }
                                     }}
                                   >
                                     <Check
@@ -442,26 +447,26 @@ export function InvoiceForm({
                     <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Qty</Label>
                     <Input
                       type="number"
+                      min={1}
+                      max={selectedProduct?.stockUnit}
                       className={cn(glassInput, "text-center h-9 font-medium")}
                       {...register(`items.${index}.quantity`, { valueAsNumber: true })}
                     />
                   </div>
                   <div className="flex-1 min-w-[100px]">
-                    <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Harga (Rp)</Label>
-                    <Input
-                      type="number"
-                      className={cn(glassInput, "text-right h-9 font-medium")}
-                      {...register(`items.${index}.unitPrice`, { valueAsNumber: true })}
-                    />
+                    <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Harga otomatis</Label>
+                    <div className="flex h-9 items-center justify-end rounded-md border border-white/40 bg-white/50 px-3 font-mono text-sm font-semibold text-slate-700">
+                      {formatRupiah(price)}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-[100px]">
+                  {showAdvanced && <div className="flex-1 min-w-[100px]">
                     <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Disc (Rp)</Label>
                     <Input
                       type="number"
                       className={cn(glassInput, "text-right h-9 font-medium text-red-600")}
                       {...register(`items.${index}.discount`, { valueAsNumber: true })}
                     />
-                  </div>
+                  </div>}
                   <div className="flex-[1.2] min-w-[120px]">
                     <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider text-right">Subtotal</Label>
                     <div className="h-9 flex items-center justify-end font-mono text-sm font-bold text-slate-800 bg-white/50 rounded-md px-3 border border-white/40 shadow-inner">
@@ -469,11 +474,26 @@ export function InvoiceForm({
                     </div>
                   </div>
                 </div>
+                {isOverStock && (
+                  <p className="mt-2 text-xs font-semibold text-red-600" role="alert">
+                    Stok tidak cukup. Tersedia {selectedProduct?.stockUnit ?? 0} unit.
+                  </p>
+                )}
               </div>
             );
           })}
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setShowAdvanced((value) => !value)}
+        className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white/50 px-3 py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-white"
+        aria-expanded={showAdvanced}
+      >
+        <span className="inline-flex items-center gap-2"><SlidersHorizontal size={14} /> Diskon, pajak, dan catatan</span>
+        <span className="font-normal text-slate-400">{showAdvanced ? "Sembunyikan" : "Opsional"}</span>
+      </button>
 
       <div className="mt-8 pt-6 border-t border-white/40 grid grid-cols-1 md:grid-cols-2 gap-6">
         
@@ -495,8 +515,14 @@ export function InvoiceForm({
                       type="button"
                       onClick={() => {
                         field.onChange(s);
-                        if (s === "PAID") setValue("dueDate", "");
-                        if (s === "ISSUED") setValue("paymentMethod", undefined);
+                        if (s === "PAID") {
+                          setValue("dueDate", "");
+                          setValue("paymentMethod", "CASH", { shouldValidate: true });
+                        }
+                        if (s === "ISSUED") {
+                          setValue("paymentMethod", undefined);
+                          setValue("dueDate", defaultDueDate(getCurrentDate(), 14), { shouldValidate: true });
+                        }
                       }}
                       className={cn(
                         "flex-1 py-3 rounded-xl border font-bold transition-all shadow-sm",
@@ -550,7 +576,7 @@ export function InvoiceForm({
           )}
 
           {/* Notes */}
-          <div>
+          {showAdvanced && <div>
             <Label className="text-[10px] uppercase font-bold text-slate-500 mb-2 block tracking-wider">Catatan</Label>
             <Textarea
               placeholder="Catatan pengiriman, kesepakatan khusus, dll..."
@@ -558,12 +584,12 @@ export function InvoiceForm({
               rows={2}
               {...register("notes")}
             />
-          </div>
+          </div>}
         </div>
 
         {/* Right Column: Totals Summary */}
         <div className="space-y-4">
-          <div className={cn(glassCard, "p-4 space-y-4")}>
+          {showAdvanced && <div className={cn(glassCard, "p-4 space-y-4")}>
             <div className="flex items-center justify-between gap-4">
               <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">Diskon Nota (Rp)</Label>
               <Input
@@ -580,7 +606,7 @@ export function InvoiceForm({
                 {...register("tax", { valueAsNumber: true })}
               />
             </div>
-          </div>
+          </div>}
           
           <TotalsSummary
             subtotal={subtotal}

@@ -103,31 +103,33 @@ export function StandardPageLayout({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* ── Header ── */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/40 bg-white/20 px-4 md:px-6 backdrop-blur-md">
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-bold text-slate-800 tracking-tight">
-            {title}
-          </h1>
-          {description && (
-            <p className="mt-0.5 truncate text-xs font-medium text-slate-600">
-              {description}
-            </p>
+      <header className="h-[72px] shrink-0 border-b border-stone-200/80 bg-[#fbfaf8]/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-full w-full max-w-[1600px] items-center justify-between gap-4 px-4 md:px-6 lg:px-8">
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-lg font-bold tracking-tight text-stone-900 md:text-xl">
+              {title}
+            </h1>
+            {description && (
+              <p className="mt-0.5 truncate text-xs font-medium text-stone-500">
+                {description}
+              </p>
+            )}
+          </div>
+
+          {/* Desktop actions */}
+          {actionButton && (
+            <div className="hidden shrink-0 items-center gap-2 md:flex">
+              {actionButton}
+            </div>
+          )}
+
+          {/* Mobile header utility actions */}
+          {mobileHeaderActions && (
+            <div className="shrink-0 md:hidden">
+              {mobileHeaderActions}
+            </div>
           )}
         </div>
-
-        {/* Desktop actions */}
-        {actionButton && (
-          <div className="hidden md:flex shrink-0 items-center gap-2 ml-4">
-            {actionButton}
-          </div>
-        )}
-
-        {/* Mobile header utility actions */}
-        {mobileHeaderActions && (
-          <div className="md:hidden shrink-0 ml-2">
-            {mobileHeaderActions}
-          </div>
-        )}
       </header>
 
       {/* ── Mobile Speed Dial (multiple work actions) ── */}
@@ -172,8 +174,8 @@ export function StandardPageLayout({
                       className={cn(
                         "flex items-center gap-2.5 rounded-full px-4 py-2.5 text-sm font-semibold shadow-lg active:scale-95 transition-transform min-h-[44px]",
                         item.variant === "primary"
-                          ? "bg-blue-600 text-white shadow-blue-900/30"
-                          : "border border-white/60 bg-white/80 backdrop-blur-xl text-slate-700 shadow-slate-200/40"
+                          ? "bg-amber-700 text-white shadow-amber-950/25"
+                          : "border border-stone-200 bg-[#fbfaf8]/95 backdrop-blur-xl text-stone-700 shadow-stone-200/50"
                       )}
                     >
                       <span className={item.variant === "primary" ? "text-white/80" : "text-slate-500"}>
@@ -192,7 +194,7 @@ export function StandardPageLayout({
               onClick={() => setSpeedDialOpen((p) => !p)}
               className={cn(
                 "flex h-14 w-14 items-center justify-center rounded-full shadow-xl active:scale-95 transition-colors min-h-[56px] min-w-[56px]",
-                speedDialOpen ? "bg-slate-800 text-white shadow-slate-900/40" : "bg-blue-600 text-white shadow-blue-900/30"
+                speedDialOpen ? "bg-stone-900 text-white shadow-stone-950/30" : "bg-amber-700 text-white shadow-amber-950/25"
               )}
               aria-label={speedDialOpen ? "Tutup menu aksi" : "Buka menu aksi"}
               aria-expanded={speedDialOpen}
@@ -219,7 +221,7 @@ export function StandardPageLayout({
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={mobileFabAction!.onClick}
-            className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-900/30 active:scale-95 transition-all min-h-[52px] min-w-[52px]"
+            className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-amber-700 text-white shadow-xl shadow-amber-950/25 active:scale-95 transition-all min-h-[52px] min-w-[52px]"
             aria-label={mobileFabAction!["aria-label"] || mobileFabAction!.label}
           >
             {mobileFabAction!.icon || <Plus size={22} />}
@@ -230,11 +232,13 @@ export function StandardPageLayout({
       {/* ── Content area ── */}
       <div
         className={cn(
-          "flex-1 overflow-auto p-4 md:p-6 custom-scrollbar relative",
-          hasFab && "pb-[calc(88px+env(safe-area-inset-bottom,0px))] md:pb-6"
+          "flex-1 overflow-auto custom-scrollbar relative",
+          hasFab && "pb-[calc(88px+env(safe-area-inset-bottom,0px))] md:pb-0"
         )}
       >
-        {isLoading ? <PageSkeleton /> : children}
+        <div className="mx-auto w-full max-w-[1600px] p-4 md:p-6 lg:p-8">
+          {isLoading ? <PageSkeleton /> : children}
+        </div>
       </div>
     </div>
   );

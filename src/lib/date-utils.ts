@@ -1,14 +1,70 @@
-import { toZonedTime, format } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
 
 const DEFAULT_TIMEZONE = "Asia/Jakarta";
 
+export type ZonedPeriod = {
+  start: Date;
+  end: Date;
+  dateKey: string;
+  timezone: string;
+};
+
+export function normalizeTimeZone(timezone?: string | null): string {
+  if (!timezone) return DEFAULT_TIMEZONE;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date());
+    return timezone;
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
+}
+
+/** Returns a tenant-local calendar day as an exclusive UTC instant range. */
+export function getZonedDayRange(
+  instant: Date,
+  timezone?: string | null,
+  dayOffset = 0,
+): ZonedPeriod {
+  const zone = normalizeTimeZone(timezone);
+  const local = toZonedTime(instant, zone);
+  local.setDate(local.getDate() + dayOffset);
+  local.setHours(0, 0, 0, 0);
+  const nextLocal = new Date(local);
+  nextLocal.setDate(nextLocal.getDate() + 1);
+
+  return {
+    start: fromZonedTime(local, zone),
+    end: fromZonedTime(nextLocal, zone),
+    dateKey: formatInTimeZone(fromZonedTime(local, zone), zone, "yyyy-MM-dd"),
+    timezone: zone,
+  };
+}
+
+/** Returns a tenant-local month as an exclusive UTC instant range. */
+export function getZonedMonthRange(
+  year: number,
+  month: number,
+  timezone?: string | null,
+): ZonedPeriod {
+  const zone = normalizeTimeZone(timezone);
+  const localStart = new Date(year, month - 1, 1, 0, 0, 0, 0);
+  const localEnd = new Date(year, month, 1, 0, 0, 0, 0);
+  return {
+    start: fromZonedTime(localStart, zone),
+    end: fromZonedTime(localEnd, zone),
+    dateKey: `${year}-${String(month).padStart(2, "0")}`,
+    timezone: zone,
+  };
+}
+
 /**
- * Mendapatkan objek Date waktu saat ini yang telah disesuaikan dengan zona waktu Asia/Jakarta.
- * Gunakan fungsi ini untuk menggantikan `new Date()` pada operasi pembuatan transaksi,
- * mutasi, laporan, atau audit yang sensitif terhadap zona waktu lokal.
+ * Mendapatkan waktu saat ini sebagai instant absolut.
+ * JavaScript Date tidak menyimpan zona waktu; menggeser nilainya ke wall-clock WIB
+ * akan menghasilkan timestamp database yang salah. Gunakan helper format/range di
+ * bawah saat representasi kalender WIB memang diperlukan.
  */
 export function getCurrentDate(): Date {
-  return toZonedTime(new Date(), DEFAULT_TIMEZONE);
+  return new Date();
 }
 
 /**
@@ -16,16 +72,14 @@ export function getCurrentDate(): Date {
  * Contoh output: "17 Juli 2026 15:30:00"
  */
 export function formatLocal(date: Date, formatStr: string = "d MMMM yyyy HH:mm:ss"): string {
-  const zonedDate = toZonedTime(date, DEFAULT_TIMEZONE);
-  return format(zonedDate, formatStr, { timeZone: DEFAULT_TIMEZONE });
+  return formatInTimeZone(date, DEFAULT_TIMEZONE, formatStr);
 }
 
 /**
  * Mendapatkan string YYYY-MM-DD hari ini untuk input form atau query database.
  */
 export function getTodayString(): string {
-  const zonedDate = toZonedTime(new Date(), DEFAULT_TIMEZONE);
-  return format(zonedDate, "yyyy-MM-dd", { timeZone: DEFAULT_TIMEZONE });
+  return formatInTimeZone(new Date(), DEFAULT_TIMEZONE, "yyyy-MM-dd");
 }
 
 /**
@@ -33,10 +87,9 @@ export function getTodayString(): string {
  * Untuk query database, gunakan returned value sebagai `gte` boundary.
  */
 export function getStartOfTodayWIB(): Date {
-  const now = new Date();
-  const zoned = toZonedTime(now, DEFAULT_TIMEZONE);
-  zoned.setHours(0, 0, 0, 0);
-  return zoned;
+  const localNow = toZonedTime(new Date(), DEFAULT_TIMEZONE);
+  localNow.setHours(0, 0, 0, 0);
+  return fromZonedTime(localNow, DEFAULT_TIMEZONE);
 }
 
 /**
@@ -44,9 +97,10 @@ export function getStartOfTodayWIB(): Date {
  * Digunakan sebagai `lt` boundary (exclusive) untuk range "hari ini".
  */
 export function getStartOfNextDayWIB(): Date {
-  const start = getStartOfTodayWIB();
-  start.setDate(start.getDate() + 1);
-  return start;
+  const localNow = toZonedTime(new Date(), DEFAULT_TIMEZONE);
+  localNow.setDate(localNow.getDate() + 1);
+  localNow.setHours(0, 0, 0, 0);
+  return fromZonedTime(localNow, DEFAULT_TIMEZONE);
 }
 
 /**

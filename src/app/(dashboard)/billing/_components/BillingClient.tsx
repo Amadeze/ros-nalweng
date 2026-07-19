@@ -7,6 +7,7 @@ import { formatRupiah } from "@/lib/format";
 import Script from "next/script";
 import { toast } from "sonner";
 import { PLAN_CATALOG } from "@/lib/plans";
+import { StandardPageLayout } from "@/components/StandardPageLayout";
 
 export default function BillingClient({ tenant }: { tenant: Tenant }) {
   const isTrial = tenant.subscriptionTier === "TRIAL";
@@ -69,17 +70,15 @@ export default function BillingClient({ tenant }: { tenant: Tenant }) {
         strategy="lazyOnload" 
       />
 
-      <div className="flex-1 overflow-auto bg-slate-50/50 p-4 md:p-6 lg:p-8">
-        <div className="mx-auto max-w-4xl space-y-6">
+      <StandardPageLayout
+        title="Langganan & Tagihan"
+        description="Kelola paket Roastery OS dan status pembayaran Anda."
+      >
+        <div className="mx-auto max-w-5xl space-y-6">
           
           {/* Header */}
-          <header className="mb-8">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Subscription & Billing</h1>
-            <p className="mt-1 text-sm text-slate-500">Manage your Roastery OS plan and billing details.</p>
-          </header>
-
           {/* Current Plan Status */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-sm">
+          <div className="rounded-3xl border border-stone-200 bg-white/80 p-6 shadow-sm md:p-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
               <div>
                 <div className="flex items-center gap-3 mb-2">
@@ -122,7 +121,7 @@ export default function BillingClient({ tenant }: { tenant: Tenant }) {
               <h3 className="text-lg font-bold text-slate-800 mb-6">Upgrade your plan</h3>
               <div className="grid gap-6 md:grid-cols-2">
                 {tenant.subscriptionTier === "TRIAL" && (
-                  <div className="border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="rounded-2xl border border-stone-200 bg-white/80 p-6 shadow-sm">
                     <h4 className="text-lg font-bold text-slate-800 mb-2">Roastery OS Basic</h4>
                     <div className="mb-4">
                       <span className="text-3xl font-extrabold text-slate-900">{formatRupiah(PLAN_CATALOG.BASIC.monthlyPrice)}</span>
@@ -175,7 +174,7 @@ export default function BillingClient({ tenant }: { tenant: Tenant }) {
           )}
 
         </div>
-      </div>
+      </StandardPageLayout>
     </>
   );
 }

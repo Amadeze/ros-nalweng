@@ -55,6 +55,8 @@ export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
   const [inventoryReport, setInventoryReport] = useState<InventoryValuationReport | null>(null);
   const [balanceSheetReport, setBalanceSheetReport] = useState<BalanceSheetReport | null>(null);
   const [flowReport, setFlowReport] = useState<CoffeeFlowReport | null>(null);
+  const reportAsOf = new Date(new Date(pnlReport.periodEnd).getTime() - 1);
+  const reportStart = new Date(pnlReport.periodStart);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const openTab = (tab: ReportTab) => {
@@ -64,7 +66,7 @@ export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
     if (tab === "inventory" && !inventoryReport) {
       startTransition(async () => {
         try {
-          setInventoryReport(await getInventoryValuationReport());
+          setInventoryReport(await getInventoryValuationReport(reportAsOf));
         } catch {
           setLoadError("Gagal memuat valuasi aset.");
         }
@@ -74,9 +76,9 @@ export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
     if (tab === "balanceSheet" && !balanceSheetReport) {
       startTransition(async () => {
         try {
-          const inventory = inventoryReport ?? await getInventoryValuationReport();
+          const inventory = inventoryReport ?? await getInventoryValuationReport(reportAsOf);
           setInventoryReport(inventory);
-          setBalanceSheetReport(await getBalanceSheetReport(inventory.grandTotalValue));
+          setBalanceSheetReport(await getBalanceSheetReport(inventory.grandTotalValue, reportAsOf));
         } catch {
           setLoadError("Gagal memuat neraca.");
         }
@@ -86,7 +88,7 @@ export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
     if (tab === "flow" && !flowReport) {
       startTransition(async () => {
         try {
-          setFlowReport(await getCoffeeFlowReport());
+          setFlowReport(await getCoffeeFlowReport(reportStart, new Date(pnlReport.periodEnd)));
         } catch {
           setLoadError("Gagal memuat arus kopi.");
         }
@@ -105,7 +107,7 @@ export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
           className={cn(
             "flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all",
             activeTab === "pnl" 
-              ? "bg-white text-blue-600 shadow-sm" 
+              ? "bg-white text-amber-800 shadow-sm"
               : "text-slate-500 hover:text-slate-700 hover:bg-white/50"
           )}
         >

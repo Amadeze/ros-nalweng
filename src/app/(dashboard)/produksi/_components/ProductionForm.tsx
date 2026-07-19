@@ -5,14 +5,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -139,6 +138,8 @@ export function ProductionForm({
   onPendingChange,
 }: ProductionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [operationKey, setOperationKey] = useState(() => crypto.randomUUID());
+  const [showRecipeDetails, setShowRecipeDetails] = useState(false);
 
   const {
     register,
@@ -175,6 +176,7 @@ export function ProductionForm({
   // ── Auto-fill dari resep saat user pilih FG ──
   useEffect(() => {
     if (!outputProductId) return;
+    setShowRecipeDetails(false);
 
     const fg = fgOptions.find((f) => f.id === outputProductId);
     if (!fg?.recipe) return;
@@ -221,10 +223,12 @@ export function ProductionForm({
 
   // ── Submit ──
   const onSubmit = async (values: FormValues) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     onPendingChange(true);
     try {
       const result = await createProductionBatch({
+        operationKey,
         outputProductId: values.outputProductId,
         recipeId:        values.recipeId || undefined,
         packagingId:     values.packagingId,
@@ -244,6 +248,7 @@ export function ProductionForm({
 
       toast.success(`Batch produksi dicatat — ${result.batchCode}`);
       reset();
+      setOperationKey(crypto.randomUUID());
       onSuccess();
     } catch {
       toast.error("Terjadi kesalahan sistem. Coba lagi.");
@@ -321,6 +326,21 @@ export function ProductionForm({
         <FieldError message={errors.unitsProduced?.message} />
       </FieldGroup>
 
+      {selectedFG?.recipe && (
+        <button
+          type="button"
+          onClick={() => setShowRecipeDetails((current) => !current)}
+          className="flex w-full items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-left text-xs font-semibold text-emerald-700"
+        >
+          <span>
+            Resep otomatis · {selectedFG.recipe.items.map((item) => item.productName).join(" + ")} · {selectedFG.recipe.packagingName}
+          </span>
+          <ChevronDown size={14} className={cn("shrink-0 transition-transform", showRecipeDetails && "rotate-180")} />
+        </button>
+      )}
+
+      {(!selectedFG?.recipe || showRecipeDetails) && (
+        <>
       <Separator className="bg-white/50" />
 
       {/* ── Komponen Roasted Bean ── */}
@@ -473,6 +493,8 @@ export function ProductionForm({
         />
         <FieldError message={errors.packagingId?.message} />
       </FieldGroup>
+        </>
+      )}
 
       {/* ── Ringkasan ── */}
       <HppSummary
@@ -484,7 +506,7 @@ export function ProductionForm({
       />
 
       {/* ── Catatan ── */}
-      <FieldGroup>
+      {(!selectedFG?.recipe || showRecipeDetails) && <FieldGroup>
         <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Catatan (opsional)</Label>
         <Textarea
           placeholder="Batch notes, variasi blend, dll."
@@ -492,7 +514,7 @@ export function ProductionForm({
           className={cn("resize-none text-sm", glassInput)}
           {...register("notes")}
         />
-      </FieldGroup>
+      </FieldGroup>}
 
       <button type="submit" className="hidden" aria-hidden disabled={isSubmitting} />
     </form>

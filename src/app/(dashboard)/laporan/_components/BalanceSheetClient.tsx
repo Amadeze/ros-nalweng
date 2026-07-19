@@ -31,6 +31,13 @@ export function BalanceSheetClient({ report }: BalanceSheetClientProps) {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-xs leading-relaxed text-amber-900">
+        <p className="font-bold">Neraca draft · posisi per {new Date(report.asOf).toLocaleString("id-ID")}</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          {report.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+        </ul>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* AKTIVA (ASSETS) */}
         <div className="space-y-4">

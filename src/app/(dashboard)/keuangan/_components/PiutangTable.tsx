@@ -19,7 +19,7 @@ function OverdueBadge() {
 
 function StatusBadge({ status }: { status: string }) {
   return status === "PARTIAL" ? (
-    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[11px]">
+    <Badge variant="outline" className="bg-blue-50 text-amber-800 border-blue-200 text-[11px]">
       Sebagian
     </Badge>
   ) : (

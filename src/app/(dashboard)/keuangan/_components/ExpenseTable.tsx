@@ -17,7 +17,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 const CATEGORY_COLOR: Record<string, string> = {
-  GAJI:        "bg-blue-50 text-blue-700 border-blue-200",
+  GAJI:        "bg-blue-50 text-amber-800 border-blue-200",
   UTILITAS:    "bg-amber-50 text-amber-700 border-amber-200",
   OPERASIONAL: "bg-violet-50 text-violet-700 border-violet-200",
   LAINNYA:     "bg-zinc-100 text-zinc-600 border-zinc-200",

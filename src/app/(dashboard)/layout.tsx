@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/layout/AppShell";
-import { requireCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getTenantAccessRecord, requireCurrentUser } from "@/lib/auth";
+import { AppToastProvider } from "@/components/AppToastProvider";
 
 /**
  * Layout untuk semua halaman yang memerlukan sidebar (route group dashboard).
@@ -12,17 +12,16 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await requireCurrentUser();
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: user.tenantId },
-    select: { subscriptionTier: true },
-  });
+  const tenant = await getTenantAccessRecord(user.tenantId);
 
   return (
-    <AppShell
-      userRole={user.role}
-      subscriptionTier={tenant?.subscriptionTier || "TRIAL"}
-    >
-      {children}
-    </AppShell>
+    <AppToastProvider>
+      <AppShell
+        userRole={user.role}
+        subscriptionTier={tenant?.subscriptionTier || "TRIAL"}
+      >
+        {children}
+      </AppShell>
+    </AppToastProvider>
   );
 }

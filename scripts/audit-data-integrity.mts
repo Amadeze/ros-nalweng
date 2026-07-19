@@ -34,6 +34,10 @@ try {
     FROM parent_roasting_batches x JOIN products y ON y.id = x."outputProductId"
     WHERE x."tenantId" <> y."tenantId"
     UNION ALL
+    SELECT 'product_source_green_bean', COUNT(*)::int
+    FROM products x JOIN products y ON y.id = x."sourceGreenBeanId"
+    WHERE x."tenantId" <> y."tenantId"
+    UNION ALL
     SELECT 'production_output_product', COUNT(*)::int
     FROM production_batches x JOIN products y ON y.id = x."outputProductId"
     WHERE x."tenantId" <> y."tenantId"
@@ -143,18 +147,6 @@ try {
       GROUP BY "tenantId", "invoiceId", channel, "reminderDate"
       HAVING COUNT(*) > 1
     ) duplicates
-    UNION ALL
-    SELECT 'withdrawal_without_partner', COUNT(*)::int
-    FROM capital_transactions
-    WHERE type = 'WITHDRAWAL' AND "partnerId" IS NULL
-    UNION ALL
-    SELECT 'duplicate_profit_distribution', COUNT(*)::int
-    FROM (
-      SELECT "tenantId", "partnerId", year, month
-      FROM profit_distributions
-      GROUP BY "tenantId", "partnerId", year, month
-      HAVING COUNT(*) > 1
-    ) duplicates
   `;
 
   const inventoryViolations = await prisma.$queryRaw<Violation[]>`
@@ -192,7 +184,14 @@ try {
   `;
 
   const operationalViolations = await prisma.$queryRaw<Violation[]>`
-    SELECT 'completed_purchase_ledger_mismatch' AS check, COUNT(*)::int AS count
+    SELECT 'roasted_product_invalid_source' AS check, COUNT(*)::int AS count
+    FROM products rb
+    JOIN products gb ON gb.id = rb."sourceGreenBeanId"
+    WHERE rb.type <> 'ROASTED_BEAN'
+      OR gb.type <> 'GREEN_BEAN'
+      OR rb."roastLevel" IS NULL
+    UNION ALL
+    SELECT 'completed_purchase_ledger_mismatch', COUNT(*)::int
     FROM purchases p
     WHERE p.status = 'COMPLETED'
       AND (

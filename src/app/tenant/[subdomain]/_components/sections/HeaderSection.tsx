@@ -13,12 +13,19 @@ interface HeaderSectionProps {
   cart: CartStore;
   setIsCartOpen: (open: boolean) => void;
   skin: ThemeSkin;
+  showTestimonials?: boolean;
+  mounted?: boolean;
 }
 
-export function HeaderSection({ tenant, cart, setIsCartOpen, skin }: HeaderSectionProps) {
+export function HeaderSection({ tenant, cart, setIsCartOpen, skin, showTestimonials = false, mounted = false }: HeaderSectionProps) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const totalItems = cart.getTotalItems(tenant.subdomain || "");
+  const totalItems = mounted ? cart.getTotalItems(tenant.subdomain || "") : 0;
+  const navigationItems = [
+    { id: "catalog", label: "Our Collection" },
+    ...(showTestimonials ? [{ id: "testimonials", label: "Stories" }] : []),
+    { id: "faq", label: "FAQ" },
+  ];
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -36,11 +43,11 @@ export function HeaderSection({ tenant, cart, setIsCartOpen, skin }: HeaderSecti
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-700 ${
-        scrolled
-          ? "bg-[#faf8f5]/95 backdrop-blur-md shadow-[0_1px_0_0_#e8e0d8]"
-          : "bg-transparent"
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 border-b transition-all duration-500 ${scrolled ? "backdrop-blur-xl" : "border-transparent"}`}
+      style={{
+        backgroundColor: scrolled ? "color-mix(in srgb, var(--t-bg) 92%, transparent)" : "transparent",
+        borderColor: scrolled ? "var(--t-border)" : "transparent",
+      }}
     >
       <div className="max-w-6xl mx-auto px-5 sm:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
@@ -56,15 +63,11 @@ export function HeaderSection({ tenant, cart, setIsCartOpen, skin }: HeaderSecti
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1">
-            {[
-              { id: "catalog", label: "Our Collection" },
-              { id: "testimonials", label: "Stories" },
-              { id: "faq", label: "FAQ" },
-            ].map((item) => (
+            {navigationItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => scrollToSection(item.id)}
-                className="px-4 py-2 text-sm font-medium text-[#8b7e74] hover:text-[#2c2420] transition-colors duration-300 rounded-lg hover:bg-[#6b4423]/5"
+                className="px-4 py-2 text-sm font-medium text-[var(--t-text-muted)] hover:text-[var(--t-text)] transition-colors duration-300 rounded-[var(--t-radius)] hover:bg-[var(--t-surface)]"
                 style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
               >
                 {item.label}
@@ -78,7 +81,7 @@ export function HeaderSection({ tenant, cart, setIsCartOpen, skin }: HeaderSecti
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.96 }}
               onClick={() => setIsCartOpen(true)}
-              className="relative flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 bg-[#6b4423] text-white hover:bg-[#5a3920] shadow-[0_2px_8px_rgba(107,68,35,0.15)]"
+              className={`relative flex items-center gap-2 text-sm ${skin.buttonPrimaryClass}`}
             >
               <ShoppingBag size={15} strokeWidth={1.5} />
               <span className="hidden sm:inline">Cart</span>
@@ -88,7 +91,7 @@ export function HeaderSection({ tenant, cart, setIsCartOpen, skin }: HeaderSecti
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     exit={{ scale: 0 }}
-                    className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center text-[10px] font-medium rounded-full bg-[#c8956c] text-white shadow-md"
+                    className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center text-[10px] font-medium rounded-full bg-[var(--t-accent)] text-[var(--t-bg)] shadow-md"
                   >
                     {totalItems}
                   </motion.span>
@@ -99,7 +102,9 @@ export function HeaderSection({ tenant, cart, setIsCartOpen, skin }: HeaderSecti
             {/* Mobile menu toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-[#8b7e74] hover:text-[#2c2420] transition-colors duration-300"
+              aria-label={mobileMenuOpen ? "Tutup menu" : "Buka menu"}
+              aria-expanded={mobileMenuOpen}
+              className="md:hidden p-2 rounded-[var(--t-radius)] text-[var(--t-text-muted)] hover:text-[var(--t-text)] transition-colors duration-300"
             >
               {mobileMenuOpen ? <X size={20} strokeWidth={1.5} /> : <Menu size={20} strokeWidth={1.5} />}
             </button>
@@ -115,18 +120,14 @@ export function HeaderSection({ tenant, cart, setIsCartOpen, skin }: HeaderSecti
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="md:hidden overflow-hidden bg-[#faf8f5]/98 backdrop-blur-md border-b border-[#e8e0d8]"
+            className="md:hidden overflow-hidden backdrop-blur-md border-b border-[var(--t-border)] bg-[var(--t-bg)]"
           >
             <nav className="px-5 py-5 space-y-1">
-              {[
-                { id: "catalog", label: "Our Collection" },
-                { id: "testimonials", label: "Stories" },
-                { id: "faq", label: "FAQ" },
-              ].map((item) => (
+              {navigationItems.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => scrollToSection(item.id)}
-                  className="block w-full text-left px-4 py-3 text-sm font-medium text-[#8b7e74] hover:text-[#2c2420] rounded-xl hover:bg-[#6b4423]/5 transition-colors duration-300"
+                  className="block w-full text-left px-4 py-3 text-sm font-medium text-[var(--t-text-muted)] hover:text-[var(--t-text)] rounded-[var(--t-radius)] hover:bg-[var(--t-surface)] transition-colors duration-300"
                   style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
                 >
                   {item.label}

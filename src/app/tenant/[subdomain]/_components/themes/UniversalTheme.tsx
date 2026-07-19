@@ -64,17 +64,17 @@ export function UniversalTheme({
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="relative w-full max-w-md h-full flex flex-col overflow-hidden bg-[var(--theme-surface)] text-[var(--theme-text)] shadow-2xl"
+              className="relative w-full max-w-md h-full flex flex-col overflow-hidden bg-[var(--t-surface)] text-[var(--t-text)] shadow-2xl"
             >
               {/* Cart Header */}
-              <div className="p-5 md:p-6 flex justify-between items-center flex-shrink-0 border-b border-[var(--theme-border)]">
-                <h2 className="text-xl font-bold tracking-tight text-[var(--theme-text)]">
+              <div className="p-5 md:p-6 flex justify-between items-center flex-shrink-0 border-b border-[var(--t-border)]">
+                <h2 className="text-xl font-bold tracking-tight text-[var(--t-text)]">
                   Your Cart
                 </h2>
                 <button
                   onClick={() => setIsCartOpen(false)}
                   aria-label="Tutup keranjang"
-                  className="w-9 h-9 rounded-[var(--theme-radius)] flex items-center justify-center transition-all hover:bg-[var(--theme-background)] text-[var(--theme-text-muted)]"
+                  className="w-9 h-9 rounded-[var(--t-radius)] flex items-center justify-center transition-all hover:bg-[var(--t-bg)] text-[var(--t-text-muted)]"
                 >
                   <X size={16} weight="bold" />
                 </button>
@@ -83,7 +83,7 @@ export function UniversalTheme({
               {/* Cart Items */}
               <div className="flex-1 overflow-auto p-5 md:p-6 space-y-5">
                 {cartItems.length === 0 ? (
-                  <div className="text-center py-16 text-[var(--theme-text-muted)]">
+                  <div className="text-center py-16 text-[var(--t-text-muted)]">
                     <Package size={48} className="mx-auto mb-4 opacity-30" />
                     <p className="text-sm font-medium">Your cart is empty</p>
                   </div>
@@ -96,7 +96,7 @@ export function UniversalTheme({
                     >
                       <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 border border-gray-100 bg-gray-50">
                         {item.imageUrl ? (
-                          <img src={item.imageUrl} className="w-full h-full object-cover" alt={item.name} />
+                          <img src={item.imageUrl} loading="lazy" decoding="async" className="w-full h-full object-cover" alt={item.name} />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-300">
                             <Coffee size={24} />
@@ -104,34 +104,34 @@ export function UniversalTheme({
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-semibold line-clamp-1 mb-1 text-[var(--theme-text)]">
+                        <h4 className="text-sm font-semibold line-clamp-1 mb-1 text-[var(--t-text)]">
                           {item.name}
                         </h4>
-                        <p className="text-xs mb-2 text-[var(--theme-text-muted)]">
+                        <p className="text-xs mb-2 text-[var(--t-text-muted)]">
                           Rp {item.price.toLocaleString("id-ID")}
                         </p>
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => cart.updateQuantity(tenant.subdomain || "", item.id, -1)}
                             aria-label={`Kurangi ${item.name}`}
-                            className="w-7 h-7 rounded-[var(--theme-radius)] flex items-center justify-center text-xs font-bold transition-colors border border-[var(--theme-border)] hover:bg-[var(--theme-background)] text-[var(--theme-text)]"
+                            className="w-7 h-7 rounded-[var(--t-radius)] flex items-center justify-center text-xs font-bold transition-colors border border-[var(--t-border)] hover:bg-[var(--t-bg)] text-[var(--t-text)]"
                           >
                             −
                           </button>
-                          <span className="text-sm font-bold w-5 text-center text-gray-900">
+                          <span className="text-sm font-bold w-5 text-center text-[var(--t-text)]">
                             {item.quantity}
                           </span>
                           <button
                             onClick={() => cart.updateQuantity(tenant.subdomain || "", item.id, 1)}
                             aria-label={`Tambah ${item.name}`}
-                            className="w-7 h-7 rounded-[var(--theme-radius)] flex items-center justify-center text-xs font-bold transition-colors border border-[var(--theme-border)] hover:bg-[var(--theme-background)] text-[var(--theme-text)]"
+                            className="w-7 h-7 rounded-[var(--t-radius)] flex items-center justify-center text-xs font-bold transition-colors border border-[var(--t-border)] hover:bg-[var(--t-bg)] text-[var(--t-text)]"
                           >
                             +
                           </button>
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-bold text-[var(--theme-text)]">
+                        <p className="text-sm font-bold text-[var(--t-text)]">
                           Rp {(item.price * item.quantity).toLocaleString("id-ID")}
                         </p>
                         <button
@@ -147,29 +147,29 @@ export function UniversalTheme({
 
                 {/* Checkout Form */}
                 {cartItems.length > 0 && (
-                  <div className="pt-6 space-y-4 border-t border-[var(--theme-border)] mt-6">
-                    <h3 className="text-sm font-bold text-[var(--theme-text)] uppercase tracking-wider mb-2">
+                  <div className="pt-6 space-y-4 border-t border-[var(--t-border)] mt-6">
+                    <h3 className="text-sm font-bold text-[var(--t-text)] uppercase tracking-wider mb-2">
                       Shipping Details
                     </h3>
                     <input 
                       value={customerName} 
                       onChange={e => setCustomerName(e.target.value)} 
                       placeholder="Full Name" 
-                      className="w-full bg-[var(--theme-background)] text-[var(--theme-text)] border border-[var(--theme-border)] rounded-[var(--theme-radius)] px-4 py-3 text-sm focus:outline-none focus:border-[var(--theme-primary)] focus:ring-1 focus:ring-[var(--theme-primary)] transition-colors"
+                      className="w-full bg-[var(--t-bg)] text-[var(--t-text)] border border-[var(--t-border)] rounded-[var(--t-radius)] px-4 py-3 text-sm focus:outline-none focus:border-[var(--t-primary)] focus:ring-1 focus:ring-[var(--t-primary)] transition-colors"
                     />
                     <input 
                       value={customerPhone} 
                       onChange={e => setCustomerPhone(e.target.value)} 
                       placeholder="WhatsApp Number" 
                       type="tel"
-                      className="w-full bg-[var(--theme-background)] text-[var(--theme-text)] border border-[var(--theme-border)] rounded-[var(--theme-radius)] px-4 py-3 text-sm focus:outline-none focus:border-[var(--theme-primary)] focus:ring-1 focus:ring-[var(--theme-primary)] transition-colors"
+                      className="w-full bg-[var(--t-bg)] text-[var(--t-text)] border border-[var(--t-border)] rounded-[var(--t-radius)] px-4 py-3 text-sm focus:outline-none focus:border-[var(--t-primary)] focus:ring-1 focus:ring-[var(--t-primary)] transition-colors"
                     />
                     <textarea 
                       value={customerAddress} 
                       onChange={e => setCustomerAddress(e.target.value)} 
                       placeholder="Alamat Lengkap (Jalan, Kec, Kota, Kode Pos)" 
                       rows={3}
-                      className="w-full bg-[var(--theme-background)] text-[var(--theme-text)] border border-[var(--theme-border)] rounded-[var(--theme-radius)] px-4 py-3 text-sm focus:outline-none focus:border-[var(--theme-primary)] focus:ring-1 focus:ring-[var(--theme-primary)] transition-colors"
+                      className="w-full bg-[var(--t-bg)] text-[var(--t-text)] border border-[var(--t-border)] rounded-[var(--t-radius)] px-4 py-3 text-sm focus:outline-none focus:border-[var(--t-primary)] focus:ring-1 focus:ring-[var(--t-primary)] transition-colors"
                     />
 
                     <div className="mb-4 mt-2">
@@ -177,7 +177,7 @@ export function UniversalTheme({
                       <select 
                         value={shippingMethod} 
                         onChange={e => setShippingMethod(e.target.value)}
-                        className="w-full border border-[var(--theme-border)] rounded-[var(--theme-radius)] px-4 py-3 text-sm focus:outline-none focus:border-[var(--theme-primary)] focus:ring-1 focus:ring-[var(--theme-primary)] transition-colors bg-[var(--theme-background)] text-[var(--theme-text)]"
+                        className="w-full border border-[var(--t-border)] rounded-[var(--t-radius)] px-4 py-3 text-sm focus:outline-none focus:border-[var(--t-primary)] focus:ring-1 focus:ring-[var(--t-primary)] transition-colors bg-[var(--t-bg)] text-[var(--t-text)]"
                       >
                         <option value="LOCAL_DELIVERY">Dalam Kota - Kurir Lokal (Lalamove / Gojek)</option>
                         <option value="STORE_COURIER">Dalam Kota - Kurir Pribadi Toko</option>
@@ -190,17 +190,17 @@ export function UniversalTheme({
 
               {/* Cart Footer */}
               {cartItems.length > 0 && (
-                <div className="p-5 md:p-6 flex-shrink-0 border-t border-[var(--theme-border)] bg-[var(--theme-background)]">
+                <div className="p-5 md:p-6 flex-shrink-0 border-t border-[var(--t-border)] bg-[var(--t-bg)]">
                   <div className="flex justify-between items-center mb-5">
-                    <span className="text-sm text-[var(--theme-text-muted)] font-medium">Total</span>
-                    <span className="text-2xl font-black text-[var(--theme-text)]">
+                    <span className="text-sm text-[var(--t-text-muted)] font-medium">Total</span>
+                    <span className="text-2xl font-black text-[var(--t-text)]">
                       Rp {cart.getTotalPrice(tenant.subdomain || "").toLocaleString("id-ID")}
                     </span>
                   </div>
                   <button
                     onClick={handleCheckout}
                     disabled={isCheckingOut}
-                    className="w-full py-4 rounded-[var(--theme-radius)] font-bold text-base transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 bg-[var(--theme-primary)] text-white shadow-lg disabled:cursor-wait disabled:opacity-60"
+                    className="w-full py-4 rounded-[var(--t-radius)] font-bold text-base transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 bg-[var(--t-primary)] text-[var(--t-bg)] shadow-lg disabled:cursor-wait disabled:opacity-60"
                   >
                     <Phone size={18} weight="bold" />
                     {isCheckingOut ? "Memproses Pesanan..." : "Checkout via WhatsApp"}

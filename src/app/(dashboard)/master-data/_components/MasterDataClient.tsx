@@ -35,9 +35,9 @@ const ALL_TABS: { id: Tab; label: string; icon: React.ElementType; count: (d: Ma
 ];
 
 function getTabsForRole(role: string) {
-  if (role === "OWNER" || role === "MANAGER") return ALL_TABS;
-  if (role === "CASHIER") return ALL_TABS.filter(t => t.id === "produk" || t.id === "pelanggan");
-  if (role === "OPERATOR") return ALL_TABS.filter(t => t.id === "supplier" || t.id === "pelanggan" || t.id === "produk" || t.id === "kemasan");
+  if (role === "OWNER") return ALL_TABS;
+  if (role === "MANAGER" || role === "OPERATOR") return ALL_TABS.filter(t => t.id !== "pengguna");
+  if (role === "CASHIER") return ALL_TABS.filter(t => t.id === "pelanggan");
   return ALL_TABS.filter(t => t.id === "produk"); // fallback
 }
 
@@ -414,9 +414,9 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
     <>
       <StandardPageLayout
         title="Data Master"
-        description="Kelola referensi Supplier, Pelanggan, Produk, dan Pengguna"
+        description="Tambah data dasar sekali, lalu gunakan langsung di transaksi"
         actionButton={
-          <Button size="sm" onClick={openCreate} className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-md rounded-xl">
+          <Button size="sm" onClick={openCreate} className="gap-1.5 bg-amber-700 text-white hover:bg-amber-800 font-bold shadow-md rounded-xl">
             <Plus size={14} />
             Tambah {activeTabMeta.label}
           </Button>
@@ -441,7 +441,7 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
                 className={cn(
                   "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl py-2 px-2 text-[10px] sm:text-xs font-bold transition-all duration-300 shadow-sm text-center",
                   active
-                    ? "bg-blue-500 text-white shadow-md ring-2 ring-blue-500/20 scale-[1.02]"
+                    ? "bg-amber-700 text-white shadow-md ring-2 ring-amber-700/20 scale-[1.02]"
                     : "bg-white/40 text-slate-600 border border-white/60 hover:bg-white/60 hover:text-slate-800 hover:scale-[1.02]"
                 )}
               >
@@ -472,6 +472,7 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
             {activeTab === "supplier"  && <SupplierTable rows={data.suppliers} onEdit={openEditSupplier} />}
             {activeTab === "pelanggan" && <CustomerTable rows={data.customers} onEdit={openEditCustomer} />}
             {activeTab === "produk"    && <ProductTable  rows={data.products}  onEdit={openEditProduct}  />}
+            {activeTab === "kemasan"   && <PackagingTable rows={data.packagings} onEdit={openEditPackaging} />}
             {activeTab === "pengguna"  && <UserTable     rows={data.users}     onEdit={openEditUser}     />}
           </motion.div>
         </AnimatePresence>
@@ -480,11 +481,11 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
       {/* ── Drawer ── */}
       <StandardDrawer
         open={drawerOpen}
-        onOpenChange={(v) => { if (!isSubmitting) { setDrawerOpen(v); if (!v) { setMode("create"); setEditSupplier(null); setEditCustomer(null); setEditProduct(null); setEditUser(null); } } }}
+        onOpenChange={(v) => { if (!isSubmitting) { setDrawerOpen(v); if (!v) { setMode("create"); setEditSupplier(null); setEditCustomer(null); setEditProduct(null); setEditPackaging(null); setEditUser(null); } } }}
         title={drawerTitle}
         size={drawerSize}
         submitButton={
-          <Button type="submit" form={submitFormId} size="sm" disabled={isSubmitting} className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-md rounded-xl disabled:opacity-60">
+          <Button type="submit" form={submitFormId} size="sm" disabled={isSubmitting} className="gap-1.5 bg-amber-700 text-white hover:bg-amber-800 font-bold shadow-md rounded-xl disabled:opacity-60">
             {isSubmitting && <Loader2 size={13} className="animate-spin" />}
             {isSubmitting ? "Menyimpan..." : (mode === "edit" ? "Simpan Perubahan" : "Simpan")}
           </Button>

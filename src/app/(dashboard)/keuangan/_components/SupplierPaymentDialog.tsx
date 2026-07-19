@@ -132,7 +132,7 @@ export function SupplierPaymentDialog({
               <Label>Nominal</Label>
               <button
                 type="button"
-                className="text-xs text-blue-600 hover:underline"
+                className="text-xs text-amber-800 hover:underline"
                 onClick={() => setValue("amount", purchase.balance, { shouldValidate: true })}
               >
                 Lunaskan

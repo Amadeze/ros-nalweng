@@ -16,6 +16,7 @@ import { PODetail } from "./PODetail";
 import { POForm } from "./POForm";
 import { ReceivingList } from "./ReceivingList";
 import { InventoryMetricCard } from "./InventoryMetricCard";
+import { SupplierForm } from "../../master-data/_components/SupplierForm";
 import type {
   GBProductOption,
   LedgerHistoryRow,
@@ -206,10 +207,30 @@ export function InventoryClient({
   const [adjDrawerOpen, setAdjDrawerOpen] = useState(false);
   const [poDrawerOpen, setPoDrawerOpen] = useState(false);
   const [poDetailOpen, setPoDetailOpen] = useState(false);
+  const [supplierDrawerOpen, setSupplierDrawerOpen] = useState(false);
+  const [supplierTarget, setSupplierTarget] = useState<"purchase" | "packaging" | "po" | null>(null);
+  const [preferredSupplierId, setPreferredSupplierId] = useState<string | null>(null);
+  const [supplierOptions, setSupplierOptions] = useState(suppliers);
   const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
   const [isSubmitting,  setIsSubmitting]  = useState(false);
+  const [isSupplierSubmitting, setIsSupplierSubmitting] = useState(false);
   const [filteredLedger, setFilteredLedger] = useState(ledgerEntries);
   const [poRefreshKey, setPoRefreshKey] = useState(0);
+
+  useEffect(() => {
+    setSupplierOptions(suppliers);
+  }, [suppliers]);
+
+  const openSupplierQuickAdd = (target: "purchase" | "packaging" | "po") => {
+    setSupplierTarget(target);
+    setPreferredSupplierId(null);
+    setSupplierDrawerOpen(true);
+  };
+
+  const finishSupplierFlow = () => {
+    setSupplierTarget(null);
+    setPreferredSupplierId(null);
+  };
 
   // URL-synced workspace tab
   const viewParam = searchParams.get("view");
@@ -335,7 +356,7 @@ export function InventoryClient({
             />
             <ActionsDropdown onStockOpname={() => setAdjDrawerOpen(true)} onKemasanDatang={() => setPkgDrawerOpen(true)} />
             {primaryAction && (
-              <Button size="sm" className="gap-1.5 bg-blue-600 text-white hover:bg-blue-700 font-semibold rounded-lg h-8 text-xs" onClick={primaryAction.onClick}>
+              <Button size="sm" className="gap-1.5 bg-amber-700 text-white hover:bg-amber-800 font-semibold rounded-lg h-8 text-xs" onClick={primaryAction.onClick}>
                 {primaryAction.icon}
                 {primaryAction.label}
               </Button>
@@ -357,10 +378,10 @@ export function InventoryClient({
             const isActive = activeView === tab.id;
             return (
               <button key={tab.id} type="button" onClick={() => setActiveView(tab.id)}
-                className={`relative flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors ${isActive ? "text-blue-600" : "text-slate-500 hover:text-slate-700"}`}>
+                className={`relative flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors ${isActive ? "text-amber-800" : "text-slate-500 hover:text-slate-700"}`}>
                 <Icon size={14} />
                 {tab.label}
-                {isActive && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t" />}
+                {isActive && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-700 rounded-t" />}
               </button>
             );
           })}
@@ -436,28 +457,57 @@ export function InventoryClient({
 
       {/* ── Drawers ── */}
       <StandardDrawer open={gbDrawerOpen} onOpenChange={(open) => { if (!isSubmitting) setGbDrawerOpen(open); }} title="Catat Barang Datang (Green Bean)" description="Stok Green Bean akan bertambah otomatis setelah disimpan." size="lg"
-        submitButton={<Button type="submit" form="purchase-form" size="sm" disabled={isSubmitting} className="gap-1.5 bg-blue-600 text-white hover:bg-blue-700 font-semibold rounded-lg disabled:opacity-60">{isSubmitting && <Loader2 size={13} className="animate-spin" />}{isSubmitting ? "Menyimpan..." : "Simpan"}</Button>}>
-        <PurchaseForm id="purchase-form" suppliers={suppliers} gbProducts={gbProducts} onSuccess={() => setGbDrawerOpen(false)} onPendingChange={setIsSubmitting} />
+        submitButton={<Button type="submit" form="purchase-form" size="sm" disabled={isSubmitting} className="gap-1.5 bg-amber-700 text-white hover:bg-amber-800 font-semibold rounded-lg disabled:opacity-60">{isSubmitting && <Loader2 size={13} className="animate-spin" />}{isSubmitting ? "Menyimpan..." : "Simpan"}</Button>}>
+        <PurchaseForm id="purchase-form" suppliers={supplierOptions} gbProducts={gbProducts} onSuccess={() => { setGbDrawerOpen(false); finishSupplierFlow(); router.refresh(); }} onPendingChange={setIsSubmitting} onAddSupplier={() => openSupplierQuickAdd("purchase")} preferredSupplierId={supplierTarget === "purchase" ? preferredSupplierId : null} />
       </StandardDrawer>
 
       <StandardDrawer open={pkgDrawerOpen} onOpenChange={(open) => { if (!isSubmitting) setPkgDrawerOpen(open); }} title="Catat Kemasan Datang" description="Stok Kemasan akan bertambah otomatis setelah disimpan." size="md"
-        submitButton={<Button type="submit" form="pkg-purchase-form" size="sm" disabled={isSubmitting} className="gap-1.5 bg-blue-600 text-white hover:bg-blue-700 font-semibold rounded-lg disabled:opacity-60">{isSubmitting && <Loader2 size={13} className="animate-spin" />}{isSubmitting ? "Menyimpan..." : "Simpan"}</Button>}>
-        <PackagingPurchaseForm suppliers={suppliers} packagings={packagings} onPendingChange={setIsSubmitting} onSuccess={() => { setPkgDrawerOpen(false); setIsSubmitting(false); }} />
+        submitButton={<Button type="submit" form="pkg-purchase-form" size="sm" disabled={isSubmitting} className="gap-1.5 bg-amber-700 text-white hover:bg-amber-800 font-semibold rounded-lg disabled:opacity-60">{isSubmitting && <Loader2 size={13} className="animate-spin" />}{isSubmitting ? "Menyimpan..." : "Simpan"}</Button>}>
+        <PackagingPurchaseForm suppliers={supplierOptions} packagings={packagings} onPendingChange={setIsSubmitting} onAddSupplier={() => openSupplierQuickAdd("packaging")} preferredSupplierId={supplierTarget === "packaging" ? preferredSupplierId : null} onSuccess={() => { setPkgDrawerOpen(false); setIsSubmitting(false); finishSupplierFlow(); router.refresh(); }} />
       </StandardDrawer>
 
       <StandardDrawer open={adjDrawerOpen} onOpenChange={(open) => { if (!isSubmitting) setAdjDrawerOpen(open); }} title="Penyesuaian Stok (Opname)" description="Gunakan fitur ini untuk menyamakan stok digital dengan fisik." size="md"
-        submitButton={<Button type="submit" form="adjustment-form" size="sm" disabled={isSubmitting} className="gap-1.5 bg-blue-600 text-white hover:bg-blue-700 font-semibold rounded-lg disabled:opacity-60">{isSubmitting && <Loader2 size={13} className="animate-spin" />}{isSubmitting ? "Menyimpan..." : "Simpan Opname"}</Button>}>
+        submitButton={<Button type="submit" form="adjustment-form" size="sm" disabled={isSubmitting} className="gap-1.5 bg-amber-700 text-white hover:bg-amber-800 font-semibold rounded-lg disabled:opacity-60">{isSubmitting && <Loader2 size={13} className="animate-spin" />}{isSubmitting ? "Menyimpan..." : "Simpan Opname"}</Button>}>
         <StockAdjustmentDrawer id="adjustment-form" items={adjustmentItems} onSuccess={() => setAdjDrawerOpen(false)} onPendingChange={setIsSubmitting} />
       </StandardDrawer>
 
       <StandardDrawer open={poDrawerOpen} onOpenChange={(open) => { if (!isSubmitting) setPoDrawerOpen(open); }} title="Buat Purchase Order" description="Buat PO baru untuk supplier." size="lg">
-        <POForm id="po-form" suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))} products={gbStocks.map((p) => ({ id: p.id, name: p.name, type: p.type, stockKg: p.stockKg }))} packagings={packagings.map((p) => ({ id: p.id, name: p.name, stockUnit: 0 }))} onSuccess={() => { setPoDrawerOpen(false); handlePORefresh(); }} onCancel={() => setPoDrawerOpen(false)} />
+        <POForm id="po-form" suppliers={supplierOptions.map((s) => ({ id: s.id, name: s.name }))} products={gbStocks.map((p) => ({ id: p.id, name: p.name, type: p.type, stockKg: p.stockKg }))} packagings={packagings.map((p) => ({ id: p.id, name: p.name, stockUnit: 0 }))} onAddSupplier={() => openSupplierQuickAdd("po")} preferredSupplierId={supplierTarget === "po" ? preferredSupplierId : null} onSuccess={() => { setPoDrawerOpen(false); handlePORefresh(); finishSupplierFlow(); }} onCancel={() => { setPoDrawerOpen(false); finishSupplierFlow(); }} />
       </StandardDrawer>
 
       <StandardDrawer open={poDetailOpen} onOpenChange={setPoDetailOpen} title="Detail Purchase Order" size="lg">
         {selectedPoId && (
           <PODetail poId={selectedPoId} onClose={() => setPoDetailOpen(false)} onUpdate={handlePORefresh} suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))} products={gbStocks.map((p) => ({ id: p.id, name: p.name, type: p.type, stockKg: p.stockKg }))} packagings={packagings.map((p) => ({ id: p.id, name: p.name, stockUnit: 0 }))} />
         )}
+      </StandardDrawer>
+
+      <StandardDrawer
+        open={supplierDrawerOpen}
+        onOpenChange={(open) => { if (!isSupplierSubmitting) setSupplierDrawerOpen(open); }}
+        title="Tambah Supplier"
+        description="Cukup isi nama. Supplier langsung dipilih di transaksi ini."
+        size="sm"
+        submitButton={
+          <Button type="submit" form="quick-supplier-form" size="sm" disabled={isSupplierSubmitting} className="gap-1.5 bg-amber-700 text-white hover:bg-amber-800 font-semibold rounded-lg disabled:opacity-60">
+            {isSupplierSubmitting && <Loader2 size={13} className="animate-spin" />}
+            {isSupplierSubmitting ? "Menyimpan..." : "Simpan & pilih"}
+          </Button>
+        }
+      >
+        <SupplierForm
+          id="quick-supplier-form"
+          onPendingChange={setIsSupplierSubmitting}
+          onSuccess={(supplier) => {
+            if (supplier) {
+              setSupplierOptions((current) => [
+                supplier,
+                ...current.filter((item) => item.id !== supplier.id),
+              ]);
+              setPreferredSupplierId(supplier.id);
+            }
+            setSupplierDrawerOpen(false);
+          }}
+        />
       </StandardDrawer>
     </>
   );

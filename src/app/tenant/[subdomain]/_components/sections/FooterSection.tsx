@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { motion } from "framer-motion";
-import { Globe, Mail, ArrowRight, Heart } from "lucide-react";
+import { Globe, Mail, ArrowRight } from "lucide-react";
 import { TenantBrand } from "../themes/TenantBrand";
 import { ThemeSkin } from "../themes/ThemeSkin";
 import type { Tenant } from "@prisma/client";
@@ -13,19 +13,15 @@ interface FooterSectionProps {
   igLink: string | null;
   emailLink: string | null;
   skin: ThemeSkin;
+  showTestimonials?: boolean;
 }
 
-export function FooterSection({ tenant, footerText, igLink, emailLink, skin }: FooterSectionProps) {
-  const [email, setEmail] = useState("");
-  const [subscribed, setSubscribed] = useState(false);
-
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email.trim()) {
-      setSubscribed(true);
-      setEmail("");
-    }
-  };
+export function FooterSection({ tenant, footerText, igLink, emailLink, skin, showTestimonials = false }: FooterSectionProps) {
+  const navigationItems = [
+    { id: "catalog", label: "Our Collection" },
+    ...(showTestimonials ? [{ id: "testimonials", label: "Stories" }] : []),
+    { id: "faq", label: "FAQ" },
+  ];
 
   return (
     <motion.footer
@@ -48,7 +44,7 @@ export function FooterSection({ tenant, footerText, igLink, emailLink, skin }: F
                 <TenantBrand tenant={tenant} fallback={tenant.name || "Roastery Portal"} />
               </div>
               <p
-                className="text-sm text-[#c8956c]/50 leading-[1.75] max-w-sm"
+                className="text-sm text-[var(--t-accent)]/50 leading-[1.75] max-w-sm"
                 style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
               >
                 {footerText}
@@ -63,7 +59,7 @@ export function FooterSection({ tenant, footerText, igLink, emailLink, skin }: F
                     href={igLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-2xl border border-white/10 flex items-center justify-center text-[#c8956c]/40 hover:text-[#c8956c] hover:border-[#c8956c]/30 transition-all duration-300"
+                    className="w-10 h-10 rounded-2xl border border-white/10 flex items-center justify-center text-[var(--t-accent)]/40 hover:text-[var(--t-accent)] hover:border-[var(--t-accent)]/30 transition-all duration-300"
                   >
                     <Globe size={16} strokeWidth={1.5} />
                   </motion.a>
@@ -73,7 +69,7 @@ export function FooterSection({ tenant, footerText, igLink, emailLink, skin }: F
                     whileHover={{ scale: 1.1, y: -2 }}
                     whileTap={{ scale: 0.95 }}
                     href={emailLink}
-                    className="w-10 h-10 rounded-2xl border border-white/10 flex items-center justify-center text-[#c8956c]/40 hover:text-[#c8956c] hover:border-[#c8956c]/30 transition-all duration-300"
+                    className="w-10 h-10 rounded-2xl border border-white/10 flex items-center justify-center text-[var(--t-accent)]/40 hover:text-[var(--t-accent)] hover:border-[var(--t-accent)]/30 transition-all duration-300"
                   >
                     <Mail size={16} strokeWidth={1.5} />
                   </motion.a>
@@ -84,21 +80,17 @@ export function FooterSection({ tenant, footerText, igLink, emailLink, skin }: F
             {/* Quick Links */}
             <div className="space-y-5">
               <h4
-                className="font-medium text-[11px] text-[#c8956c]/40 uppercase tracking-[0.2em]"
+                className="font-medium text-[11px] text-[var(--t-accent)]/40 uppercase tracking-[0.2em]"
                 style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
               >
                 Navigate
               </h4>
               <nav className="space-y-3">
-                {[
-                  { id: "catalog", label: "Our Collection" },
-                  { id: "testimonials", label: "Stories" },
-                  { id: "faq", label: "FAQ" },
-                ].map((item) => (
+                {navigationItems.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth" })}
-                    className="block text-sm text-[#c8956c]/50 hover:text-white transition-colors duration-300"
+                    className="block text-sm text-[var(--t-accent)]/50 hover:text-white transition-colors duration-300"
                     style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
                   >
                     {item.label}
@@ -107,52 +99,27 @@ export function FooterSection({ tenant, footerText, igLink, emailLink, skin }: F
               </nav>
             </div>
 
-            {/* Newsletter */}
+            {/* Contact CTA */}
             <div className="space-y-5">
               <h4
-                className="font-medium text-[11px] text-[#c8956c]/40 uppercase tracking-[0.2em]"
+                className="font-medium text-[11px] text-[var(--t-accent)]/40 uppercase tracking-[0.2em]"
                 style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
               >
-                Stay in the Loop
+                Wholesale Inquiries
               </h4>
               <p
-                className="text-xs text-[#c8956c]/40 leading-[1.7]"
+                className="text-xs text-[var(--t-accent)]/40 leading-[1.7]"
                 style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
               >
-                Updates on new arrivals, stories from the farm, and offers reserved for our community.
+                Need a recurring supply plan, custom roast profile, or help choosing the right coffee for your menu?
               </p>
-
-              {subscribed ? (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex items-center gap-2 p-3 rounded-2xl bg-[#4a7c59]/10 border border-[#4a7c59]/20 text-[#4a7c59] text-sm font-medium"
-                  style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
-                >
-                  <Heart size={14} className="fill-current" />
-                  <span>Thank you for joining us.</span>
-                </motion.div>
-              ) : (
-                <form onSubmit={handleSubscribe} className="flex gap-2">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    required
-                    className="flex-1 px-4 py-2.5 text-sm rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-[#c8956c]/30 focus:outline-none focus:border-[#c8956c]/30 focus:ring-1 focus:ring-[#c8956c]/10 transition-all duration-300"
-                    style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
-                  />
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    type="submit"
-                    className="px-4 py-2.5 rounded-2xl bg-[#c8956c]/20 text-[#c8956c] hover:bg-[#c8956c]/30 transition-all duration-300"
-                  >
-                    <ArrowRight size={14} strokeWidth={1.5} />
-                  </motion.button>
-                </form>
-              )}
+              <a
+                href={emailLink || "#catalog"}
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-2.5 text-sm font-medium text-white transition hover:border-[var(--t-accent)]/35 hover:text-[var(--t-accent)]"
+              >
+                {emailLink ? "Email our team" : "Browse the collection"}
+                <ArrowRight size={14} strokeWidth={1.5} />
+              </a>
             </div>
           </div>
         </div>
@@ -161,16 +128,16 @@ export function FooterSection({ tenant, footerText, igLink, emailLink, skin }: F
         <div className="py-6 border-t border-white/10">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p
-              className="text-xs text-[#c8956c]/30"
+              className="text-xs text-[var(--t-accent)]/30"
               style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
             >
               &copy; {new Date().getFullYear()} {tenant.name || "Roastery Portal"}. Crafted with care.
             </p>
             <p
-              className="text-xs text-[#c8956c]/30"
+              className="text-xs text-[var(--t-accent)]/30"
               style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
             >
-              Powered by <span className="font-medium text-[#c8956c]/50">Roastery OS</span>
+              Powered by <span className="font-medium text-[var(--t-accent)]/50">Roastery OS</span>
             </p>
           </div>
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { motion, useInView } from "framer-motion";
+import React from "react";
+import { motion } from "framer-motion";
 import { ShieldCheck, Truck, Clock, FileCheck, Target, Users } from "lucide-react";
 import { ThemeSkin } from "../themes/ThemeSkin";
 
@@ -10,37 +10,11 @@ interface UspSectionProps {
   skin: ThemeSkin;
 }
 
-function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true });
-
-  useEffect(() => {
-    if (!inView) return;
-    const duration = 1500;
-    const steps = 60;
-    const increment = target / steps;
-    let current = 0;
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= target) {
-        setCount(target);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(current));
-      }
-    }, duration / steps);
-    return () => clearInterval(timer);
-  }, [inView, target]);
-
-  return <span ref={ref}>{count}{suffix}</span>;
-}
-
 const stats = [
-  { value: 99, suffix: "%", label: "Roast Consistency", icon: Target },
-  { value: 150, suffix: "+", label: "Active Partners", icon: Users },
-  { value: 24, suffix: "h", label: "Fast Fulfillment", icon: Clock },
-  { value: 0, suffix: "", label: "Quality Guarantee", icon: ShieldCheck },
+  { value: "BATCH", label: "Profile consistency", icon: Target },
+  { value: "B2B", label: "Partner ordering", icon: Users },
+  { value: "FRESH", label: "Roast-to-order", icon: Clock },
+  { value: "TRACE", label: "Origin transparency", icon: ShieldCheck },
 ];
 
 const commitments = [
@@ -51,7 +25,7 @@ const commitments = [
 
 export function UspSection({ uspStmt, skin }: UspSectionProps) {
   return (
-    <section className="w-full bg-[#2c2420]">
+    <section className="w-full bg-[var(--t-text)] text-[var(--t-bg)]">
       <div className="max-w-6xl mx-auto px-5 sm:px-8 py-20 md:py-28">
         {/* Header */}
         <motion.div
@@ -63,24 +37,24 @@ export function UspSection({ uspStmt, skin }: UspSectionProps) {
         >
           {/* Decorative line */}
           <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="w-12 h-[1px] bg-[#c8956c]/40" />
+            <div className="w-12 h-[1px] bg-[var(--t-accent)]/40" />
             <span
-              className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#c8956c]/70"
+              className="text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--t-accent)]/70"
               style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
             >
               Why Us
             </span>
-            <div className="w-12 h-[1px] bg-[#c8956c]/40" />
+            <div className="w-12 h-[1px] bg-[var(--t-accent)]/40" />
           </div>
 
           <h2
-            className="text-3xl md:text-4xl font-semibold tracking-tight text-white mb-4"
+            className="text-3xl md:text-4xl font-semibold tracking-tight text-[var(--t-bg)] mb-4"
             style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
           >
             A Partnership Built on Craft
           </h2>
           <p
-            className="text-[#c8956c]/70 text-base leading-[1.75]"
+            className="text-[var(--t-accent)]/70 text-base leading-[1.75]"
             style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
           >
             {uspStmt}
@@ -102,19 +76,19 @@ export function UspSection({ uspStmt, skin }: UspSectionProps) {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.2 + i * 0.1, ease: [0.22, 1, 0.36, 1] }}
-              className="text-center p-6 rounded-[20px] border border-white/10"
+              className="text-center p-6 rounded-[20px] border border-[var(--t-bg)]/15"
             >
-              <div className="w-10 h-10 rounded-[12px] border border-[#c8956c]/20 flex items-center justify-center mx-auto mb-4">
-                <stat.icon className="w-4 h-4 text-[#c8956c]" strokeWidth={1.5} />
+              <div className="w-10 h-10 rounded-[12px] border border-[var(--t-accent)]/20 flex items-center justify-center mx-auto mb-4">
+                <stat.icon className="w-4 h-4 text-[var(--t-accent)]" strokeWidth={1.5} />
               </div>
               <div
-                className="text-3xl md:text-4xl font-semibold text-white mb-1"
+                className="text-xl md:text-2xl font-mono font-semibold tracking-[0.08em] text-[var(--t-bg)] mb-2"
                 style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
               >
-                <AnimatedCounter target={stat.value} suffix={stat.suffix} />
+                {stat.value}
               </div>
               <p
-                className="text-[11px] text-[#c8956c]/50 uppercase tracking-[0.15em] font-medium"
+                className="text-[11px] text-[var(--t-accent)]/50 uppercase tracking-[0.15em] font-medium"
                 style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
               >
                 {stat.label}
@@ -132,20 +106,20 @@ export function UspSection({ uspStmt, skin }: UspSectionProps) {
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="p-8 rounded-[20px] border border-white/10 h-full">
+            <div className="p-8 rounded-[20px] border border-[var(--t-bg)]/15 h-full">
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 rounded-[14px] border border-[#c8956c]/20 flex items-center justify-center">
-                  <ShieldCheck className="w-5 h-5 text-[#c8956c]" strokeWidth={1.5} />
+                <div className="w-12 h-12 rounded-[14px] border border-[var(--t-accent)]/20 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5 text-[var(--t-accent)]" strokeWidth={1.5} />
                 </div>
                 <div>
                   <h3
-                    className="text-lg font-semibold text-white"
+                    className="text-lg font-semibold text-[var(--t-bg)]"
                     style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
                   >
                     Quality Guarantee
                   </h3>
                   <p
-                    className="text-[11px] text-[#c8956c]/50 uppercase tracking-[0.15em] mt-0.5 font-medium"
+                    className="text-[11px] text-[var(--t-accent)]/50 uppercase tracking-[0.15em] mt-0.5 font-medium"
                     style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
                   >
                     Our Promise
@@ -153,10 +127,10 @@ export function UspSection({ uspStmt, skin }: UspSectionProps) {
                 </div>
               </div>
               <p
-                className="text-[#c8956c]/60 leading-[1.75] text-sm"
+                className="text-[var(--t-accent)]/60 leading-[1.75] text-sm"
                 style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
               >
-                Every batch that falls short of our standard is replaced, <strong className="text-white">100%, no questions asked</strong>. We stand behind our craft without conditions.
+                Ask us about roast specifications, replacement policy, and service commitments for your account. We make expectations clear before the first recurring order.
               </p>
             </div>
           </motion.div>
@@ -168,9 +142,9 @@ export function UspSection({ uspStmt, skin }: UspSectionProps) {
             viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
           >
-            <div className="p-8 rounded-[20px] border border-white/10 h-full">
+            <div className="p-8 rounded-[20px] border border-[var(--t-bg)]/15 h-full">
               <h3
-                className="text-lg font-semibold text-white mb-6"
+                className="text-lg font-semibold text-[var(--t-bg)] mb-6"
                 style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
               >
                 Our Commitments
@@ -185,11 +159,11 @@ export function UspSection({ uspStmt, skin }: UspSectionProps) {
                     transition={{ duration: 0.5, delay: 0.3 + i * 0.1, ease: [0.22, 1, 0.36, 1] }}
                     className="flex items-start gap-4"
                   >
-                    <div className="w-9 h-9 rounded-[10px] border border-[#c8956c]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <item.icon className="w-4 h-4 text-[#c8956c]" strokeWidth={1.5} />
+                    <div className="w-9 h-9 rounded-[10px] border border-[var(--t-accent)]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <item.icon className="w-4 h-4 text-[var(--t-accent)]" strokeWidth={1.5} />
                     </div>
                     <p
-                      className="text-sm text-[#c8956c]/60 leading-[1.75] pt-1"
+                      className="text-sm text-[var(--t-accent)]/60 leading-[1.75] pt-1"
                       style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
                     >
                       {item.text}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Flame, Loader2, Plus, Scale, Thermometer, Percent } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StandardPageLayout } from "@/components/StandardPageLayout";
@@ -16,6 +17,7 @@ interface RoastingClientProps {
 }
 
 export function RoastingClient({ batches, gbOptions, rbOptions }: RoastingClientProps) {
+  const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -43,7 +45,7 @@ export function RoastingClient({ batches, gbOptions, rbOptions }: RoastingClient
         actionButton={
           <Button
             size="default"
-            className="gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg rounded-xl font-semibold px-5 transition-all group"
+            className="gap-2 bg-amber-700 text-white hover:bg-amber-800 shadow-md hover:shadow-lg rounded-xl font-semibold px-5 transition-all group"
             onClick={() => setDrawerOpen(true)}
           >
             <Flame size={16} className="group-hover:scale-110 transition-transform" />
@@ -57,23 +59,23 @@ export function RoastingClient({ batches, gbOptions, rbOptions }: RoastingClient
           "aria-label": "Mulai roasting",
         }}
       >
-        <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <div className="rounded-2xl border border-white/60 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-4">
+          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><Flame size={48} className="text-orange-600" /></div>
             <p className="text-xs font-medium text-orange-600 relative z-10">Total Batch Roasting</p>
             <p className="mt-1 font-mono text-2xl font-black tabular-nums text-orange-700 relative z-10">{kpi.count}</p>
           </div>
-          <div className="rounded-2xl border border-white/60 bg-gradient-to-br from-emerald-50 to-green-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
+          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-emerald-50 to-green-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><Scale size={48} className="text-emerald-600" /></div>
             <p className="text-xs font-medium text-emerald-600 relative z-10">Green Bean Diproses</p>
             <p className="mt-1 font-mono text-2xl font-black tabular-nums text-emerald-700 relative z-10">{kpi.totalGB.toFixed(1)} <span className="text-sm">kg</span></p>
           </div>
-          <div className="rounded-2xl border border-white/60 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
+          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><Thermometer size={48} className="text-amber-600" /></div>
             <p className="text-xs font-medium text-amber-600 relative z-10">Roasted Bean Dihasilkan</p>
             <p className="mt-1 font-mono text-2xl font-black tabular-nums text-amber-700 relative z-10">{kpi.totalRB.toFixed(1)} <span className="text-sm">kg</span></p>
           </div>
-          <div className="rounded-2xl border border-white/60 bg-gradient-to-br from-rose-50 to-red-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
+          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-rose-50 to-red-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><Percent size={48} className="text-rose-600" /></div>
             <p className="text-xs font-medium text-rose-600 relative z-10">Rata-rata Roast Loss</p>
             <p className="mt-1 font-mono text-2xl font-black tabular-nums text-rose-700 relative z-10">{kpi.avgLoss.toFixed(1)}%</p>
@@ -97,7 +99,7 @@ export function RoastingClient({ batches, gbOptions, rbOptions }: RoastingClient
             form="roasting-form"
             size="sm"
             disabled={isSubmitting || gbOptions.length === 0}
-            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 shadow-md rounded-xl font-bold disabled:opacity-60"
+            className="gap-1.5 bg-amber-700 text-white hover:bg-amber-800 shadow-md rounded-xl font-bold disabled:opacity-60"
           >
             {isSubmitting && <Loader2 size={13} className="animate-spin" />}
             {isSubmitting ? "Menyimpan..." : "Simpan Batch"}
@@ -117,7 +119,8 @@ export function RoastingClient({ batches, gbOptions, rbOptions }: RoastingClient
             id="roasting-form"
             gbOptions={gbOptions}
             rbOptions={rbOptions}
-            onSuccess={() => setDrawerOpen(false)}
+            batches={batches}
+            onSuccess={() => { setDrawerOpen(false); router.refresh(); }}
             onPendingChange={setIsSubmitting}
           />
         )}

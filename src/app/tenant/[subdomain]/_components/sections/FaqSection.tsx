@@ -25,7 +25,7 @@ export function FaqSection({ faqs, skin }: FaqSectionProps) {
   }, [faqs, searchQuery]);
 
   return (
-    <section id="faq" className="w-full bg-white">
+    <section id="faq" className="w-full bg-[var(--t-surface)]">
       <div className="max-w-3xl mx-auto px-5 sm:px-8 py-20 md:py-28">
         {/* Header */}
         <motion.div
@@ -36,17 +36,17 @@ export function FaqSection({ faqs, skin }: FaqSectionProps) {
           className="text-center mb-12"
         >
           <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="w-12 h-[1px] bg-[#c8956c]" />
+            <div className="w-12 h-[1px] bg-[var(--t-accent)]" />
             <span
-              className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#8b7e74]"
+              className="text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--t-text-muted)]"
               style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
             >
               Common Questions
             </span>
-            <div className="w-12 h-[1px] bg-[#c8956c]" />
+            <div className="w-12 h-[1px] bg-[var(--t-accent)]" />
           </div>
           <h2
-            className="text-3xl md:text-4xl font-semibold tracking-tight text-[#2c2420]"
+            className="text-3xl md:text-4xl font-semibold tracking-tight text-[var(--t-text)]"
             style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
           >
             We Love Questions
@@ -62,19 +62,19 @@ export function FaqSection({ faqs, skin }: FaqSectionProps) {
           className="mb-8"
         >
           <div className="relative">
-            <Search size={16} strokeWidth={1.5} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7e74]" />
+            <Search size={16} strokeWidth={1.5} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--t-text-muted)]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search for answers..."
-              className="w-full pl-11 pr-10 py-3.5 text-sm rounded-2xl bg-[#faf8f5] border border-[#e8e0d8] text-[#2c2420] placeholder:text-[#8b7e74]/50 focus:outline-none focus:border-[#c8956c] focus:ring-1 focus:ring-[#c8956c]/20 transition-all duration-300"
+              className="w-full pl-11 pr-10 py-3.5 text-sm rounded-2xl bg-[var(--t-bg)] border border-[var(--t-border)] text-[var(--t-text)] placeholder:text-[var(--t-text-muted)]/50 focus:outline-none focus:border-[var(--t-accent)] focus:ring-1 focus:ring-[#c8956c]/20 transition-all duration-300"
               style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8b7e74] hover:text-[#2c2420] transition-colors"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--t-text-muted)] hover:text-[var(--t-text)] transition-colors"
               >
                 <X size={14} strokeWidth={1.5} />
               </button>
@@ -85,10 +85,10 @@ export function FaqSection({ faqs, skin }: FaqSectionProps) {
         {/* Accordion */}
         <div className="space-y-3">
           {filteredFaqs.length === 0 ? (
-            <div className="text-center py-14 rounded-[20px] border-2 border-dashed border-[#e8e0d8]">
-              <HelpCircle size={36} strokeWidth={1} className="mx-auto mb-3 opacity-20 text-[#8b7e74]" />
+            <div className="text-center py-14 rounded-[20px] border-2 border-dashed border-[var(--t-border)]">
+              <HelpCircle size={36} strokeWidth={1} className="mx-auto mb-3 opacity-20 text-[var(--t-text-muted)]" />
               <p
-                className="text-sm text-[#8b7e74]"
+                className="text-sm text-[var(--t-text-muted)]"
                 style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
               >
                 No matching questions found.
@@ -108,8 +108,8 @@ export function FaqSection({ faqs, skin }: FaqSectionProps) {
                   <div
                     className={`rounded-[16px] border transition-all duration-400 ${
                       isOpen
-                        ? "border-l-[3px] border-l-[#6b4423] border-t-[#e8e0d8] border-r-[#e8e0d8] border-b-[#e8e0d8] bg-white shadow-[0_4px_16px_rgba(44,36,32,0.04)]"
-                        : "border-[#e8e0d8] bg-[#faf8f5] hover:border-[#c8956c]/30 hover:bg-white"
+                        ? "border-l-[3px] border-l-[#6b4423] border-t-[#e8e0d8] border-r-[#e8e0d8] border-b-[#e8e0d8] bg-[var(--t-surface)] shadow-[0_4px_16px_rgba(44,36,32,0.04)]"
+                        : "border-[var(--t-border)] bg-[var(--t-bg)] hover:border-[var(--t-accent)]/30 hover:bg-[var(--t-surface)]"
                     }`}
                   >
                     <button
@@ -117,7 +117,7 @@ export function FaqSection({ faqs, skin }: FaqSectionProps) {
                       className="w-full flex items-center justify-between p-5 md:p-6 text-left"
                     >
                       <span
-                        className="font-semibold text-sm md:text-base text-[#2c2420] pr-4"
+                        className="font-semibold text-sm md:text-base text-[var(--t-text)] pr-4"
                         style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
                       >
                         {faq.question}
@@ -126,7 +126,7 @@ export function FaqSection({ faqs, skin }: FaqSectionProps) {
                         animate={{ rotate: isOpen ? 180 : 0 }}
                         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                         className={`flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-colors duration-300 ${
-                          isOpen ? "bg-[#6b4423]/10 text-[#6b4423]" : "text-[#8b7e74]"
+                          isOpen ? "bg-[var(--t-primary)]/10 text-[var(--t-primary)]" : "text-[var(--t-text-muted)]"
                         }`}
                       >
                         <ChevronDown size={16} strokeWidth={1.5} />
@@ -145,7 +145,7 @@ export function FaqSection({ faqs, skin }: FaqSectionProps) {
                           <div className="px-5 md:px-6 pb-5 md:pb-6">
                             <div className="w-8 h-[1px] bg-[#e8e0d8] mb-5" />
                             <p
-                              className="text-sm text-[#8b7e74] leading-[1.8]"
+                              className="text-sm text-[var(--t-text-muted)] leading-[1.8]"
                               style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
                             >
                               {faq.answer}

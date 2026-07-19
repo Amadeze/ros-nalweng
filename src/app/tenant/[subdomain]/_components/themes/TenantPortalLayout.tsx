@@ -29,7 +29,7 @@ export function TenantPortalLayout(props: TenantPortalLayoutProps) {
     tenant, cart, setIsCartOpen, handleAddToCart,
     heroGreeting, aboutText: aText, catalogTitle, catalogSubtitle,
     footerText, waLink, emailLink, igLink,
-    iconStroke = 2, skin, customerTier,
+    iconStroke = 2, skin, customerTier, mounted,
   } = props;
 
   // ── Content fallbacks ──────────────────────────────────────────────────
@@ -54,13 +54,10 @@ export function TenantPortalLayout(props: TenantPortalLayoutProps) {
     (tenant?.features && Array.isArray(tenant.features) && tenant.features.length > 0)
       ? (tenant.features as any) : defaultFeatures;
 
-  const defaultTestimonials = [
-    { name: "Yudi Prasetyo", role: "Owner, Origin Coffee Lab", text: "Konsistensi profil espresso blend mereka berhasil menekan dial-in waste kami hingga 35%. Kemitraan terbaik yang kami miliki.", rating: 5 },
-    { name: "Dewi Lestari", role: "Head of Operations, Daily Brews Group", text: "Portal pemesanan wholesale ini memudahkan manajer cabang kami untuk order mandiri. Pengiriman cepat dan HPP selalu stabil.", rating: 5 },
-  ];
   const testimonials: { name: string; role: string; text: string; rating: number }[] =
     (tenant?.testimonials && Array.isArray(tenant.testimonials) && tenant.testimonials.length > 0)
-      ? (tenant.testimonials as any) : defaultTestimonials;
+      ? (tenant.testimonials as any) : [];
+  const showTestimonials = testimonials.length > 0;
 
   const defaultFaqs = [
     { question: "Berapa Minimum Order Quantity (MOQ) B2B?", answer: "Untuk pengiriman gratis kurir toko dalam kota, minimal order adalah 5 Kg Roasted Beans. Di luar itu, pemesanan minimal 1 Kg tetap dilayani dengan ongkir reguler." },
@@ -74,7 +71,8 @@ export function TenantPortalLayout(props: TenantPortalLayoutProps) {
   const title = catalogTitle || "Daftar Produk";
   const subtitle = catalogSubtitle || "Katalog Grosir B2B";
   const footer = footerText || tenant?.footerText || "Roastery OS — Memberdayakan Roastery Indonesia dengan Operasional Kelas Dunia.";
-  const bgImage = tenant?.backgroundImageUrl || "https://images.unsplash.com/photo-1514432324607-a2ce7beea265?auto=format&fit=crop&q=80&w=2000";
+  // Tenant media can replace the dependable code-native coffee visual.
+  const bgImage = tenant?.backgroundImageUrl || "";
   const products = props.products || [];
 
   // ── Render ─────────────────────────────────────────────────────────────
@@ -83,7 +81,7 @@ export function TenantPortalLayout(props: TenantPortalLayoutProps) {
       {/* Decorative overlay (heritage texture, cyber scanlines) */}
       {skin.overlay}
 
-      <HeaderSection tenant={tenant} cart={cart} setIsCartOpen={setIsCartOpen} skin={skin} />
+      <HeaderSection tenant={tenant} cart={cart} setIsCartOpen={setIsCartOpen} skin={skin} showTestimonials={showTestimonials} mounted={mounted} />
       <HeroSection heroText={heroText} aboutText={aboutText} bgImage={bgImage} waLink={waLink} skin={skin} />
       <ProblemSolutionSection problemStmt={problemStmt} solutionStmt={solutionStmt} skin={skin} />
       <FeaturesSection features={features} iconStroke={iconStroke} skin={skin} />
@@ -96,9 +94,9 @@ export function TenantPortalLayout(props: TenantPortalLayoutProps) {
         customerTier={customerTier}
         skin={skin}
       />
-      <TestimonialsSection testimonials={testimonials} skin={skin} />
+      {showTestimonials && <TestimonialsSection testimonials={testimonials} skin={skin} />}
       <FaqSection faqs={faqs} skin={skin} />
-      <FooterSection tenant={tenant} footerText={footer} igLink={igLink} emailLink={emailLink} skin={skin} />
+      <FooterSection tenant={tenant} footerText={footer} igLink={igLink} emailLink={emailLink} skin={skin} showTestimonials={showTestimonials} />
     </div>
   );
 }

@@ -28,7 +28,7 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-slate-900/20 backdrop-blur-sm transition-opacity duration-300 data-ending-style:opacity-0 data-starting-style:opacity-0",
+        "fixed inset-0 z-50 bg-stone-950/20 backdrop-blur-sm transition-opacity duration-300 data-ending-style:opacity-0 data-starting-style:opacity-0",
         className
       )}
       {...props}
@@ -62,7 +62,7 @@ function SheetContent({
           "data-[side=left]:sm:max-w-md data-[side=right]:sm:max-w-md md:data-[side=right]:max-w-lg", // Diperlebar sedikit agar form lega
           
           // ── Efek Glassmorphism Utama!
-          "bg-white/40 backdrop-blur-2xl border-white/60 text-slate-800",
+          "border-stone-200/90 bg-[#fbfaf8]/95 text-stone-800 backdrop-blur-2xl",
           className
         )}
         {...props}
@@ -93,7 +93,7 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sheet-header"
       // Header dibuat lengket (sticky) bergaya kaca
-      className={cn("flex shrink-0 flex-col gap-1 border-b border-white/40 bg-white/20 p-5 backdrop-blur-md", className)}
+      className={cn("flex shrink-0 flex-col gap-1 border-b border-stone-200/70 bg-white/50 p-5 backdrop-blur-md", className)}
       {...props}
     />
   )
@@ -104,7 +104,7 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sheet-footer"
       // Footer tombol bawah dibuat lengket bergaya kaca
-      className={cn("mt-auto flex shrink-0 items-center justify-end gap-3 border-t border-white/40 bg-white/30 p-5 backdrop-blur-md", className)}
+      className={cn("mt-auto flex shrink-0 items-center justify-end gap-3 border-t border-stone-200/70 bg-white/60 p-5 backdrop-blur-md", className)}
       {...props}
     />
   )

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Package } from "lucide-react";
+import { ChevronDown, Plus, Package } from "lucide-react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ import { PurchasePaymentSection } from "./PurchasePaymentSection";
 // Pastikan kamu punya server action ini (buat jika belum ada)
 import { createPackagingPurchase, createPackaging } from "../actions"; 
 import { getTodayString } from "@/lib/date-utils";
+import { defaultDueDate } from "@/lib/sale-intent";
 
 // =============================================================================
 // Schemas
@@ -27,7 +28,7 @@ const purchaseSchema = z.object({
   receivedAt:    z.string().min(1, "Tanggal wajib diisi"),
   packagingId:   z.string().min(1, "Pilih kemasan"),
   quantityUnits: z.number({ error: "Harus angka" }).int().positive("Qty harus > 0"),
-  pricePerUnit:  z.number({ error: "Harus angka" }).min(0, "Harga minimal 0"),
+  totalCost:  z.number({ error: "Harus angka" }).positive("Total harus lebih dari 0"),
   shippingCost:  z.number({ error: "Harus angka" }).min(0),
   paymentStatus: z.enum(["PAID", "PARTIAL", "UNPAID"]),
   initialPaidAmount: z.number().min(0).optional(),
@@ -35,7 +36,10 @@ const purchaseSchema = z.object({
   dueDate: z.string().optional(),
   notes:         z.string().optional(),
 }).superRefine((data, ctx) => {
-  const totalCost = data.quantityUnits * data.pricePerUnit + data.shippingCost;
+  const totalCost = data.totalCost;
+  if (data.shippingCost >= totalCost) {
+    ctx.addIssue({ code: "custom", path: ["shippingCost"], message: "Ongkir harus lebih kecil dari total" });
+  }
   if (
     data.paymentStatus === "PARTIAL"
     && (!data.initialPaidAmount || data.initialPaidAmount >= totalCost)
@@ -56,8 +60,7 @@ const purchaseSchema = z.object({
 });
 
 const quickAddSchema = z.object({
-  code:        z.string().min(1, "Kode wajib diisi"),
-  name:        z.string().min(1, "Nama wajib diisi"),
+  name:        z.string().trim().min(2, "Nama minimal 2 karakter"),
   weightGrams: z.number().min(0),
   costPerUnit: z.number().min(0),
 });
@@ -73,6 +76,8 @@ interface PackagingPurchaseFormProps {
   packagings: PackagingOption[];
   onSuccess:  () => void;
   onPendingChange?: (isPending: boolean) => void;
+  onAddSupplier?: () => void;
+  preferredSupplierId?: string | null;
 }
 
 // Glassmorphism Utilities
@@ -83,11 +88,18 @@ const glassCard = "rounded-[1rem] border border-white/60 bg-white/30 backdrop-bl
 // Main Component
 // =============================================================================
 
-export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPendingChange }: PackagingPurchaseFormProps) {
+export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPendingChange, onAddSupplier, preferredSupplierId }: PackagingPurchaseFormProps) {
   const today = getTodayString();
   const [submitting, setSubmitting] = useState(false);
+  const [operationKey, setOperationKey] = useState(() => crypto.randomUUID());
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isAddingPkg, setIsAddingPkg] = useState(false);
+  const [showCostDetails, setShowCostDetails] = useState(false);
+  const [packagingOptions, setPackagingOptions] = useState(packagings);
+
+  useEffect(() => {
+    setPackagingOptions(packagings);
+  }, [packagings]);
 
   // Form Utama (Pembelian)
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormValues>({
@@ -95,13 +107,29 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
     defaultValues: {
       receivedAt: today,
       shippingCost: 0,
-      pricePerUnit: 0,
+      totalCost: 0,
       paymentStatus: "PAID",
       initialPaidAmount: 0,
       paymentMethod: "CASH",
       dueDate: "",
     },
   });
+
+  useEffect(() => {
+    if (preferredSupplierId && suppliers.some((supplier) => supplier.id === preferredSupplierId)) {
+      setValue("supplierId", preferredSupplierId, { shouldDirty: true, shouldValidate: true });
+    }
+  }, [preferredSupplierId, setValue, suppliers]);
+
+  const paymentStatus = watch("paymentStatus");
+  const receivedAt = watch("receivedAt");
+  useEffect(() => {
+    if (paymentStatus !== "PAID") {
+      setValue("dueDate", defaultDueDate(new Date(`${receivedAt || today}T00:00:00`), 14), { shouldValidate: true });
+    } else {
+      setValue("dueDate", "");
+    }
+  }, [paymentStatus, receivedAt, setValue, today]);
 
   // Form Mini (Quick Add Kemasan)
   const { register: regQuickAdd, handleSubmit: handleQuickAddSubmit, reset: resetQuickAdd, formState: { errors: qaErrors } } = useForm<QuickAddValues>({
@@ -110,20 +138,36 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
   });
 
   const qty   = watch("quantityUnits") ?? 0;
-  const price = watch("pricePerUnit")  ?? 0;
-  const ship  = watch("shippingCost")  ?? 0;
-  const paymentStatus = watch("paymentStatus");
-  const total = qty * price + ship;
+  const total = watch("totalCost") ?? 0;
+  const hppPerUnit = qty > 0 ? total / qty : 0;
 
   // Submit Pembelian
   const onSubmit = async (data: FormValues) => {
+    if (submitting) return;
     setSubmitting(true);
     onPendingChange?.(true);
     try {
-      const result = await createPackagingPurchase(data);
+      const result = await createPackagingPurchase({
+        operationKey,
+        supplierId: data.supplierId,
+        receivedAt: data.receivedAt,
+        packagingId: data.packagingId,
+        quantityUnits: data.quantityUnits,
+        totalCost: data.totalCost,
+        shippingCost: data.shippingCost,
+        paidAmount: data.paymentStatus === "PAID"
+          ? data.totalCost
+          : data.paymentStatus === "PARTIAL"
+            ? data.initialPaidAmount
+            : 0,
+        paymentMethod: data.paymentMethod,
+        dueDate: data.dueDate,
+        notes: data.notes,
+      });
       if (!result.success) { toast.error(result.error); return; }
       toast.success(`Kemasan datang dicatat: ${result.purchaseCode}`);
       reset();
+      setOperationKey(crypto.randomUUID());
       onSuccess();
     } catch {
       toast.error("Terjadi kesalahan sistem.");
@@ -141,14 +185,16 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
       if (!result.success) { toast.error(result.error); return; }
       
       toast.success("Kemasan baru berhasil ditambahkan!");
+      setPackagingOptions((current) => [
+        result.packaging,
+        ...current.filter((item) => item.id !== result.packaging.id),
+      ]);
       setIsQuickAddOpen(false);
       resetQuickAdd();
       
       // Otomatis pilih kemasan yang baru dibuat
       setValue("packagingId", result.packagingId, { shouldValidate: true });
       
-      // Panggil onSuccess dari parent agar data packagings ter-refresh (revalidatePath)
-      onSuccess(); 
     } catch {
       toast.error("Gagal menambahkan kemasan.");
     } finally {
@@ -161,7 +207,14 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
       <form id="pkg-purchase-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4 px-1">
         {/* Supplier */}
         <div className="space-y-1.5">
-          <Label className="text-xs font-semibold text-slate-700">Supplier <span className="text-red-500">*</span></Label>
+          <div className="flex items-center justify-between gap-3">
+            <Label className="text-xs font-semibold text-slate-700">Supplier <span className="text-red-500">*</span></Label>
+            {onAddSupplier && (
+              <button type="button" onClick={onAddSupplier} className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 hover:text-amber-800">
+                <Plus size={12} /> Supplier baru
+              </button>
+            )}
+          </div>
           <select
             className={cn(
               "w-full h-9 rounded-lg border px-3 text-sm transition-all appearance-none outline-none",
@@ -197,7 +250,7 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
               {...register("packagingId")}
             >
               <option value="" disabled>Pilih kemasan...</option>
-              {packagings.map((p) => (
+              {packagingOptions.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
@@ -221,22 +274,36 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
             {errors.quantityUnits && <p className="text-xs text-red-500 font-medium">{errors.quantityUnits.message}</p>}
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700">Harga/pcs (Rp) <span className="text-red-500">*</span></Label>
-            <Input type="number" step="1" min="0" className={cn(glassInput, "text-right tabular-nums")} {...register("pricePerUnit", { valueAsNumber: true })} />
-            {errors.pricePerUnit && <p className="text-xs text-red-500 font-medium">{errors.pricePerUnit.message}</p>}
+            <Label className="text-xs font-semibold text-slate-700">Total Pembelian (Rp) <span className="text-red-500">*</span></Label>
+            <Input type="number" step="1" min="0" className={cn(glassInput, "text-right tabular-nums")} {...register("totalCost", { valueAsNumber: true })} />
+            {errors.totalCost && <p className="text-xs text-red-500 font-medium">{errors.totalCost.message}</p>}
           </div>
         </div>
 
         {/* Ongkir */}
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold text-slate-700">Ongkos Kirim (Rp)</Label>
-          <Input type="number" step="1" min="0" placeholder="0" className={cn(glassInput, "text-right tabular-nums")} {...register("shippingCost", { valueAsNumber: true })} />
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowCostDetails((current) => !current)}
+          className="flex w-full items-center justify-between rounded-lg px-1 py-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
+        >
+          Rincian biaya (opsional)
+          <ChevronDown size={14} className={cn("transition-transform", showCostDetails && "rotate-180")} />
+        </button>
+        {showCostDetails && (
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-700">Ongkos kirim yang termasuk dalam total (Rp)</Label>
+            <Input type="number" step="1" min="0" placeholder="0" className={cn(glassInput, "text-right tabular-nums")} {...register("shippingCost", { valueAsNumber: true })} />
+            {errors.shippingCost && <p className="text-xs font-medium text-red-500">{errors.shippingCost.message}</p>}
+          </div>
+        )}
 
         {/* Total */}
         {total > 0 && (
-          <div className={cn(glassCard, "flex justify-between items-center")}>
-            <span className="text-sm font-semibold text-slate-600">Total Biaya</span>
+          <div className={cn(glassCard, "flex items-center justify-between gap-4")}>
+            <div>
+              <p className="text-sm font-semibold text-slate-600">Total tercatat</p>
+              {hppPerUnit > 0 && <p className="text-[11px] text-slate-500">HPP otomatis {Math.round(hppPerUnit).toLocaleString("id-ID")}/pcs</p>}
+            </div>
             <span className="font-mono font-bold text-slate-800 text-lg">
               {total.toLocaleString("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 })}
             </span>
@@ -245,6 +312,7 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
 
         <PurchasePaymentSection
           register={register}
+          setValue={setValue}
           errors={errors}
           paymentStatus={paymentStatus}
         />
@@ -266,16 +334,12 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
           
           <form onSubmit={handleQuickAddSubmit(onQuickAdd)} className="space-y-4 pt-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">Kode Kemasan *</Label>
-              <Input placeholder="Misal: PKG-BOX-1KG" className={glassInput} {...regQuickAdd("code")} />
-              {qaErrors.code && <p className="text-[10px] text-red-500">{qaErrors.code.message}</p>}
-            </div>
-            
-            <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">Nama Kemasan *</Label>
               <Input placeholder="Misal: Kraft Box 1KG" className={glassInput} {...regQuickAdd("name")} />
               {qaErrors.name && <p className="text-[10px] text-red-500">{qaErrors.name.message}</p>}
             </div>
+
+            <p className="text-[11px] text-slate-500">Kode dibuat otomatis. Berat dan harga bisa diperbarui nanti.</p>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -292,7 +356,7 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
               <Button type="button" variant="ghost" onClick={() => setIsQuickAddOpen(false)} className="text-slate-600 hover:bg-white/40">
                 Batal
               </Button>
-              <Button type="submit" disabled={isAddingPkg} className="bg-blue-500 hover:bg-blue-600 text-white shadow-md rounded-xl font-bold">
+              <Button type="submit" disabled={isAddingPkg} className="bg-amber-700 hover:bg-amber-800 text-white shadow-md rounded-xl font-bold">
                 {isAddingPkg ? "Menyimpan..." : "Simpan Kemasan"}
               </Button>
             </div>

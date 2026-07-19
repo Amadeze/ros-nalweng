@@ -4,6 +4,8 @@ import { getPnLReport } from "../keuangan/actions";
 import { getSystemUserId, requireFeature, requireTenantPrisma } from "@/lib/auth";
 import { getPayableAgingBucket } from "@/lib/purchase-payments";
 import { revalidatePath } from "next/cache";
+import { getCurrentDate } from "@/lib/date-utils";
+import { weightedAverageCost } from "@/lib/financial-reporting";
 
 export type ValuationRow = {
   id: string;
@@ -29,96 +31,90 @@ export type InventoryValuationReport = {
   totalFinishedGoodsMarginHealth: number;
   totalPotentialRevenue: number;
   totalMarginHealth: number;
+  asOf: string;
+  costMethod: "WEIGHTED_AVERAGE";
+  zeroCostItemCount: number;
 };
 
-export async function getInventoryValuationReport(): Promise<InventoryValuationReport> {
+export async function getInventoryValuationReport(asOf = getCurrentDate()): Promise<InventoryValuationReport> {
   await requireFeature("ADVANCED_REPORTS");
   const tp = await requireTenantPrisma();
-  // 1. Fetch GB and RB
   const products = await tp.product.findMany({
     where: { isActive: true },
     include: {
       purchases: {
-        where: { status: "COMPLETED" },
-        orderBy: { receivedAt: "desc" },
-        take: 1,
-        select: { pricePerUnit: true, weightKg: true, shippingCost: true },
+        where: {
+          status: { in: ["COMPLETED", "VOID"] },
+          receivedAt: { lte: asOf },
+          OR: [{ voidAt: null }, { voidAt: { gt: asOf } }],
+        },
+        select: { weightKg: true, totalCost: true },
       },
       productionBatches: {
-        where: { status: "COMPLETED" },
-        orderBy: { producedAt: "desc" },
-        take: 1,
-        select: { hppPerUnit: true },
+        where: {
+          status: { in: ["COMPLETED", "VOID"] },
+          producedAt: { lte: asOf },
+          OR: [{ voidAt: null }, { voidAt: { gt: asOf } }],
+        },
+        select: { unitsProduced: true, hppPerUnit: true },
+      },
+      ledgerEntries: {
+        where: { createdAt: { lte: asOf } },
+        select: { entryType: true, quantityKg: true, quantityUnit: true },
       },
     },
     orderBy: [{ type: "asc" }, { name: "asc" }],
   });
 
-  const roastedBeanIds = products
-    .filter((product) => product.type === "ROASTED_BEAN")
-    .map((product) => product.id);
-  const latestRoasts = roastedBeanIds.length
-    ? await tp.parentRoastingBatch.findMany({
-        where: {
-          outputProductId: { in: roastedBeanIds },
-          status: "COMPLETED",
-        },
-        orderBy: { createdAt: "desc" },
-        include: {
-          inputProduct: {
-            include: {
-              purchases: {
-                where: { status: "COMPLETED" },
-                orderBy: { receivedAt: "desc" },
-                take: 1,
-              },
-            },
-          },
-        },
-      })
-    : [];
-  const latestRoastByOutput = new Map<string, (typeof latestRoasts)[number]>();
-  for (const roast of latestRoasts) {
-    if (!latestRoastByOutput.has(roast.outputProductId)) {
-      latestRoastByOutput.set(roast.outputProductId, roast);
-    }
+  const roasts = await tp.parentRoastingBatch.findMany({
+    where: {
+      status: { in: ["COMPLETED", "VOID"] },
+      AND: [{ OR: [{ voidAt: null }, { voidAt: { gt: asOf } }] }],
+      OR: [
+        { completedAt: { lte: asOf } },
+        { completedAt: null, createdAt: { lte: asOf } },
+      ],
+    },
+    select: {
+      inputProductId: true,
+      outputProductId: true,
+      targetWeightKg: true,
+      actualOutputKg: true,
+    },
+  });
+
+  const greenBeanCost = new Map<string, number>();
+  for (const product of products.filter((row) => row.type === "GREEN_BEAN")) {
+    greenBeanCost.set(product.id, weightedAverageCost(product.purchases.map((purchase) => ({
+      quantity: Number(purchase.weightKg ?? 0),
+      totalCost: Number(purchase.totalCost),
+    }))));
+  }
+
+  const roastedBeanCost = new Map<string, number>();
+  for (const product of products.filter((row) => row.type === "ROASTED_BEAN")) {
+    const layers = roasts
+      .filter((roast) => roast.outputProductId === product.id)
+      .map((roast) => ({
+        quantity: Number(roast.actualOutputKg ?? 0),
+        totalCost: Number(roast.targetWeightKg) * (greenBeanCost.get(roast.inputProductId) ?? 0),
+      }));
+    roastedBeanCost.set(product.id, weightedAverageCost(layers));
   }
 
   const items: ValuationRow[] = [];
 
   for (const p of products) {
     if (p.type === "GREEN_BEAN" || p.type === "ROASTED_BEAN") {
-      const stockKg = Number(p.stockKg);
+      const stockKg = p.ledgerEntries.reduce((stock, entry) => {
+        const quantity = Number(entry.quantityKg ?? 0);
+        return stock + (entry.entryType === "IN" ? quantity : -quantity);
+      }, 0);
+      const unitCost = p.type === "GREEN_BEAN"
+        ? greenBeanCost.get(p.id) ?? 0
+        : roastedBeanCost.get(p.id) ?? 0;
 
-      let unitCost = 0;
-      if (p.type === "GREEN_BEAN" && p.purchases[0]) {
-        const pur = p.purchases[0];
-        const wKg = Number(pur.weightKg ?? 0);
-        if (wKg > 0) {
-          unitCost = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
-        }
-      } else if (p.type === "ROASTED_BEAN") {
-        const lastRoast = latestRoastByOutput.get(p.id);
-
-        if (lastRoast && lastRoast.inputProduct.purchases[0]) {
-          const pur = lastRoast.inputProduct.purchases[0];
-          const wKg = Number(pur.weightKg ?? 0);
-          let gbCost = 0;
-          if (wKg > 0) gbCost = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
-          
-          const inputW = Number(lastRoast.targetWeightKg);
-          const outputW = Number(lastRoast.actualOutputKg);
-          if (outputW > 0) {
-            unitCost = gbCost * (inputW / outputW);
-          } else {
-            unitCost = gbCost;
-          }
-        } else {
-          unitCost = 0;
-        }
-      }
-
-      if (stockKg > 0) {
+      if (stockKg > 0.0005) {
         const retailPrice = p.type === "ROASTED_BEAN" ? Number(p.price || 0) : undefined;
         const potentialRevenue = p.type === "ROASTED_BEAN" ? stockKg * (retailPrice || 0) : undefined;
 
@@ -135,9 +131,14 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
         });
       }
     } else if (p.type === "FINISHED_GOODS") {
-      const stockUnit = p.stockUnit;
-
-      const unitCost = p.productionBatches[0] ? Number(p.productionBatches[0].hppPerUnit) : 0;
+      const stockUnit = p.ledgerEntries.reduce((stock, entry) => {
+        const quantity = Number(entry.quantityUnit ?? 0);
+        return stock + (entry.entryType === "IN" ? quantity : -quantity);
+      }, 0);
+      const unitCost = weightedAverageCost(p.productionBatches.map((batch) => ({
+        quantity: batch.unitsProduced,
+        totalCost: batch.unitsProduced * Number(batch.hppPerUnit),
+      })));
       const retailPrice = Number(p.price || 0);
       const potentialRevenue = stockUnit * retailPrice;
       
@@ -158,17 +159,37 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
     }
   }
 
-  // 2. Fetch Packaging
   const packagings = await tp.packaging.findMany({
     where: { isActive: true },
+    include: {
+      purchases: {
+        where: {
+          status: { in: ["COMPLETED", "VOID"] },
+          receivedAt: { lte: asOf },
+          OR: [{ voidAt: null }, { voidAt: { gt: asOf } }],
+        },
+        select: { quantityUnits: true, totalCost: true },
+      },
+      ledgerEntries: {
+        where: { createdAt: { lte: asOf } },
+        select: { entryType: true, quantityUnit: true },
+      },
+    },
     orderBy: { name: "asc" },
   });
 
   for (const pkg of packagings) {
-    const stockUnit = pkg.stockUnit;
+    const stockUnit = pkg.ledgerEntries.reduce((stock, entry) => {
+      const quantity = Number(entry.quantityUnit ?? 0);
+      return stock + (entry.entryType === "IN" ? quantity : -quantity);
+    }, 0);
 
     if (stockUnit > 0) {
-      const unitCost = Number(pkg.costPerUnit);
+      const calculatedCost = weightedAverageCost(pkg.purchases.map((purchase) => ({
+        quantity: Number(purchase.quantityUnits ?? 0),
+        totalCost: Number(purchase.totalCost),
+      })));
+      const unitCost = calculatedCost || Number(pkg.costPerUnit);
       items.push({
         id: pkg.id,
         code: pkg.code,
@@ -207,6 +228,9 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
     totalFinishedGoodsMarginHealth,
     totalPotentialRevenue,
     totalMarginHealth,
+    asOf: asOf.toISOString(),
+    costMethod: "WEIGHTED_AVERAGE",
+    zeroCostItemCount: items.filter((item) => item.unitCost <= 0).length,
   };
 }
 
@@ -215,6 +239,9 @@ export async function getInventoryValuationReport(): Promise<InventoryValuationR
 // =============================================================================
 
 export type BalanceSheetReport = {
+  asOf: string;
+  status: "DRAFT";
+  warnings: string[];
   assets: {
     cashAndBank: number;
     accountsReceivable: number;
@@ -240,32 +267,41 @@ export type BalanceSheetReport = {
   };
 };
 
-export async function getBalanceSheetReport(inventoryValue?: number): Promise<BalanceSheetReport> {
+export async function getBalanceSheetReport(
+  inventoryValue?: number,
+  asOf = getCurrentDate(),
+): Promise<BalanceSheetReport> {
   await requireFeature("ADVANCED_REPORTS");
   const tp = await requireTenantPrisma();
-  // Cash & Bank = customer receipts - operating expenses - actual supplier payments.
-  const paidInvoices = await tp.invoice.aggregate({
-    where: { status: "PAID" },
-    _sum: { paidAmount: true }
-  });
-  const partialInvoices = await tp.invoice.aggregate({
-    where: { status: "PARTIAL" },
-    _sum: { paidAmount: true }
-  });
-  const expenses = await tp.expense.aggregate({
-    where: { voidAt: null },
-    _sum: { amount: true }
-  });
-  const supplierPayments = await tp.supplierPayment.aggregate({
-    where: { voidAt: null },
-    _sum: { amount: true }
-  });
+  const [customerPayments, expenses, supplierPayments] = await Promise.all([
+    tp.payment.aggregate({
+      where: {
+        paidAt: { lte: asOf },
+        OR: [{ voidAt: null }, { voidAt: { gt: asOf } }],
+      },
+      _sum: { amount: true },
+    }),
+    tp.expense.aggregate({
+      where: {
+        date: { lte: asOf },
+        OR: [{ voidAt: null }, { voidAt: { gt: asOf } }],
+      },
+      _sum: { amount: true },
+    }),
+    tp.supplierPayment.aggregate({
+      where: {
+        paidAt: { lte: asOf },
+        OR: [{ voidAt: null }, { voidAt: { gt: asOf } }],
+      },
+      _sum: { amount: true },
+    }),
+  ]);
 
   const totalInjected = 0;
   const totalWithdrawn = 0;
   const totalDistributed = 0;
 
-  const cashIn = (Number(paidInvoices._sum.paidAmount) || 0) + (Number(partialInvoices._sum.paidAmount) || 0);
+  const cashIn = Number(customerPayments._sum.amount) || 0;
   const cashOut = (Number(expenses._sum.amount) || 0) + (Number(supplierPayments._sum.amount) || 0);
   
   // Kas = Uang Masuk Penjualan - Uang Keluar Operasional + Suntikan Modal - Penarikan Prive - Bagi Hasil
@@ -273,15 +309,31 @@ export async function getBalanceSheetReport(inventoryValue?: number): Promise<Ba
 
   // Accounts Receivable (Piutang)
   const piutangInvoices = await tp.invoice.findMany({
-    where: { status: { in: ["ISSUED", "PARTIAL"] } },
-    select: { grandTotal: true, paidAmount: true }
+    where: {
+      status: { not: "DRAFT" },
+      issuedAt: { lte: asOf },
+      OR: [{ voidAt: null }, { voidAt: { gt: asOf } }],
+    },
+    select: {
+      grandTotal: true,
+      payments: {
+        where: {
+          paidAt: { lte: asOf },
+          OR: [{ voidAt: null }, { voidAt: { gt: asOf } }],
+        },
+        select: { amount: true },
+      },
+    },
   });
-  const accountsReceivable = piutangInvoices.reduce((sum, inv) => sum + (Number(inv.grandTotal) - Number(inv.paidAmount)), 0);
+  const accountsReceivable = piutangInvoices.reduce((sum, invoice) => {
+    const paid = invoice.payments.reduce((paymentSum, payment) => paymentSum + Number(payment.amount), 0);
+    return sum + Math.max(0, Number(invoice.grandTotal) - paid);
+  }, 0);
 
   // Inventory
   let inventory = inventoryValue || 0;
   if (inventoryValue === undefined) {
-    const inventoryReport = await getInventoryValuationReport();
+    const inventoryReport = await getInventoryValuationReport(asOf);
     inventory = inventoryReport.grandTotalValue;
   }
 
@@ -289,10 +341,21 @@ export async function getBalanceSheetReport(inventoryValue?: number): Promise<Ba
 
   const payablePurchases = await tp.purchase.findMany({
     where: {
-      status: "COMPLETED",
-      paymentStatus: { in: ["UNPAID", "PARTIAL"] },
+      status: { in: ["COMPLETED", "VOID"] },
+      receivedAt: { lte: asOf },
+      OR: [{ voidAt: null }, { voidAt: { gt: asOf } }],
     },
-    select: { totalCost: true, paidAmount: true, dueDate: true },
+    select: {
+      totalCost: true,
+      dueDate: true,
+      payments: {
+        where: {
+          paidAt: { lte: asOf },
+          OR: [{ voidAt: null }, { voidAt: { gt: asOf } }],
+        },
+        select: { amount: true },
+      },
+    },
   });
   const aging = {
     current: 0,
@@ -301,8 +364,10 @@ export async function getBalanceSheetReport(inventoryValue?: number): Promise<Ba
     overdue61Plus: 0,
   };
   for (const purchase of payablePurchases) {
-    const balance = Math.max(0, Number(purchase.totalCost) - Number(purchase.paidAmount));
-    const bucket = getPayableAgingBucket(purchase.dueDate);
+    const paid = purchase.payments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+    const balance = Math.max(0, Number(purchase.totalCost) - paid);
+    if (balance <= 0.01) continue;
+    const bucket = getPayableAgingBucket(purchase.dueDate, asOf);
     if (bucket === "CURRENT") aging.current += balance;
     if (bucket === "OVERDUE_1_30") aging.overdue1To30 += balance;
     if (bucket === "OVERDUE_31_60") aging.overdue31To60 += balance;
@@ -318,6 +383,12 @@ export async function getBalanceSheetReport(inventoryValue?: number): Promise<Ba
   const retainedEarnings = totalEquity - contributedCapital;
 
   return {
+    asOf: asOf.toISOString(),
+    status: "DRAFT",
+    warnings: [
+      "Modal pemilik, aset tetap, pinjaman bank, dan pajak belum memiliki subledger khusus; ekuitas masih dihitung sebagai nilai residual.",
+      "Kas & bank adalah estimasi arus transaksi tercatat dan belum direkonsiliasi dengan rekening bank fisik.",
+    ],
     assets: {
       cashAndBank,
       accountsReceivable,
@@ -383,18 +454,23 @@ export type CoffeeFlowReport = {
   greenBeans: GreenBeanFlow[];
   roastedBeans: RoastedBeanFlow[];
   finishedGoods: FinishedGoodsFlow[];
+  periodStart: string | null;
+  periodEnd: string;
 };
 
-export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
+export async function getCoffeeFlowReport(
+  periodStart?: Date,
+  periodEnd = getCurrentDate(),
+): Promise<CoffeeFlowReport> {
   await requireFeature("ADVANCED_REPORTS");
   const tp = await requireTenantPrisma();
   const products = await tp.product.findMany({
     where: { isActive: true },
     include: {
-      ledgerEntries: true,
+      ledgerEntries: { where: { createdAt: { lt: periodEnd } } },
       recipes: true,
-      purchases: { where: { status: "COMPLETED" } },
-      invoiceItems: { include: { invoice: { select: { status: true } } } },
+      purchases: { where: { status: "COMPLETED", receivedAt: { lt: periodEnd } } },
+      invoiceItems: { include: { invoice: { select: { status: true, issuedAt: true } } } },
       productionBatches: {
         where: { status: "COMPLETED" },
         orderBy: { producedAt: "desc" },
@@ -406,6 +482,7 @@ export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
   const greenBeans: GreenBeanFlow[] = [];
   const roastedBeans: RoastedBeanFlow[] = [];
   const finishedGoods: FinishedGoodsFlow[] = [];
+  const inPeriod = (date: Date) => !periodStart || date >= periodStart;
 
   for (const p of products) {
     if (p.type === "GREEN_BEAN") {
@@ -413,7 +490,7 @@ export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
       for (const l of p.ledgerEntries) {
         const qty = Number(l.quantityKg || 0);
         if (l.entryType === "IN") stock += qty; else stock -= qty;
-        
+        if (!inPeriod(l.createdAt)) continue;
         if (l.refType === "PURCHASE_GB" && l.entryType === "IN") bought += qty;
         if (l.refType === "ROASTING_GB_OUT" && l.entryType === "OUT") roasted += qty;
         if (l.refType === "ADJUSTMENT_OUT" && l.entryType === "OUT") adjOut += qty;
@@ -435,7 +512,7 @@ export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
       for (const l of p.ledgerEntries) {
         const qty = Number(l.quantityKg || 0);
         if (l.entryType === "IN") stock += qty; else stock -= qty;
-        
+        if (!inPeriod(l.createdAt)) continue;
         if (l.refType === "ROASTING_RB_IN" && l.entryType === "IN") produced += qty;
         if (l.refType === "PRODUCTION_RB_OUT" && l.entryType === "OUT") packaged += qty;
         if (l.refType === "ADJUSTMENT_OUT" && l.entryType === "OUT") adjOut += qty;
@@ -450,20 +527,24 @@ export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
       for (const l of p.ledgerEntries) {
         const qty = Number(l.quantityUnit || 0);
         if (l.entryType === "IN") stockU += qty; else stockU -= qty;
-        
+        if (!inPeriod(l.createdAt)) continue;
         if (l.refType === "PRODUCTION_FG_IN" && l.entryType === "IN") producedU += qty;
         if (l.refType === "SALE_FG_OUT" && l.entryType === "OUT") soldU += qty;
         if (l.refType === "ADJUSTMENT_OUT" && l.entryType === "OUT") adjOutU += qty;
       }
       
       let salesRevenue = 0;
+      let cogs = 0;
       for (const inv of p.invoiceItems) {
-        if (inv.invoice.status === "PAID" || inv.invoice.status === "PARTIAL" || inv.invoice.status === "ISSUED") {
-          salesRevenue += Number(inv.subtotal) - Number(inv.discount || 0);
+        if (
+          (inv.invoice.status === "PAID" || inv.invoice.status === "PARTIAL" || inv.invoice.status === "ISSUED")
+          && inv.invoice.issuedAt < periodEnd
+          && inPeriod(inv.invoice.issuedAt)
+        ) {
+          salesRevenue += Number(inv.subtotal);
+          cogs += Number(inv.hpp) * inv.quantity;
         }
       }
-      const unitCost = p.productionBatches[0] ? Number(p.productionBatches[0].hppPerUnit) : 0;
-      const cogs = soldU * unitCost;
       const grossProfit = salesRevenue - cogs;
 
       const weightGrams = p.recipes.length > 0 ? Number(p.recipes[0].outputGrams) : 0;
@@ -479,8 +560,11 @@ export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
 
   // Calculate Roast Loss for RBs based on actual roasting batches
   const roastingBatches = await tp.parentRoastingBatch.findMany({
-    where: { status: "COMPLETED" },
-    select: { outputProductId: true, inputProductId: true, targetWeightKg: true, actualOutputKg: true }
+    where: {
+      status: "COMPLETED",
+      createdAt: { lt: periodEnd, ...(periodStart ? { gte: periodStart } : {}) },
+    },
+    select: { outputProductId: true, inputProductId: true, targetWeightKg: true, actualOutputKg: true },
   });
   
   for (const rb of roastedBeans) {
@@ -501,5 +585,11 @@ export async function getCoffeeFlowReport(): Promise<CoffeeFlowReport> {
     rb.roastLossValue = totalLossValue;
   }
 
-  return { greenBeans, roastedBeans, finishedGoods };
+  return {
+    greenBeans,
+    roastedBeans,
+    finishedGoods,
+    periodStart: periodStart?.toISOString() ?? null,
+    periodEnd: periodEnd.toISOString(),
+  };
 }

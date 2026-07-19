@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { SettingsClient } from "./_components/SettingsClient";
+import { StandardPageLayout } from "@/components/StandardPageLayout";
 
 export default async function SettingsPage() {
   const user = await requireRole("OWNER");
@@ -20,14 +21,16 @@ export default async function SettingsPage() {
   } = tenant;
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Portal Settings</h1>
+    <StandardPageLayout
+      title="Pengaturan Portal"
+      description="Atur identitas, tampilan, kontak, dan pembayaran portal pelanggan."
+    >
       <SettingsClient
         tenant={{
           ...safeTenant,
           midtransServerKeyConfigured: Boolean(midtransServerKey),
         }}
       />
-    </div>
+    </StandardPageLayout>
   );
 }

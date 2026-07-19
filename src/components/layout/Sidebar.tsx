@@ -214,7 +214,7 @@ function CollapsedSidebar({
                     {active && (
                       <motion.div
                         layoutId="sidebar-active-indicator"
-                        className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 shadow-lg shadow-blue-500/30"
+                        className="absolute inset-0 rounded-xl bg-gradient-to-r from-amber-800 to-amber-600 shadow-lg shadow-amber-950/20"
                         transition={{ type: "spring", stiffness: 350, damping: 30 }}
                       />
                     )}
@@ -249,7 +249,7 @@ function CollapsedSidebar({
                 aria-label={item.label}
               >
                 {(active || flyoutGroup === item.label) && (
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 shadow-lg shadow-blue-500/30" />
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-amber-800 to-amber-600 shadow-lg shadow-amber-950/20" />
                 )}
                 <Icon size={18} className="relative z-10" />
               </button>
@@ -301,8 +301,8 @@ function CollapsedSidebar({
             >
               {/* Group header */}
               <div className="flex items-center gap-2.5 px-2 pb-2 mb-1 border-b border-white/40">
-                <div className="flex items-center justify-center rounded-lg bg-blue-500/10 p-1.5">
-                  <Icon size={16} className="text-blue-600" />
+                <div className="flex items-center justify-center rounded-lg bg-amber-700/10 p-1.5">
+                  <Icon size={16} className="text-amber-800" />
                 </div>
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                   {group.label}
@@ -321,7 +321,7 @@ function CollapsedSidebar({
                       className={cn(
                         "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-150",
                         childActive
-                          ? "bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-md shadow-blue-500/20"
+                          ? "bg-gradient-to-r from-amber-800 to-amber-600 text-white shadow-md shadow-amber-950/15"
                           : "text-slate-600 hover:bg-white/60 hover:text-slate-900"
                       )}
                     >
@@ -431,7 +431,7 @@ function ExpandedSidebar({
                 {active && (
                   <motion.div
                     layoutId="sidebar-active-indicator"
-                    className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-400 shadow-lg shadow-blue-500/30"
+                    className="absolute inset-0 rounded-xl bg-gradient-to-r from-amber-800 to-amber-600 shadow-lg shadow-amber-950/20"
                     transition={{ type: "spring", stiffness: 350, damping: 30 }}
                   />
                 )}
@@ -472,7 +472,7 @@ function ExpandedSidebar({
                   className={cn(
                     "flex items-center justify-center rounded-lg p-1.5 transition-colors duration-200",
                     groupActive
-                      ? "bg-blue-500/10 text-blue-600"
+                      ? "bg-amber-700/10 text-amber-800"
                       : "bg-white/50 text-slate-500 group-hover:bg-white/80 group-hover:text-slate-800"
                   )}
                 >
@@ -518,7 +518,7 @@ function ExpandedSidebar({
                             {childActive && (
                               <motion.div
                                 layoutId="sidebar-active-indicator"
-                                className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-400 shadow-lg shadow-blue-500/30"
+                                className="absolute inset-0 rounded-lg bg-gradient-to-r from-amber-800 to-amber-600 shadow-lg shadow-amber-950/20"
                                 transition={{ type: "spring", stiffness: 350, damping: 30 }}
                               />
                             )}

@@ -15,6 +15,7 @@ import { TopCustomersChart } from "./TopCustomersChart";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { getCurrentDate } from "@/lib/date-utils";
+import { StandardPageLayout } from "@/components/StandardPageLayout";
 
 // =============================================================================
 // Helpers
@@ -106,7 +107,7 @@ const TYPE_COLOR: Record<string, string> = {
   GREEN_BEAN:    "bg-lime-100/80 text-lime-700",
   ROASTED_BEAN:  "bg-amber-100/80 text-amber-700",
   FINISHED_GOODS:"bg-violet-100/80 text-violet-700",
-  PACKAGING:     "bg-blue-100/80 text-blue-700",
+  PACKAGING:     "bg-stone-100/80 text-stone-700",
 };
 
 function LowStockCard({ items }: { items: LowStockItem[] }) {
@@ -176,6 +177,70 @@ function LowStockCard({ items }: { items: LowStockItem[] }) {
   );
 }
 
+function DailyBriefCard({ brief }: { brief: NonNullable<DashboardData["dailyBrief"]> }) {
+  const dateLabel = new Intl.DateTimeFormat("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${brief.reportDate}T00:00:00.000Z`));
+
+  return (
+    <section className="overflow-hidden rounded-[1.5rem] border border-amber-200/60 bg-gradient-to-br from-amber-50/90 via-white/70 to-emerald-50/70 shadow-lg shadow-amber-900/5 backdrop-blur-xl md:rounded-3xl">
+      <div className="flex flex-col gap-3 border-b border-amber-200/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-700">Morning brief</p>
+          <h2 className="mt-1 text-base font-bold text-slate-900">Ringkasan {dateLabel}</h2>
+        </div>
+        <Badge variant="outline" className="w-fit border-emerald-200 bg-emerald-50 text-emerald-700">
+          Snapshot tersimpan · {brief.timezone}
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-2 gap-px bg-amber-200/40 lg:grid-cols-4">
+        {[
+          ["Penjualan akrual", formatRupiah(brief.salesAccrued), `${brief.invoiceCount} nota`],
+          ["Kas diterima", formatRupiah(brief.cashCollected), "Pembayaran aktual"],
+          ["Roasting", `${brief.roasting.yieldPercent.toFixed(1)}%`, `${brief.roasting.batchCount} batch · ${formatKg(brief.roasting.outputKg)}`],
+          ["Produksi", formatUnit(brief.production.unitsProduced), `${brief.production.batchCount} batch selesai`],
+        ].map(([label, value, detail]) => (
+          <div key={label} className="bg-white/65 px-5 py-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p>
+            <p className="mt-2 font-mono text-xl font-black tabular-nums text-slate-900">{value}</p>
+            <p className="mt-1 text-xs text-slate-500">{detail}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-3 px-5 py-4 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div className="flex flex-wrap gap-2">
+          {brief.actions.map((action) => (
+            <Link
+              key={`${action.href}-${action.label}`}
+              href={action.href}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-white ${
+                action.severity === "CRITICAL"
+                  ? "border-red-200 bg-red-50 text-red-700"
+                  : action.severity === "WARNING"
+                    ? "border-amber-200 bg-amber-50 text-amber-800"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+              }`}
+            >
+              <AlertTriangle size={12} />
+              {action.label}
+            </Link>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-4 text-xs font-semibold text-slate-600">
+          <span>Piutang lewat tempo: {formatRupiah(brief.receivables.overdueTotal)}</span>
+          <span>Hutang lewat tempo: {formatRupiah(brief.payables.overdueTotal)}</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // =============================================================================
 // Activity Feed
 // =============================================================================
@@ -207,7 +272,7 @@ const ACTIVITY_META: Record<ActivityItem["type"], {
   SALE:       {
     label:  "Penjualan",
     icon:   <ReceiptText size={12} />,
-    iconBg: "bg-blue-100 text-blue-600",
+    iconBg: "bg-blue-100 text-amber-800",
     href:   "/penjualan",
   },
 };
@@ -215,9 +280,9 @@ const ACTIVITY_META: Record<ActivityItem["type"], {
 const ACTIVITY_STATUS_CLS: Record<string, string> = {
   Selesai:  "bg-emerald-100/60 text-emerald-700 border-emerald-200/60",
   Lunas:    "bg-emerald-100/60 text-emerald-700 border-emerald-200/60",
-  Proses:   "bg-blue-100/60 text-blue-700 border-blue-200/60",
+  Proses:   "bg-blue-100/60 text-amber-800 border-blue-200/60",
   Tempo:    "bg-amber-100/60 text-amber-700 border-amber-200/60",
-  Sebagian: "bg-blue-100/60 text-blue-700 border-blue-200/60",
+  Sebagian: "bg-blue-100/60 text-amber-800 border-blue-200/60",
   Draft:    "bg-white/40 text-slate-600 border-white/60",
   Void:     "bg-slate-100/60 text-slate-400 border-slate-200/60",
 };
@@ -310,24 +375,22 @@ export function DashboardShell({ data }: { data: DashboardData }) {
   }).format(getCurrentDate()) : "";
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      {/* ── Header ── */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/40 bg-white/20 px-4 md:px-6 backdrop-blur-md">
-        <div>
-          <h1 className="text-lg font-bold text-slate-800 tracking-tight">Dashboard</h1>
-          <p className="mt-0.5 text-xs font-medium text-slate-500">{todayLabel}</p>
-        </div>
-        <p className="hidden sm:block text-[11px] font-medium text-slate-400 bg-white/40 px-2.5 py-1 rounded-full border border-white/50 shadow-sm backdrop-blur-sm">
+    <StandardPageLayout
+      title="Dashboard"
+      description={todayLabel}
+      actionButton={
+        <p className="rounded-full border border-stone-200 bg-white/70 px-3 py-1.5 text-[11px] font-medium text-stone-500 shadow-sm">
           Diperbarui {mounted ? formatTimeAgo(asOf) : ""}
         </p>
-      </header>
-
+      }
+    >
+      {/* ── Header ── */}
       {/* ── Scrollable content ── */}
-      <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6">
+      <div className="space-y-6">
 
         {/* ── Quick Actions ── */}
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/penjualan" className="flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-900/20 transition-all hover:bg-blue-700 hover:shadow-lg active:scale-95">
+          <Link href="/penjualan" className="flex items-center gap-2 rounded-full bg-amber-700 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-amber-950/20 transition-all hover:bg-amber-800 hover:shadow-lg active:scale-95">
             <ReceiptText size={16} />
             Buat Nota
           </Link>
@@ -347,6 +410,8 @@ export function DashboardShell({ data }: { data: DashboardData }) {
 
         {/* ── KPI Cards ── */}
         {/* ── KPI Cards ── */}
+        {data.dailyBrief && <DailyBriefCard brief={data.dailyBrief} />}
+
         <motion.div 
           initial="hidden" 
           animate="show" 
@@ -360,8 +425,8 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             value={formatRupiah(kpi.revenueToday)}
             sub={
               kpi.revenueToday > 0
-                ? "Nota PAID yang diterbitkan hari ini"
-                : "Belum ada nota lunas hari ini"
+                ? "Penjualan akrual yang diterbitkan hari ini"
+                : "Belum ada penjualan diterbitkan hari ini"
             }
             icon={<TrendingUp size={14} />}
             accent={kpi.revenueToday > 0 ? "emerald" : "zinc"}
@@ -505,6 +570,6 @@ export function DashboardShell({ data }: { data: DashboardData }) {
         </div>
 
       </div>
-    </div>
+    </StandardPageLayout>
   );
 }

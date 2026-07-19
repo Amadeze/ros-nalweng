@@ -7,6 +7,7 @@ import { recordAudit } from "@/lib/audit";
 import { randomBytes } from "crypto";
 import { normalizeProductionComponents } from "@/lib/operations";
 import { getCurrentDate } from "@/lib/date-utils";
+import { Prisma } from "@prisma/client";
 
 // =============================================================================
 // TYPES
@@ -20,6 +21,7 @@ export type RBComponentInput = {
 };
 
 export type CreateProductionBatchInput = {
+  operationKey: string;
   outputProductId: string;
   recipeId?: string;           // template yang dipakai sebagai saran (boleh null)
   packagingId: string;
@@ -230,54 +232,6 @@ export async function getProductionPageData(): Promise<ProductionPageData> {
  *
  * ACID transaction:
  *   1. Validasi: setiap komponen RB stok cukup
-    .filter((p) => p.stockUnit > 0);
-}
-
-async function fetchBatchHistory(): Promise<ProductionBatchRow[]> {
-  const batches = await (await requireTenantPrisma()).productionBatch.findMany({
-    orderBy: { producedAt: "desc" },
-    take: 100,
-    include: {
-      outputProduct: { select: { name: true } },
-      packaging:     { select: { name: true } },
-      recipe:        { select: { name: true } },
-    },
-  });
-
-  return batches.map((b) => ({
-    id: b.id,
-    code: b.code,
-    outputProductName: b.outputProduct.name,
-    packagingName:     b.packaging.name,
-    unitsProduced:     b.unitsProduced,
-    totalRbUsedKg:     Number(b.totalRbUsedKg),
-    hppPerUnit:        Number(b.hppPerUnit),
-    producedAt:        b.producedAt.toISOString(),
-    status:            b.status,
-    notes:             b.notes,
-    recipeUsed:        b.recipe?.name ?? null,
-  }));
-}
-
-// =============================================================================
-// PUBLIC SERVER ACTIONS
-// =============================================================================
-
-export async function getProductionPageData(): Promise<ProductionPageData> {
-  const [batches, fgOptions, rbOptions, packagingOptions] = await Promise.all([
-    fetchBatchHistory(),
-    fetchFGOptions(),
-    fetchRBOptions(),
-    fetchPackagingOptions(),
-  ]);
-  return { batches, fgOptions, rbOptions, packagingOptions };
-}
-
-/**
- * Catat Batch Produksi.
- *
- * ACID transaction:
- *   1. Validasi: setiap komponen RB stok cukup
  *   2. Validasi: packaging stok cukup
  *   3. Hitung HPP snapshot = (sum RB cost + packaging cost) / unitsProduced
  *   4. INSERT ProductionBatch
@@ -290,6 +244,9 @@ export async function createProductionBatch(
 ): Promise<ProductionActionResult> {
   try {
     await requireRole("OWNER", "MANAGER", "OPERATOR");
+    if (!input.operationKey || !/^[0-9a-f-]{36}$/i.test(input.operationKey)) {
+      return { success: false, error: "Identitas transaksi tidak valid. Buka ulang form lalu coba lagi." };
+    }
     if (input.rbComponents.length === 0) {
       return { success: false, error: "Minimal satu komponen Roasted Bean diperlukan." };
     }
@@ -301,6 +258,11 @@ export async function createProductionBatch(
     const userId = await getSystemUserId();
     const tenantId = await getCurrentTenantId();
     const tenantPrisma = await requireTenantPrisma();
+    const previousAttempt = await tenantPrisma.productionBatch.findFirst({
+      where: { operationKey: input.operationKey },
+      select: { code: true },
+    });
+    if (previousAttempt) return { success: true, batchCode: previousAttempt.code };
 
     // 1. Ambil data packaging untuk validasi stok & HPP
     const [packaging, outputProduct, recipe] = await Promise.all([
@@ -396,6 +358,7 @@ export async function createProductionBatch(
       const batch = await tx.productionBatch.create({
         data: {
           code:            batchCode,
+          operationKey:    input.operationKey,
           recipeId:        input.recipeId ?? null,
           outputProductId: input.outputProductId,
           packagingId:     input.packagingId,
@@ -466,15 +429,25 @@ export async function createProductionBatch(
           totalRbUsedKg: Number(batch.totalRbUsedKg),
           hppPerUnit: Number(batch.hppPerUnit),
         },
-        metadata: { componentCount: rbDetails.length },
+        metadata: { operationKey: input.operationKey, componentCount: rbDetails.length },
       });
     });
 
     revalidatePath("/produksi");
     revalidatePath("/inventory");
+    revalidatePath("/dashboard");
+    revalidatePath("/laporan");
+    revalidatePath("/penjualan");
     return { success: true, batchCode };
   } catch (err) {
     console.error("[createProductionBatch]", err);
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002" && input.operationKey) {
+      const existing = await (await requireTenantPrisma()).productionBatch.findFirst({
+        where: { operationKey: input.operationKey },
+        select: { code: true },
+      });
+      if (existing) return { success: true, batchCode: existing.code };
+    }
     return {
       success: false,
       error: err instanceof Error ? err.message : "Terjadi kesalahan sistem.",
@@ -565,6 +538,9 @@ export async function voidProductionBatch(
 
     revalidatePath("/produksi");
     revalidatePath("/inventory");
+    revalidatePath("/dashboard");
+    revalidatePath("/laporan");
+    revalidatePath("/penjualan");
     return { success: true };
   } catch (err) {
     console.error("[voidProductionBatch]", err);

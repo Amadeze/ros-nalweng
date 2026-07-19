@@ -29,7 +29,7 @@ const triggerSilentPrint = (url: string) => {
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   DRAFT:   { label: "Draft",    className: "bg-zinc-100 text-zinc-500 border-zinc-200" },
   ISSUED:  { label: "Tempo",    className: "bg-amber-50 text-amber-700 border-amber-200" },
-  PARTIAL: { label: "Sebagian", className: "bg-blue-50 text-blue-700 border-blue-200" },
+  PARTIAL: { label: "Sebagian", className: "bg-blue-50 text-amber-800 border-blue-200" },
   PAID:    { label: "Lunas",    className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   VOID:    { label: "Void",     className: "bg-zinc-100 text-zinc-400 border-zinc-200" },
 };
@@ -191,7 +191,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
                         size="sm"
                         onClick={() => handleApprove(inv)}
                         disabled={isApproving === inv.id}
-                        className="h-7 px-2.5 text-[11px] font-bold uppercase tracking-wide bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-200 rounded-lg shadow-sm"
+                        className="h-7 rounded-lg border border-amber-200 bg-amber-100 px-2.5 text-[11px] font-bold uppercase tracking-wide text-amber-800 shadow-sm hover:bg-amber-200"
                       >
                         {isApproving === inv.id ? "Memproses..." : "Approve"}
                       </Button>
@@ -280,7 +280,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
                     size="sm"
                     onClick={() => handleApprove(inv)}
                     disabled={isApproving === inv.id}
-                    className="h-7 px-2.5 text-[11px] font-bold uppercase tracking-wide bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-200 rounded-lg shadow-sm"
+                    className="h-7 rounded-lg border border-amber-200 bg-amber-100 px-2.5 text-[11px] font-bold uppercase tracking-wide text-amber-800 shadow-sm hover:bg-amber-200"
                   >
                     {isApproving === inv.id ? "Memproses..." : "Approve"}
                   </Button>

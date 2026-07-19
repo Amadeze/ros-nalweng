@@ -4,7 +4,8 @@ import { useForm, Controller } from "react-hook-form";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -12,8 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { PurchasePaymentSection } from "./PurchasePaymentSection";
-import { formatRupiah, calcHppPerKg } from "@/lib/format";
+import { formatRupiah } from "@/lib/format";
 import { getTodayString } from "@/lib/date-utils";
+import { defaultDueDate } from "@/lib/sale-intent";
 import {
   createGreenBeanPurchase,
   type SupplierOption,
@@ -34,7 +36,7 @@ const schema = z
     productOrigin: z.string().optional(),
     // z.number() + valueAsNumber:true in register — react-hook-form converts input string to number
     weightKg: z.number().positive("Harus lebih dari 0"),
-    pricePerKg: z.number().positive("Harus lebih dari 0"),
+    totalCost: z.number().positive("Total pembelian harus lebih dari 0"),
     shippingCost: z.number().min(0, "Tidak boleh negatif"),
     paymentStatus: z.enum(["PAID", "PARTIAL", "UNPAID"]),
     initialPaidAmount: z.number().min(0).optional(),
@@ -59,7 +61,10 @@ const schema = z
         });
       }
     }
-    const totalCost = data.pricePerKg * data.weightKg + data.shippingCost;
+    const totalCost = data.totalCost;
+    if (data.shippingCost >= totalCost) {
+      ctx.addIssue({ code: "custom", path: ["shippingCost"], message: "Ongkir harus lebih kecil dari total" });
+    }
     if (data.paymentStatus === "PARTIAL") {
       if (!data.initialPaidAmount || data.initialPaidAmount >= totalCost) {
         ctx.addIssue({
@@ -126,6 +131,8 @@ interface PurchaseFormProps {
   gbProducts: GBProductOption[];
   onSuccess: () => void;
   onPendingChange: (pending: boolean) => void;
+  onAddSupplier?: () => void;
+  preferredSupplierId?: string | null;
 }
 
 // =============================================================================
@@ -138,9 +145,13 @@ export function PurchaseForm({
   gbProducts,
   onSuccess,
   onPendingChange,
+  onAddSupplier,
+  preferredSupplierId,
 }: PurchaseFormProps) {
   const today = getTodayString();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [operationKey, setOperationKey] = useState(() => crypto.randomUUID());
+  const [showCostDetails, setShowCostDetails] = useState(false);
 
   const {
     register,
@@ -148,6 +159,7 @@ export function PurchaseForm({
     control,
     watch,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -159,7 +171,7 @@ export function PurchaseForm({
       productName: "",
       productOrigin: "",
       weightKg: 0,
-      pricePerKg: 0,
+      totalCost: 0,
       shippingCost: 0,
       paymentStatus: "PAID",
       initialPaidAmount: 0,
@@ -169,41 +181,52 @@ export function PurchaseForm({
     },
   });
 
+  useEffect(() => {
+    if (preferredSupplierId && suppliers.some((supplier) => supplier.id === preferredSupplierId)) {
+      setValue("supplierId", preferredSupplierId, { shouldDirty: true, shouldValidate: true });
+    }
+  }, [preferredSupplierId, setValue, suppliers]);
+
   // Live HPP computation
-  const [weightKg, pricePerKg, shippingCost] = watch([
+  const [weightKg, totalCost, receivedAt] = watch([
     "weightKg",
-    "pricePerKg",
-    "shippingCost",
+    "totalCost",
+    "receivedAt",
   ]);
   const productMode = watch("productMode");
   const paymentStatus = watch("paymentStatus");
 
-  const hppPerKg = calcHppPerKg(
-    Number(pricePerKg) || 0,
-    Number(weightKg) || 0,
-    Number(shippingCost) || 0
-  );
+  const hppPerKg = Number(weightKg) > 0 ? (Number(totalCost) || 0) / Number(weightKg) : 0;
 
-  const totalCost =
-    (Number(pricePerKg) || 0) * (Number(weightKg) || 0) +
-    (Number(shippingCost) || 0);
+  useEffect(() => {
+    if (paymentStatus !== "PAID") {
+      setValue("dueDate", defaultDueDate(new Date(`${receivedAt || today}T00:00:00`), 14), { shouldValidate: true });
+    } else {
+      setValue("dueDate", "");
+    }
+  }, [paymentStatus, receivedAt, setValue, today]);
 
   // ── Submit ──
   const onSubmit = async (values: FormValues) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     onPendingChange(true);
     try {
       const result = await createGreenBeanPurchase({
+        operationKey,
         supplierId: values.supplierId,
         receivedAt: values.receivedAt,
         productId: values.productMode === "existing" ? values.productId : undefined,
         productName: values.productMode === "new" ? values.productName : undefined,
         productOrigin: values.productMode === "new" ? values.productOrigin : undefined,
         weightKg: values.weightKg,
-        pricePerKg: values.pricePerKg,
+        totalCost: values.totalCost,
         shippingCost: values.shippingCost,
-        paymentStatus: values.paymentStatus,
-        initialPaidAmount: values.initialPaidAmount,
+        paidAmount: values.paymentStatus === "PAID"
+          ? values.totalCost
+          : values.paymentStatus === "PARTIAL"
+            ? values.initialPaidAmount
+            : 0,
         paymentMethod: values.paymentMethod,
         dueDate: values.dueDate,
         notes: values.notes,
@@ -216,6 +239,7 @@ export function PurchaseForm({
 
       toast.success(`Barang datang dicatat — ${result.purchaseCode}`);
       reset();
+      setOperationKey(crypto.randomUUID());
       onSuccess();
     } catch {
       toast.error("Terjadi kesalahan sistem. Coba lagi.");
@@ -229,9 +253,16 @@ export function PurchaseForm({
     <form id={id} onSubmit={handleSubmit(onSubmit)} className="space-y-5 relative">
       {/* ── Supplier ── */}
       <FieldGroup>
-        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-          Supplier <span className="text-red-500">*</span>
-        </Label>
+        <div className="flex items-center justify-between gap-3">
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+            Supplier <span className="text-red-500">*</span>
+          </Label>
+          {onAddSupplier && (
+            <button type="button" onClick={onAddSupplier} className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 hover:text-amber-800">
+              <Plus size={12} /> Supplier baru
+            </button>
+          )}
+        </div>
         <select
           className={cn(
             "w-full h-9 rounded-lg border px-3 text-sm transition-all appearance-none outline-none",
@@ -287,7 +318,7 @@ export function PurchaseForm({
                   className={cn(
                     "flex-1 rounded-xl border py-2 text-xs font-bold transition-all shadow-sm",
                     field.value === mode
-                      ? "bg-blue-500 hover:bg-blue-600 text-white shadow-md ring-2 ring-blue-500/20 ring-offset-1"
+                      ? "bg-amber-700 hover:bg-amber-800 text-white shadow-md ring-2 ring-amber-700/20 ring-offset-1"
                       : "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60"
                   )}
                 >
@@ -372,7 +403,7 @@ export function PurchaseForm({
 
         <FieldGroup>
           <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-            Harga Beli /kg <span className="text-red-500">*</span>
+            Total Pembelian <span className="text-red-500">*</span>
           </Label>
           <Input
             type="number"
@@ -380,41 +411,52 @@ export function PurchaseForm({
             min="0"
             placeholder="0"
             className={cn("h-9 tabular-nums font-semibold", glassInput)}
-            {...register("pricePerKg", { valueAsNumber: true })}
+            {...register("totalCost", { valueAsNumber: true })}
           />
-          <FieldError message={errors.pricePerKg?.message} />
+          <FieldError message={errors.totalCost?.message} />
         </FieldGroup>
       </div>
 
       {/* ── Ongkir ── */}
-      <FieldGroup>
-        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Ongkos Kirim (total)</Label>
-        <Input
-          type="number"
-          step="1"
-          min="0"
-          placeholder="0"
-          className={cn("h-9 tabular-nums", glassInput)}
-          {...register("shippingCost", { valueAsNumber: true })}
-        />
-        <FieldError message={errors.shippingCost?.message} />
-      </FieldGroup>
+      <button
+        type="button"
+        onClick={() => setShowCostDetails((current) => !current)}
+        className="flex w-full items-center justify-between rounded-lg px-1 py-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
+      >
+        Rincian biaya (opsional)
+        <ChevronDown size={14} className={cn("transition-transform", showCostDetails && "rotate-180")} />
+      </button>
+      {showCostDetails && (
+        <FieldGroup>
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Ongkos kirim yang termasuk dalam total</Label>
+          <Input
+            type="number"
+            step="1"
+            min="0"
+            placeholder="0"
+            className={cn("h-9 tabular-nums", glassInput)}
+            {...register("shippingCost", { valueAsNumber: true })}
+          />
+          <FieldError message={errors.shippingCost?.message} />
+        </FieldGroup>
+      )}
 
       {/* ── HPP auto-computed ── */}
       <div className="grid grid-cols-2 gap-4">
         <ReadonlyField
-          label="Total Biaya"
+          label="Total tercatat"
           value={totalCost > 0 ? formatRupiah(totalCost) : "—"}
         />
         <ReadonlyField
           label="HPP /kg (otomatis)"
           value={hppPerKg > 0 ? formatRupiah(hppPerKg) : "—"}
-          hint="(Harga × Berat + Ongkir) ÷ Berat"
+          hint="Total pembelian ÷ berat"
         />
       </div>
 
       <PurchasePaymentSection
         register={register}
+        setValue={setValue}
         errors={errors}
         paymentStatus={paymentStatus}
       />

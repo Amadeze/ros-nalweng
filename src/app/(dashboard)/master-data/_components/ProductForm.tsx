@@ -5,7 +5,7 @@ import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Plus, Trash2, FlaskConical, Info } from "lucide-react";
+import { Plus, Trash2, FlaskConical, Info, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -89,6 +89,7 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
   const [isUploading, setIsUploading] = useState(false);
   const isEditMode = !!initialData;
   const existingRecipe = initialData?.recipe ?? null;
+  const [showRecipe, setShowRecipe] = useState(Boolean(existingRecipe));
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const defaultRecipeItems = existingRecipe?.items.map((i) => ({
@@ -220,8 +221,41 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
 
     try {
       const result = isEditMode
-        ? await updateProduct({ id: initialData!.id, name: values.name, category: values.category || undefined, origin: values.origin, roastLevel: values.roastLevel, description: values.description, imageUrl: values.imageUrl, price: values.price, priceSilver: values.priceSilver, priceGold: values.priceGold, isActive: values.isActive, recipe })
-        : await createProduct({ name: values.name, type: values.type, category: values.category || undefined, origin: values.origin, roastLevel: values.roastLevel, description: values.description, imageUrl: values.imageUrl, price: values.price, priceSilver: values.priceSilver, priceGold: values.priceGold, recipe });
+        ? await updateProduct({
+            id: initialData!.id,
+            name: values.name,
+            category: values.category || undefined,
+            origin: values.origin,
+            roastLevel: values.roastLevel,
+            description: values.description,
+            imageUrl: values.imageUrl,
+            price: values.price,
+            priceSilver: values.priceSilver,
+            priceGold: values.priceGold,
+            isActive: values.isActive,
+            recipe,
+            reorderAlertEnabled: values.reorderAlertEnabled,
+            leadTimeDays: values.leadTimeDays,
+            safetyStockQuantity: values.safetyStockQuantity,
+            reorderLookbackDays: values.reorderLookbackDays,
+          })
+        : await createProduct({
+            name: values.name,
+            type: values.type,
+            category: values.category || undefined,
+            origin: values.origin,
+            roastLevel: values.roastLevel,
+            description: values.description,
+            imageUrl: values.imageUrl,
+            price: values.price,
+            priceSilver: values.priceSilver,
+            priceGold: values.priceGold,
+            recipe,
+            reorderAlertEnabled: values.reorderAlertEnabled,
+            leadTimeDays: values.leadTimeDays,
+            safetyStockQuantity: values.safetyStockQuantity,
+            reorderLookbackDays: values.reorderLookbackDays,
+          });
 
       if (!result.success) { toast.error(result.error); return; }
       toast.success(isEditMode ? `Produk ${result.code} berhasil diperbarui` : `Produk ${result.code} berhasil ditambahkan`);
@@ -353,9 +387,9 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
       {selectedType === "FINISHED_GOODS" && (
         <div className={cn(glassCard, "space-y-4")}>
           <div className="flex items-center justify-between">
-            <h3 className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Harga Jual (Tiered Pricing)</h3>
+            <h3 className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Harga Jual</h3>
             {estimatedHpp > 0 && (
-              <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+              <span className="text-[10px] font-bold text-amber-800 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
                 Estimasi HPP: Rp {estimatedHpp.toLocaleString("id-ID")}
               </span>
             )}
@@ -388,7 +422,7 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
             name="isActive"
             render={({ field }) => (
               <div className="flex gap-2">
-                {[{ v: true, label: "Aktif", cls: "border-blue-500 bg-blue-500 text-white shadow-md ring-2 ring-blue-500/20 ring-offset-1" }, { v: false, label: "Nonaktif", cls: "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60" }].map(({ v, label, cls }) => (
+                {[{ v: true, label: "Aktif", cls: "border-amber-700 bg-amber-700 text-white shadow-md ring-2 ring-amber-700/20 ring-offset-1" }, { v: false, label: "Nonaktif", cls: "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60" }].map(({ v, label, cls }) => (
                   <button key={String(v)} type="button" onClick={() => field.onChange(v)}
                     className={cn("flex-1 rounded-xl border py-2 text-xs font-bold transition-all shadow-sm",
                       field.value === v ? cls : "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60")}>
@@ -405,7 +439,18 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
           RECIPE SECTION — hanya untuk FINISHED_GOODS
           ================================================================ */}
       {isFG && (
-        <div className={cn(glassCard, "space-y-5")}>
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setShowRecipe((value) => !value)}
+            className="flex w-full items-center justify-between rounded-xl border border-violet-200 bg-violet-50/60 px-3 py-2.5 text-left text-xs font-semibold text-violet-800 transition hover:bg-violet-50"
+            aria-expanded={showRecipe}
+          >
+            <span className="flex items-center gap-2"><FlaskConical size={15} /> Resep produksi <span className="font-normal text-violet-500">(opsional)</span></span>
+            <ChevronDown size={15} className={cn("transition-transform", showRecipe && "rotate-180")} />
+          </button>
+          {showRecipe && (
+          <div className={cn(glassCard, "space-y-5")}>
           {/* Section header */}
           <div className="flex items-center gap-2">
             <FlaskConical size={16} className="text-violet-500 drop-shadow-sm" />
@@ -545,6 +590,8 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
             <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Catatan Resep (opsional)</Label>
             <Input placeholder="Instruksi, variasi, dll." className={cn("h-9", glassInput)} {...register("recipeNotes")} />
           </div>
+          </div>
+          )}
         </div>
       )}
 
@@ -552,8 +599,8 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
       <div className={cn(glassCard, "space-y-4")}>
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-slate-700">Konfigurasi Stok Minimum</h3>
-            <p className="text-[10px] text-slate-500">Atur alarm reorder otomatis berdasarkan konsumsi harian</p>
+            <h3 className="text-sm font-semibold text-slate-700">Ingatkan saat stok menipis</h3>
+            <p className="text-[10px] text-slate-500">App menghitung kapan produk perlu dibeli lagi</p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <Controller
@@ -568,12 +615,12 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
                 />
               )}
             />
-            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
+            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-700"></div>
           </label>
         </div>
 
         <p className="text-[10px] text-slate-500 italic">
-          Reorder point dihitung dari rata-rata pemakaian harian × lead time supplier + safety stock.
+          Perhitungan memakai riwayat pemakaian, waktu tunggu supplier, dan stok cadangan.
         </p>
 
         {watch("reorderAlertEnabled") && (

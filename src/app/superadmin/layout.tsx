@@ -7,6 +7,7 @@ import { LayoutDashboard, Users, LogOut, Coffee } from "lucide-react";
 import { logoutAction } from "@/app/login/actions";
 
 import { ShaderBackground } from "@/components/ShaderBackground";
+import { AppToastProvider } from "@/components/AppToastProvider";
 
 export default async function SuperadminLayout({
   children,
@@ -20,7 +21,8 @@ export default async function SuperadminLayout({
   }
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-deep-obsidian font-body-lg text-on-background dark relative">
+    <AppToastProvider>
+      <div className="flex h-[100dvh] w-full overflow-hidden bg-deep-obsidian font-body-lg text-on-background dark relative">
       {/* Dynamic Background */}
       <div className="absolute inset-0 w-full h-full z-0 opacity-20 mix-blend-screen pointer-events-none">
         <ShaderBackground />
@@ -66,6 +68,7 @@ export default async function SuperadminLayout({
       <main className="flex-1 overflow-auto bg-transparent z-10 relative">
         {children}
       </main>
-    </div>
+      </div>
+    </AppToastProvider>
   );
 }

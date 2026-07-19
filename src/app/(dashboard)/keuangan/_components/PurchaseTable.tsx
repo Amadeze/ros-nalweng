@@ -125,7 +125,7 @@ export function PurchaseTable({ rows, onVoid, onPay }: PurchaseTableProps) {
                       variant="ghost"
                       title="Bayar supplier"
                       aria-label={`Bayar ${row.code}`}
-                      className="text-blue-600 hover:bg-blue-50"
+                      className="text-amber-800 hover:bg-amber-50"
                       onClick={() => onPay(row)}
                     >
                       <WalletCards size={14} />

@@ -57,7 +57,7 @@ export function TestimonialsSection({ testimonials, skin }: TestimonialsSectionP
   const t = testimonials[current];
 
   return (
-    <section id="testimonials" className="w-full bg-[#faf8f5]">
+    <section id="testimonials" className="w-full bg-[var(--t-bg)]">
       <div className="max-w-4xl mx-auto px-5 sm:px-8 py-20 md:py-28">
         {/* Header */}
         <motion.div
@@ -68,17 +68,17 @@ export function TestimonialsSection({ testimonials, skin }: TestimonialsSectionP
           className="text-center mb-16"
         >
           <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="w-12 h-[1px] bg-[#c8956c]" />
+            <div className="w-12 h-[1px] bg-[var(--t-accent)]" />
             <span
-              className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#8b7e74]"
+              className="text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--t-text-muted)]"
               style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
             >
               Stories From Our Community
             </span>
-            <div className="w-12 h-[1px] bg-[#c8956c]" />
+            <div className="w-12 h-[1px] bg-[var(--t-accent)]" />
           </div>
           <h2
-            className="text-3xl md:text-4xl font-semibold tracking-tight text-[#2c2420]"
+            className="text-3xl md:text-4xl font-semibold tracking-tight text-[var(--t-text)]"
             style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
           >
             Every Cup, a Conversation
@@ -94,10 +94,10 @@ export function TestimonialsSection({ testimonials, skin }: TestimonialsSectionP
           className="relative"
         >
           {/* Main Testimonial Card */}
-          <div className="relative overflow-hidden rounded-[24px] bg-white border border-[#e8e0d8] p-8 md:p-12 min-h-[300px] shadow-[0_4px_24px_rgba(44,36,32,0.03)]">
+          <div className="relative overflow-hidden rounded-[24px] bg-[var(--t-surface)] border border-[var(--t-border)] p-8 md:p-12 min-h-[300px] shadow-[0_4px_24px_rgba(44,36,32,0.03)]">
             {/* Large decorative quote mark */}
             <div
-              className="absolute top-6 right-8 md:top-8 md:right-12 text-[120px] md:text-[160px] leading-none text-[#c8956c]/10 select-none pointer-events-none"
+              className="absolute top-6 right-8 md:top-8 md:right-12 text-[120px] md:text-[160px] leading-none text-[var(--t-accent)]/10 select-none pointer-events-none"
               style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
             >
               &ldquo;
@@ -117,13 +117,13 @@ export function TestimonialsSection({ testimonials, skin }: TestimonialsSectionP
                 {/* Stars */}
                 <div className="flex gap-1">
                   {[...Array(t.rating || 5)].map((_, idx) => (
-                    <Star key={idx} className="w-4 h-4 fill-[#c8956c] text-[#c8956c]" strokeWidth={1} />
+                    <Star key={idx} className="w-4 h-4 fill-[var(--t-accent)] text-[var(--t-accent)]" strokeWidth={1} />
                   ))}
                 </div>
 
                 {/* Quote */}
                 <p
-                  className="text-xl md:text-2xl text-[#2c2420] italic leading-[1.6] max-w-2xl"
+                  className="text-xl md:text-2xl text-[var(--t-text)] italic leading-[1.6] max-w-2xl"
                   style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
                 >
                   &ldquo;{t.text}&rdquo;
@@ -132,9 +132,9 @@ export function TestimonialsSection({ testimonials, skin }: TestimonialsSectionP
                 {/* Author */}
                 <div className="flex items-center gap-4 pt-2">
                   {/* Avatar */}
-                  <div className="w-12 h-12 rounded-full bg-[#f0ebe5] border-2 border-[#e8e0d8] flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-[var(--t-surface)] border-2 border-[var(--t-border)] flex items-center justify-center">
                     <span
-                      className="text-sm font-semibold text-[#6b4423]"
+                      className="text-sm font-semibold text-[var(--t-primary)]"
                       style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
                     >
                       {t.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
@@ -142,13 +142,13 @@ export function TestimonialsSection({ testimonials, skin }: TestimonialsSectionP
                   </div>
                   <div>
                     <h4
-                      className="font-semibold text-sm text-[#2c2420]"
+                      className="font-semibold text-sm text-[var(--t-text)]"
                       style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
                     >
                       {t.name}
                     </h4>
                     <p
-                      className="text-xs text-[#8b7e74]"
+                      className="text-xs text-[var(--t-text-muted)]"
                       style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
                     >
                       {t.role}
@@ -173,8 +173,8 @@ export function TestimonialsSection({ testimonials, skin }: TestimonialsSectionP
                   >
                     <div className={`h-[3px] rounded-full transition-all duration-500 ${
                       i === current
-                        ? "w-10 bg-[#6b4423]"
-                        : "w-3 bg-[#e8e0d8] group-hover:bg-[#c8956c]/50"
+                        ? "w-10 bg-[var(--t-primary)]"
+                        : "w-3 bg-[#e8e0d8] group-hover:bg-[var(--t-accent)]/50"
                     }`} />
                   </button>
                 ))}
@@ -186,7 +186,7 @@ export function TestimonialsSection({ testimonials, skin }: TestimonialsSectionP
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={goPrev}
-                  className="w-10 h-10 rounded-2xl border border-[#e8e0d8] flex items-center justify-center text-[#8b7e74] hover:text-[#2c2420] hover:border-[#c8956c]/40 transition-all duration-300 bg-white"
+                  className="w-10 h-10 rounded-2xl border border-[var(--t-border)] flex items-center justify-center text-[var(--t-text-muted)] hover:text-[var(--t-text)] hover:border-[var(--t-accent)]/40 transition-all duration-300 bg-[var(--t-surface)]"
                 >
                   <ChevronLeft size={18} strokeWidth={1.5} />
                 </motion.button>
@@ -194,7 +194,7 @@ export function TestimonialsSection({ testimonials, skin }: TestimonialsSectionP
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={goNext}
-                  className="w-10 h-10 rounded-2xl border border-[#e8e0d8] flex items-center justify-center text-[#8b7e74] hover:text-[#2c2420] hover:border-[#c8956c]/40 transition-all duration-300 bg-white"
+                  className="w-10 h-10 rounded-2xl border border-[var(--t-border)] flex items-center justify-center text-[var(--t-text-muted)] hover:text-[var(--t-text)] hover:border-[var(--t-accent)]/40 transition-all duration-300 bg-[var(--t-surface)]"
                 >
                   <ChevronRight size={18} strokeWidth={1.5} />
                 </motion.button>

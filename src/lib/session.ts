@@ -1,5 +1,6 @@
 import { getIronSession } from "iron-session";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 export interface SessionUser {
   id: string;
@@ -29,7 +30,7 @@ export const SESSION_OPTIONS = {
   },
 };
 
-export async function getCurrentUser(): Promise<SessionUser | null> {
+export const getCurrentUser = cache(async function getCurrentUser(): Promise<SessionUser | null> {
   try {
     const cookieStore = await cookies();
     const session = await getIronSession<{ user?: SessionUser }>(cookieStore, SESSION_OPTIONS);
@@ -37,4 +38,4 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   } catch {
     return null;
   }
-}
+});

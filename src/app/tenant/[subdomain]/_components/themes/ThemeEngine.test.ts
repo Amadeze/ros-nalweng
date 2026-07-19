@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveConfig } from "./ThemeEngine";
+import { resolveSkin, THEME_SKINS } from "./skins";
 
 function tenant(overrides: Record<string, unknown> = {}) {
   return {
@@ -18,11 +19,17 @@ describe("tenant theme configuration", () => {
     expect(resolveConfig(tenant({ layoutStyle: "heritage", fontFamily: undefined })).typography.displayFont)
       .toBe("Playfair Display");
     expect(resolveConfig(tenant({ layoutStyle: "cyber", fontFamily: undefined })).typography.displayFont)
-      .toBe("Orbitron");
+      .toBe("Source Serif 4");
     expect(resolveConfig(tenant({ layoutStyle: "luxury", fontFamily: undefined, themeMode: "dark" })).colors.background)
-      .toBe("#000000");
+      .toBe("#0F0E0C");
     expect(resolveConfig(tenant({ layoutStyle: "playful", fontFamily: undefined })).shadows.type)
-      .toBe("brutalist");
+      .toBe("soft");
+  });
+
+  it("keeps legacy layout names aligned with their visual skins", () => {
+    expect(resolveSkin("cyber")).toBe(THEME_SKINS.noir);
+    expect(resolveSkin("luxury")).toBe(THEME_SKINS.specialty);
+    expect(resolveSkin("playful")).toBe(THEME_SKINS.cupping);
   });
 
   it("applies every top-level visual setting", () => {

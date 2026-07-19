@@ -4,6 +4,17 @@ import { requireRole, requireTenantPrisma } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
+import {
+  customerInputSchema,
+  emptyToNull,
+  normalizeEmail,
+  normalizePhone,
+  sameNormalizedPhone,
+  supplierInputSchema,
+  type CustomerInput,
+  type SupplierInput,
+} from "@/lib/master-data-input";
 
 // =============================================================================
 // TYPES
@@ -295,31 +306,133 @@ export async function getMasterData(): Promise<MasterPageData> {
 // SHARED
 // =============================================================================
 
-export type ActionResult =
-  | { success: true; code: string }
+export type ActionResult<T = never> =
+  | { success: true; code: string; data?: T }
   | { success: false; error: string };
+
+export type CreatedCustomer = Pick<CustomerRow, "id" | "code" | "name" | "phone" | "tier">;
+export type CreatedSupplier = Pick<SupplierRow, "id" | "code" | "name">;
+
+type TenantPrisma = Awaited<ReturnType<typeof requireTenantPrisma>>;
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+}
+
+function nextSequence(codes: string[], prefix: string): number {
+  return codes.reduce((highest, code) => {
+    const match = code.match(new RegExp(`^${prefix}-(\\d+)$`));
+    return match ? Math.max(highest, Number(match[1])) : highest;
+  }, 0) + 1;
+}
+
+async function nextSupplierCode(tp: TenantPrisma): Promise<string> {
+  const rows = await tp.supplier.findMany({
+    where: { code: { startsWith: "SUP-" } },
+    select: { code: true },
+  });
+  return `SUP-${String(nextSequence(rows.map((row) => row.code), "SUP")).padStart(3, "0")}`;
+}
+
+async function nextCustomerCode(tp: TenantPrisma): Promise<string> {
+  const rows = await tp.customer.findMany({
+    where: { code: { startsWith: "CST-" } },
+    select: { code: true },
+  });
+  return `CST-${String(nextSequence(rows.map((row) => row.code), "CST")).padStart(3, "0")}`;
+}
+
+async function nextPackagingCode(tp: TenantPrisma): Promise<string> {
+  const rows = await tp.packaging.findMany({
+    where: { code: { startsWith: "PKG-" } },
+    select: { code: true },
+  });
+  return `PKG-${String(nextSequence(rows.map((row) => row.code), "PKG")).padStart(3, "0")}`;
+}
+
+async function findSupplierDuplicate(
+  tp: TenantPrisma,
+  input: { name: string; phone: string | null; region: string | null },
+  excludeId?: string,
+) {
+  const rows = await tp.supplier.findMany({
+    where: excludeId ? { id: { not: excludeId } } : undefined,
+    select: { id: true, code: true, name: true, phone: true, region: true, isActive: true },
+  });
+  const normalizedName = input.name.toLocaleLowerCase("id-ID");
+  const normalizedRegion = input.region?.toLocaleLowerCase("id-ID") ?? null;
+
+  return rows.find((row) => {
+    if (input.phone && sameNormalizedPhone(input.phone, row.phone)) return true;
+    if (input.phone) return false;
+    return row.name.toLocaleLowerCase("id-ID") === normalizedName
+      && (row.region?.toLocaleLowerCase("id-ID") ?? null) === normalizedRegion;
+  });
+}
+
+async function findCustomerDuplicate(
+  tp: TenantPrisma,
+  input: { name: string; phone: string | null; email: string | null },
+  excludeId?: string,
+) {
+  const rows = await tp.customer.findMany({
+    where: excludeId ? { id: { not: excludeId } } : undefined,
+    select: { id: true, code: true, name: true, phone: true, email: true, isActive: true },
+  });
+  const normalizedName = input.name.toLocaleLowerCase("id-ID");
+
+  return rows.find((row) => {
+    if (input.email && normalizeEmail(row.email) === input.email) return true;
+    if (input.phone && sameNormalizedPhone(input.phone, row.phone)) return true;
+    if (input.email || input.phone) return false;
+    return row.name.toLocaleLowerCase("id-ID") === normalizedName;
+  });
+}
 
 // =============================================================================
 // SUPPLIER — CREATE
 // =============================================================================
 
-export type CreateSupplierInput = {
-  name: string; phone?: string; address?: string; region?: string;
-};
+export type CreateSupplierInput = Omit<SupplierInput, "isActive">;
 
-export async function createSupplier(input: CreateSupplierInput): Promise<ActionResult> {
+export async function createSupplier(input: CreateSupplierInput): Promise<ActionResult<CreatedSupplier>> {
   try {
-    await requireRole("OWNER", "MANAGER");
-    if (!input.name?.trim()) return { success: false, error: "Nama supplier wajib diisi." };
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
+    const parsed = supplierInputSchema.safeParse({ ...input, isActive: true });
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Data supplier tidak valid." };
+
+    const data = {
+      name: parsed.data.name,
+      phone: normalizePhone(parsed.data.phone),
+      address: emptyToNull(parsed.data.address),
+      region: emptyToNull(parsed.data.region),
+    };
     const tp = await requireTenantPrisma();
-    const count = await tp.supplier.count();
-    const code  = `SUP-${String(count + 1).padStart(3, "0")}`;
-    await tp.supplier.create({
-      data: { code, name: input.name.trim(), phone: input.phone?.trim() || null,
-              address: input.address?.trim() || null, region: input.region?.trim() || null },
-    });
+    const duplicate = await findSupplierDuplicate(tp, data);
+    if (duplicate) {
+      return {
+        success: false,
+        error: `${duplicate.code} · ${duplicate.name} sudah terdaftar${duplicate.isActive ? "" : " (nonaktif)"}.`,
+      };
+    }
+
+    let supplier: Awaited<ReturnType<typeof tp.supplier.create>> | null = null;
+    for (let attempt = 0; attempt < 4 && !supplier; attempt += 1) {
+      const code = await nextSupplierCode(tp);
+      try {
+        supplier = await tp.supplier.create({ data: { code, ...data } });
+      } catch (error) {
+        if (!isUniqueConstraintError(error) || attempt === 3) throw error;
+      }
+    }
+    if (!supplier) throw new Error("Supplier code allocation failed");
+
     revalidatePath("/master-data"); revalidatePath("/inventory");
-    return { success: true, code };
+    return {
+      success: true,
+      code: supplier.code,
+      data: { id: supplier.id, code: supplier.code, name: supplier.name },
+    };
   } catch (err) {
     console.error("[createSupplier]", err);
     return { success: false, error: "Gagal menyimpan supplier. Coba lagi." };
@@ -328,23 +441,36 @@ export async function createSupplier(input: CreateSupplierInput): Promise<Action
 
 // SUPPLIER — UPDATE
 
-export type UpdateSupplierInput = CreateSupplierInput & { id: string; isActive: boolean };
+export type UpdateSupplierInput = SupplierInput & { id: string };
 
-export async function updateSupplier(input: UpdateSupplierInput): Promise<ActionResult> {
+export async function updateSupplier(input: UpdateSupplierInput): Promise<ActionResult<CreatedSupplier>> {
   try {
-    await requireRole("OWNER", "MANAGER");
-    if (!input.name?.trim()) return { success: false, error: "Nama supplier wajib diisi." };
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
+    const parsed = supplierInputSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Data supplier tidak valid." };
     const tp = await requireTenantPrisma();
     const existing = await tp.supplier.findUnique({ where: { id: input.id }, select: { code: true } });
     if (!existing) return { success: false, error: "Supplier tidak ditemukan." };
-    await tp.supplier.update({
+    const data = {
+      name: parsed.data.name,
+      phone: normalizePhone(parsed.data.phone),
+      address: emptyToNull(parsed.data.address),
+      region: emptyToNull(parsed.data.region),
+      isActive: parsed.data.isActive,
+    };
+    const duplicate = await findSupplierDuplicate(tp, data, input.id);
+    if (duplicate) return { success: false, error: `${duplicate.code} · ${duplicate.name} sudah terdaftar.` };
+
+    const supplier = await tp.supplier.update({
       where: { id: input.id },
-      data: { name: input.name.trim(), phone: input.phone?.trim() || null,
-              address: input.address?.trim() || null, region: input.region?.trim() || null,
-              isActive: input.isActive },
+      data,
     });
     revalidatePath("/master-data"); revalidatePath("/inventory");
-    return { success: true, code: existing.code };
+    return {
+      success: true,
+      code: existing.code,
+      data: { id: supplier.id, code: supplier.code, name: supplier.name },
+    };
   } catch (err) {
     console.error("[updateSupplier]", err);
     return { success: false, error: "Gagal memperbarui supplier. Coba lagi." };
@@ -355,25 +481,52 @@ export async function updateSupplier(input: UpdateSupplierInput): Promise<Action
 // CUSTOMER — CREATE
 // =============================================================================
 
-export type CreateCustomerInput = {
-  name: string; phone?: string; email?: string; address?: string;
-  tier?: "RETAIL" | "WHOLESALE_SILVER" | "WHOLESALE_GOLD";
-};
+export type CreateCustomerInput = Omit<CustomerInput, "isActive">;
 
-export async function createCustomer(input: CreateCustomerInput): Promise<ActionResult> {
+export async function createCustomer(input: CreateCustomerInput): Promise<ActionResult<CreatedCustomer>> {
   try {
-    await requireRole("OWNER", "MANAGER", "CASHIER");
-    if (!input.name?.trim()) return { success: false, error: "Nama pelanggan wajib diisi." };
+    await requireRole("OWNER", "MANAGER", "OPERATOR", "CASHIER");
+    const parsed = customerInputSchema.safeParse({ ...input, isActive: true });
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Data pelanggan tidak valid." };
+    const data = {
+      name: parsed.data.name,
+      phone: normalizePhone(parsed.data.phone),
+      email: normalizeEmail(parsed.data.email),
+      address: emptyToNull(parsed.data.address),
+      tier: parsed.data.tier,
+    };
     const tp = await requireTenantPrisma();
-    const count = await tp.customer.count();
-    const code  = `CST-${String(count + 1).padStart(3, "0")}`;
-    await tp.customer.create({
-      data: { code, name: input.name.trim(), phone: input.phone?.trim() || null,
-              email: input.email?.trim() || null, address: input.address?.trim() || null,
-              tier: input.tier || "RETAIL" },
-    });
+    const duplicate = await findCustomerDuplicate(tp, data);
+    if (duplicate) {
+      return {
+        success: false,
+        error: `${duplicate.code} · ${duplicate.name} sudah terdaftar${duplicate.isActive ? "" : " (nonaktif)"}.`,
+      };
+    }
+
+    let customer: Awaited<ReturnType<typeof tp.customer.create>> | null = null;
+    for (let attempt = 0; attempt < 4 && !customer; attempt += 1) {
+      const code = await nextCustomerCode(tp);
+      try {
+        customer = await tp.customer.create({ data: { code, ...data } });
+      } catch (error) {
+        if (!isUniqueConstraintError(error) || attempt === 3) throw error;
+      }
+    }
+    if (!customer) throw new Error("Customer code allocation failed");
+
     revalidatePath("/master-data"); revalidatePath("/penjualan");
-    return { success: true, code };
+    return {
+      success: true,
+      code: customer.code,
+      data: {
+        id: customer.id,
+        code: customer.code,
+        name: customer.name,
+        phone: customer.phone,
+        tier: customer.tier,
+      },
+    };
   } catch (err) {
     console.error("[createCustomer]", err);
     return { success: false, error: "Gagal menyimpan pelanggan. Coba lagi." };
@@ -382,24 +535,43 @@ export async function createCustomer(input: CreateCustomerInput): Promise<Action
 
 // CUSTOMER — UPDATE
 
-export type UpdateCustomerInput = CreateCustomerInput & { id: string; isActive: boolean };
+export type UpdateCustomerInput = CustomerInput & { id: string };
 
-export async function updateCustomer(input: UpdateCustomerInput): Promise<ActionResult> {
+export async function updateCustomer(input: UpdateCustomerInput): Promise<ActionResult<CreatedCustomer>> {
   try {
-    await requireRole("OWNER", "MANAGER", "CASHIER");
-    if (!input.name?.trim()) return { success: false, error: "Nama pelanggan wajib diisi." };
+    await requireRole("OWNER", "MANAGER", "OPERATOR", "CASHIER");
+    const parsed = customerInputSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Data pelanggan tidak valid." };
     const tp = await requireTenantPrisma();
     const existing = await tp.customer.findUnique({ where: { id: input.id }, select: { code: true } });
     if (!existing) return { success: false, error: "Pelanggan tidak ditemukan." };
-    await tp.customer.update({
+    const data = {
+      name: parsed.data.name,
+      phone: normalizePhone(parsed.data.phone),
+      email: normalizeEmail(parsed.data.email),
+      address: emptyToNull(parsed.data.address),
+      tier: parsed.data.tier,
+      isActive: parsed.data.isActive,
+    };
+    const duplicate = await findCustomerDuplicate(tp, data, input.id);
+    if (duplicate) return { success: false, error: `${duplicate.code} · ${duplicate.name} sudah terdaftar.` };
+
+    const customer = await tp.customer.update({
       where: { id: input.id },
-      data: { name: input.name.trim(), phone: input.phone?.trim() || null,
-              email: input.email?.trim() || null, address: input.address?.trim() || null,
-              tier: input.tier || "RETAIL",
-              isActive: input.isActive },
+      data,
     });
     revalidatePath("/master-data"); revalidatePath("/penjualan");
-    return { success: true, code: existing.code };
+    return {
+      success: true,
+      code: existing.code,
+      data: {
+        id: customer.id,
+        code: customer.code,
+        name: customer.name,
+        phone: customer.phone,
+        tier: customer.tier,
+      },
+    };
   } catch (err) {
     console.error("[updateCustomer]", err);
     return { success: false, error: "Gagal memperbarui pelanggan. Coba lagi." };
@@ -599,7 +771,7 @@ const TYPE_PREFIX: Record<CreateProductInput["type"], string> = {
 
 export async function createProduct(input: CreateProductInput): Promise<ActionResult> {
   try {
-    await requireRole("OWNER", "MANAGER");
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
     if (!input.name?.trim()) return { success: false, error: "Nama produk wajib diisi." };
 
     if (input.type === "FINISHED_GOODS" && input.recipe && input.recipe.items.length > 0) {
@@ -677,7 +849,7 @@ export async function createProduct(input: CreateProductInput): Promise<ActionRe
 
 export async function updateProduct(input: UpdateProductInput): Promise<ActionResult> {
   try {
-    await requireRole("OWNER", "MANAGER");
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
     if (!input.name?.trim()) return { success: false, error: "Nama produk wajib diisi." };
 
     const tp = await requireTenantPrisma();
@@ -784,33 +956,40 @@ export async function updateProduct(input: UpdateProductInput): Promise<ActionRe
 // =============================================================================
 
 const packagingSchema = z.object({
-  name: z.string().min(1),
-  weightGrams: z.number().min(0),
-  costPerUnit: z.number().min(0),
-  isActive: z.boolean().default(true),
+  name: z.string().trim().min(2, "Nama kemasan minimal 2 karakter").max(120),
+  weightGrams: z.number().finite().min(0, "Berat tidak boleh negatif").max(100_000),
+  costPerUnit: z.number().finite().min(0, "Harga tidak boleh negatif").max(1_000_000_000),
+  isActive: z.boolean(),
 });
 type CreatePackagingInput = z.infer<typeof packagingSchema>;
 type UpdatePackagingInput = CreatePackagingInput & { id: string };
 
 export async function createPackaging(input: CreatePackagingInput): Promise<ActionResult> {
   try {
-    await requireRole("OWNER", "MANAGER");
-    const data = packagingSchema.parse(input);
-    const code = `PKG-${Date.now().toString().slice(-4)}`;
-    
-    await (await requireTenantPrisma()).packaging.create({
-      data: {
-        code,
-        name: data.name,
-        weightGrams: data.weightGrams,
-        costPerUnit: data.costPerUnit,
-        isActive: data.isActive,
-      }
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
+    const parsed = packagingSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Data kemasan tidak valid." };
+    const tp = await requireTenantPrisma();
+    const duplicate = await tp.packaging.findFirst({
+      where: { name: { equals: parsed.data.name, mode: "insensitive" } },
+      select: { code: true, name: true },
     });
+    if (duplicate) return { success: false, error: `${duplicate.code} · ${duplicate.name} sudah terdaftar.` };
+
+    let packaging: Awaited<ReturnType<typeof tp.packaging.create>> | null = null;
+    for (let attempt = 0; attempt < 4 && !packaging; attempt += 1) {
+      const code = await nextPackagingCode(tp);
+      try {
+        packaging = await tp.packaging.create({ data: { code, ...parsed.data } });
+      } catch (error) {
+        if (!isUniqueConstraintError(error) || attempt === 3) throw error;
+      }
+    }
+    if (!packaging) throw new Error("Packaging code allocation failed");
 
     revalidatePath("/master-data");
     revalidatePath("/inventory");
-    return { success: true, code };
+    return { success: true, code: packaging.code };
   } catch (err) {
     console.error("[createPackaging]", err);
     return { success: false, error: "Gagal menyimpan kemasan." };
@@ -819,23 +998,32 @@ export async function createPackaging(input: CreatePackagingInput): Promise<Acti
 
 export async function updatePackaging(input: UpdatePackagingInput): Promise<ActionResult> {
   try {
-    await requireRole("OWNER", "MANAGER");
+    await requireRole("OWNER", "MANAGER", "OPERATOR");
     const { id, ...data } = input;
-    const parsed = packagingSchema.parse(data);
+    const parsed = packagingSchema.safeParse(data);
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Data kemasan tidak valid." };
+    const tp = await requireTenantPrisma();
+    const existing = await tp.packaging.findUnique({ where: { id }, select: { code: true } });
+    if (!existing) return { success: false, error: "Kemasan tidak ditemukan." };
+    const duplicate = await tp.packaging.findFirst({
+      where: { id: { not: id }, name: { equals: parsed.data.name, mode: "insensitive" } },
+      select: { code: true, name: true },
+    });
+    if (duplicate) return { success: false, error: `${duplicate.code} · ${duplicate.name} sudah terdaftar.` };
 
-    await (await requireTenantPrisma()).packaging.update({
+    await tp.packaging.update({
       where: { id },
       data: {
-        name: parsed.name,
-        weightGrams: parsed.weightGrams,
-        costPerUnit: parsed.costPerUnit,
-        isActive: parsed.isActive,
+        name: parsed.data.name,
+        weightGrams: parsed.data.weightGrams,
+        costPerUnit: parsed.data.costPerUnit,
+        isActive: parsed.data.isActive,
       }
     });
 
     revalidatePath("/master-data");
     revalidatePath("/inventory");
-    return { success: true, code: "Kemasan" };
+    return { success: true, code: existing.code };
   } catch (err) {
     console.error("[updatePackaging]", err);
     return { success: false, error: "Gagal memperbarui kemasan." };

@@ -19,7 +19,8 @@ const CATEGORY_MAP: Record<string, { label: string, icon: React.ReactNode }> = {
 
 function exportToCSV(report: InventoryValuationReport) {
   const rows = [
-    ["Laporan Valuasi Persediaan", `Beanslab Roastery - ${getCurrentDate().toLocaleDateString("id-ID")}`],
+    ["Laporan Valuasi Persediaan", `Beanslab Roastery - ${new Date(report.asOf).toLocaleDateString("id-ID")}`],
+    ["Metode biaya", "Rata-rata tertimbang"],
     [],
     ["Ringkasan Valuasi", "Nilai (IDR)"],
     ["Green Bean", report.totalGreenBeanValue],
@@ -65,6 +66,10 @@ export function InventoryValuationClient({ report, hideLayout }: InventoryValuat
 
   const content = (
     <>
+      <div className={`mb-4 rounded-2xl border px-4 py-3 text-xs ${report.zeroCostItemCount > 0 ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+        <strong>Basis laporan:</strong> ledger hingga {new Date(report.asOf).toLocaleString("id-ID")} · biaya rata-rata tertimbang.
+        {report.zeroCostItemCount > 0 && ` ${report.zeroCostItemCount} item masih memiliki biaya nol dan perlu dilengkapi.`}
+      </div>
       {/* KPI Cards */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-6">
         <div className="col-span-2 lg:col-span-1 rounded-2xl border border-white/60 bg-gradient-to-br from-indigo-50 to-blue-50 p-4 shadow-sm backdrop-blur-sm">
@@ -86,8 +91,8 @@ export function InventoryValuationClient({ report, hideLayout }: InventoryValuat
           <p className="mt-1 font-mono text-lg font-black tabular-nums text-amber-700">{formatRupiah(report.totalRoastedBeanValue)}</p>
         </div>
         <div className="rounded-2xl border border-white/60 bg-blue-50 p-4 shadow-sm">
-          <p className="text-xs font-medium text-blue-600">Produk Jadi</p>
-          <p className="mt-1 font-mono text-lg font-black tabular-nums text-blue-700">{formatRupiah(report.totalFinishedGoodsValue)}</p>
+          <p className="text-xs font-medium text-amber-800">Produk Jadi</p>
+          <p className="mt-1 font-mono text-lg font-black tabular-nums text-amber-800">{formatRupiah(report.totalFinishedGoodsValue)}</p>
         </div>
         <div className="rounded-2xl border border-white/60 bg-violet-50 p-4 shadow-sm">
           <p className="text-xs font-medium text-violet-600">Kemasan</p>

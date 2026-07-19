@@ -38,11 +38,60 @@ export default async function TenantB2BPortal({ params }: TenantPageProps) {
   
   const tenant = await prisma.tenant.findUnique({
     where: { subdomain },
-    include: {
+    select: {
+      name: true,
+      subdomain: true,
+      themeColor: true,
+      logoUrl: true,
+      heroImageUrl: true,
+      heroText: true,
+      backgroundImageUrl: true,
+      whatsappNumber: true,
+      contactEmail: true,
+      instagramHandle: true,
+      aboutText: true,
+      catalogTitle: true,
+      catalogSubtitle: true,
+      footerText: true,
+      problemStatement: true,
+      solutionStatement: true,
+      uspText: true,
+      features: true,
+      testimonials: true,
+      faqs: true,
+      layoutStyle: true,
+      fontFamily: true,
+      themeMode: true,
+      borderRadius: true,
+      animationStyle: true,
+      animationDirection: true,
+      iconStyle: true,
+      themeConfig: true,
+      isActive: true,
+      subscriptionTier: true,
+      subscriptionStatus: true,
+      trialEndsAt: true,
+      nextBillingDate: true,
       products: {
         where: {
           type: "FINISHED_GOODS",
           isActive: true,
+        },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          type: true,
+          category: true,
+          origin: true,
+          roastLevel: true,
+          description: true,
+          imageUrl: true,
+          price: true,
+          priceSilver: true,
+          priceGold: true,
+          stockKg: true,
+          stockUnit: true,
         },
         orderBy: [
           { stockKg: "desc" },
@@ -60,26 +109,44 @@ export default async function TenantB2BPortal({ params }: TenantPageProps) {
     notFound();
   }
 
-  const {
-    midtransServerKey: _midtransServerKey,
-    artisanWebhookToken: _artisanWebhookToken,
-    ...publicTenant
-  } = tenant;
-
   // Next.js App Router Server -> Client serialization doesn't support Prisma Decimal
-  // We need to map over products and convert ALL decimals to numbers
+  // Only storefront fields are serialized; internal costs and credentials stay server-side.
   const serializedTenant = {
-    ...publicTenant,
+    name: tenant.name,
+    subdomain: tenant.subdomain,
+    themeColor: tenant.themeColor,
+    logoUrl: tenant.logoUrl,
+    heroImageUrl: tenant.heroImageUrl,
+    heroText: tenant.heroText,
+    backgroundImageUrl: tenant.backgroundImageUrl,
+    whatsappNumber: tenant.whatsappNumber,
+    contactEmail: tenant.contactEmail,
+    instagramHandle: tenant.instagramHandle,
+    aboutText: tenant.aboutText,
+    catalogTitle: tenant.catalogTitle,
+    catalogSubtitle: tenant.catalogSubtitle,
+    footerText: tenant.footerText,
+    problemStatement: tenant.problemStatement,
+    solutionStatement: tenant.solutionStatement,
+    uspText: tenant.uspText,
+    features: tenant.features,
+    testimonials: tenant.testimonials,
+    faqs: tenant.faqs,
+    layoutStyle: tenant.layoutStyle,
+    fontFamily: tenant.fontFamily,
+    themeMode: tenant.themeMode,
+    borderRadius: tenant.borderRadius,
+    animationStyle: tenant.animationStyle,
+    animationDirection: tenant.animationDirection,
+    iconStyle: tenant.iconStyle,
+    themeConfig: tenant.themeConfig,
     products: tenant.products.map(product => ({
       ...product,
       price: product.price ? Number(product.price) : null,
       priceSilver: product.priceSilver ? Number(product.priceSilver) : null,
       priceGold: product.priceGold ? Number(product.priceGold) : null,
-      lastHpp: product.lastHpp ? Number(product.lastHpp) : null,
       stockKg: product.stockKg ? Number(product.stockKg) : null,
       stockUnit: product.stockUnit ? Number(product.stockUnit) : null,
-      avgCostPerKg: product.avgCostPerKg ? Number(product.avgCostPerKg) : null,
-      safetyStockQuantity: product.safetyStockQuantity ? Number(product.safetyStockQuantity) : null,
     }))
   };
 

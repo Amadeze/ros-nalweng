@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { ReceiptText, Loader2, DollarSign, FileText, CheckCircle2, Clock, Download, FileText as FileTextIcon, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/format";
@@ -131,13 +132,20 @@ interface SalesClientProps {
 }
 
 export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps) {
+  const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [customerOptions, setCustomerOptions] = useState(customers);
+  const [preferredCustomerId, setPreferredCustomerId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCustomerSubmitting, setIsCustomerSubmitting] = useState(false);
   const [lastInvoiceId, setLastInvoiceId] = useState<string | null>(null);
 
   // For Create Customer modal
   const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    setCustomerOptions(customers);
+  }, [customers]);
 
   const kpi = useMemo(() => {
     const valid = invoices.filter((i) => i.status !== "VOID");
@@ -227,7 +235,7 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
             </Button>
             <Button
               size="default"
-              className="gap-2 bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg rounded-xl font-semibold px-5 transition-all group"
+              className="gap-2 bg-amber-700 text-white hover:bg-amber-800 shadow-md hover:shadow-lg rounded-xl font-semibold px-5 transition-all group"
               onClick={() => setDrawerOpen(true)}
             >
               <ReceiptText
@@ -246,8 +254,8 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
         }}
         mobileHeaderActions={<ExportMenu invoices={invoices} />}
       >
-        <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <div className="col-span-2 lg:col-span-1 rounded-2xl border border-white/60 bg-gradient-to-br from-emerald-50 to-teal-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-4">
+          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-emerald-50 to-teal-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity">
               <DollarSign size={48} className="text-emerald-600" />
             </div>
@@ -258,7 +266,7 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
               {formatRupiah(kpi.totalRevenue)}
             </p>
           </div>
-          <div className="col-span-2 lg:col-span-1 rounded-2xl border border-white/60 bg-gradient-to-br from-indigo-50 to-blue-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
+          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-indigo-50 to-blue-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity">
               <CheckCircle2 size={48} className="text-indigo-600" />
             </div>
@@ -270,7 +278,7 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
               <span className="text-sm">faktur</span>
             </p>
           </div>
-          <div className="col-span-2 lg:col-span-1 rounded-2xl border border-white/60 bg-gradient-to-br from-amber-50 to-orange-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
+          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-amber-50 to-orange-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity">
               <Clock size={48} className="text-amber-600" />
             </div>
@@ -282,7 +290,7 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
               <span className="text-sm">faktur</span>
             </p>
           </div>
-          <div className="col-span-2 lg:col-span-1 rounded-2xl border border-white/60 bg-gradient-to-br from-slate-50 to-zinc-100 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
+          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-slate-50 to-zinc-100 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity">
               <FileText size={48} className="text-slate-500" />
             </div>
@@ -313,7 +321,7 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
             form="invoice-form"
             size="sm"
             disabled={isSubmitting}
-            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 shadow-md rounded-xl font-bold disabled:opacity-60"
+            className="gap-1.5 bg-amber-700 text-white hover:bg-amber-800 shadow-md rounded-xl font-bold disabled:opacity-60"
           >
             {isSubmitting && <Loader2 size={13} className="animate-spin" />}
             {isSubmitting ? "Menyimpan..." : "Terbitkan Nota"}
@@ -322,14 +330,16 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
       >
         <InvoiceForm
           id="invoice-form"
-          customers={customers}
+          customers={customerOptions}
           fgOptions={fgOptions}
           onSuccess={(invoiceId) => {
             setLastInvoiceId(invoiceId);
             setDrawerOpen(false);
+            router.refresh();
           }}
           onPendingChange={setIsSubmitting}
           onAddCustomer={() => setCustomerDrawerOpen(true)}
+          preferredCustomerId={preferredCustomerId}
         />
       </StandardDrawer>
 
@@ -346,7 +356,7 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
             form="new-customer-form"
             size="sm"
             disabled={isCustomerSubmitting}
-            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 shadow-md rounded-xl font-bold disabled:opacity-60"
+            className="gap-1.5 bg-amber-700 text-white hover:bg-amber-800 shadow-md rounded-xl font-bold disabled:opacity-60"
           >
             {isCustomerSubmitting && (
               <Loader2 size={13} className="animate-spin" />
@@ -358,7 +368,14 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
         <CustomerForm
           id="new-customer-form"
           onPendingChange={setIsCustomerSubmitting}
-          onSuccess={() => {
+          onSuccess={(customer) => {
+            if (customer) {
+              setCustomerOptions((current) => [
+                customer,
+                ...current.filter((item) => item.id !== customer.id),
+              ]);
+              setPreferredCustomerId(customer.id);
+            }
             setCustomerDrawerOpen(false);
           }}
         />
@@ -395,7 +412,7 @@ export function SalesClient({ invoices, customers, fgOptions }: SalesClientProps
               Nanti Saja
             </Button>
             <Button
-              className="bg-blue-600 text-white"
+              className="bg-amber-700 text-white"
               onClick={() => {
                 triggerSilentPrint(`/nota/${lastInvoiceId}?print=true`);
                 setLastInvoiceId(null);

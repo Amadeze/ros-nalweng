@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Menu, Coffee } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { PageTransition } from "./PageTransition";
 import type { PlanTier } from "@/lib/plans";
 
 /**
@@ -29,7 +28,7 @@ export function AppShell({
   }, [pathname]);
 
   return (
-    <div className="relative flex h-[100dvh] w-full overflow-hidden p-0 md:p-8 lg:p-12">
+    <div className="relative flex h-[100dvh] w-full overflow-hidden p-0 md:p-4 xl:p-6">
 
       {/* ── MOBILE OVERLAY ── */}
       {isMobileMenuOpen && (
@@ -40,7 +39,7 @@ export function AppShell({
       )}
 
       {/* ── MAIN CONTAINER ── */}
-      <div className="flex h-full w-full overflow-hidden flex-col md:flex-row md:rounded-2xl md:border md:border-white/60 md:bg-white/30 md:shadow-2xl md:backdrop-blur-xl md:ring-1 md:ring-white/50 transition-all duration-500 hover:shadow-slate-300/50">
+      <div className="mx-auto flex h-full w-full max-w-[1800px] overflow-hidden flex-col bg-[#fbfaf8] md:flex-row md:rounded-[1.75rem] md:border md:border-stone-200/80 md:shadow-2xl md:shadow-stone-300/30 md:ring-1 md:ring-white/70">
 
         {/* ── DESKTOP SIDEBAR ── */}
         {/* Hidden on mobile, shown on desktop */}
@@ -59,13 +58,13 @@ export function AppShell({
         </div>
 
         {/* ── MAIN CONTENT AREA ── */}
-        <main className="flex flex-1 flex-col overflow-hidden bg-white/30 backdrop-blur-md md:bg-transparent md:backdrop-blur-none md:border-none md:shadow-none">
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#fbfaf8] md:bg-transparent">
 
           {/* MOBILE HEADER */}
-          <div className="flex shrink-0 items-center gap-3 border-b border-white/40 bg-white/40 px-4 py-4 backdrop-blur-xl md:hidden">
+          <div className="flex h-16 shrink-0 items-center gap-3 border-b border-stone-200/80 bg-[#fbfaf8]/90 px-4 backdrop-blur-xl md:hidden">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/50 border border-white/60 text-slate-800 shadow-sm active:scale-95 transition-all hover:bg-white/80 hover:shadow-md"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-stone-200 bg-white/80 text-stone-800 shadow-sm active:scale-95 transition-all hover:bg-white"
               aria-label="Open menu"
             >
               <Menu size={20} />
@@ -78,9 +77,7 @@ export function AppShell({
 
           {/* CONTENT */}
           <div className="flex-1 overflow-auto custom-scrollbar">
-            <PageTransition>
-              {children}
-            </PageTransition>
+            <div className="flex h-full w-full flex-col">{children}</div>
           </div>
         </main>
       </div>

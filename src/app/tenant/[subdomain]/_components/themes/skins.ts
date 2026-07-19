@@ -7,6 +7,7 @@
 
 import React from "react";
 import { ThemeSkin } from "./ThemeSkin";
+import { THEME_PRESET_ALIASES } from "./ThemeConfig";
 
 export const THEME_SKINS: Record<string, ThemeSkin> = {
 
@@ -19,7 +20,10 @@ export const THEME_SKINS: Record<string, ThemeSkin> = {
     heroImageClass: "rounded-lg shadow-md",
     overlay: React.createElement("div", {
       className: "pointer-events-none fixed inset-0 z-50 opacity-[0.04]",
-      style: { backgroundImage: 'url("https://www.transparenttextures.com/patterns/paper-fibers.png")' }
+      style: {
+        backgroundImage: "repeating-linear-gradient(13deg, currentColor 0, currentColor 1px, transparent 1px, transparent 7px), repeating-linear-gradient(103deg, currentColor 0, currentColor 1px, transparent 1px, transparent 11px)",
+        backgroundSize: "47px 53px, 61px 43px",
+      }
     }),
     inputClass: "bg-[#FDF8F0] border-2 border-[#D4C4B0] text-[#3E2723] placeholder:text-[#3E2723]/30 rounded-md focus:border-[#5C3D2E]/50",
     badgeClass: "bg-[#5C3D2E]/10 text-[#5C3D2E] border border-[#5C3D2E]/20 rounded-full text-xs",
@@ -159,6 +163,7 @@ export const THEME_SKINS: Record<string, ThemeSkin> = {
  * Resolve a skin from layoutStyle with artisan fallback.
  */
 export function resolveSkin(layoutStyle?: string | null): ThemeSkin {
-  const key = layoutStyle?.toLowerCase() || "artisan";
+  const requested = layoutStyle?.toLowerCase() || "artisan";
+  const key = THEME_PRESET_ALIASES[requested] || requested;
   return THEME_SKINS[key] || THEME_SKINS.artisan;
 }

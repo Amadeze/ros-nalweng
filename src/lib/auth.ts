@@ -4,6 +4,20 @@ import { redirect } from "next/navigation";
 import type { SessionUser } from "./session";
 import { getTenantAccessState } from "./subscription";
 import { planHasFeature, type PlanFeature } from "./plans";
+import { cache } from "react";
+
+export const getTenantAccessRecord = cache(async (tenantId: string) =>
+  prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: {
+      isActive: true,
+      subscriptionTier: true,
+      subscriptionStatus: true,
+      trialEndsAt: true,
+      nextBillingDate: true,
+    },
+  }),
+);
 
 export async function requireCurrentUser() {
   const user = await getCurrentUser();
@@ -19,16 +33,7 @@ export async function requireCurrentUser() {
  */
 export async function requireTenantPrisma() {
   const user = await requireCurrentUser();
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: user.tenantId },
-    select: {
-      isActive: true,
-      subscriptionTier: true,
-      subscriptionStatus: true,
-      trialEndsAt: true,
-      nextBillingDate: true,
-    },
-  });
+  const tenant = await getTenantAccessRecord(user.tenantId);
 
   if (!tenant || !tenant.isActive) {
     redirect("/login");
@@ -59,10 +64,7 @@ export async function requireRole(...allowedRoles: SessionUser["role"][]) {
 
 export async function requireFeature(feature: PlanFeature) {
   const user = await requireCurrentUser();
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: user.tenantId },
-    select: { subscriptionTier: true },
-  });
+  const tenant = await getTenantAccessRecord(user.tenantId);
   if (!tenant || !planHasFeature(tenant.subscriptionTier, feature)) {
     throw new Error("FEATURE_NOT_AVAILABLE");
   }

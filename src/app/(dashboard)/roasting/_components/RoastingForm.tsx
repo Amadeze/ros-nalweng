@@ -3,9 +3,10 @@
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ChevronDown } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,9 +20,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatKg } from "@/lib/format";
+import { analyzeRoastOutcome } from "@/lib/roast-intent";
+import { roastedBeanName, type RoastLevelValue } from "@/lib/roast-product";
 import {
   createParentRoastingBatch,
   type GBStockOption,
+  type ParentRoastingBatchRow,
   type RBProductOption,
 } from "../actions";
 
@@ -42,7 +46,7 @@ const schema = z
     mode: z.enum(["ARTISAN", "MANUAL"]),
     inputProductId: z.string().min(1, "Wajib pilih Green Bean"),
     targetWeightKg: z.number().positive("Harus lebih dari 0"),
-    outputMode: z.enum(["existing", "new"]),
+    outputMode: z.enum(["auto", "existing", "new"]),
     outputProductId: z.string().optional(),
     outputProductName: z.string().optional(),
     outputProductOrigin: z.string().optional(),
@@ -51,6 +55,9 @@ const schema = z
     notes: z.string().optional(),
   })
   .superRefine((data, ctx) => {
+    if (!data.outputRoastLevel) {
+      ctx.addIssue({ code: "custom", path: ["outputRoastLevel"], message: "Pilih level roasting" });
+    }
     if (data.outputMode === "existing" && !data.outputProductId) {
       ctx.addIssue({ code: "custom", path: ["outputProductId"], message: "Wajib pilih produk" });
     }
@@ -94,7 +101,15 @@ function FieldError({ message }: { message?: string }) {
 // Shrinkage display
 // ─────────────────────────────────────────────
 
-function ShrinkageDisplay({ input, output }: { input: number; output: number }) {
+function ShrinkageDisplay({
+  input,
+  output,
+  recentLosses,
+}: {
+  input: number;
+  output: number;
+  recentLosses: number[];
+}) {
   const valid = input > 0 && output > 0 && output < input;
   if (!valid) {
     return (
@@ -104,14 +119,12 @@ function ShrinkageDisplay({ input, output }: { input: number; output: number }) 
     );
   }
 
-  const lossKg = input - output;
-  const lossPercent = (lossKg / input) * 100;
+  const outcome = analyzeRoastOutcome(input, output, recentLosses);
+  const { lossKg, lossPercent } = outcome;
   const badgeColor =
-    lossPercent > 25
+    outcome.status === "REVIEW"
       ? "bg-red-50/90 border-red-200 text-red-700 shadow-sm"
-      : lossPercent > 18
-        ? "bg-amber-50/90 border-amber-200 text-amber-700 shadow-sm"
-        : "bg-emerald-50/90 border-emerald-200 text-emerald-700 shadow-sm";
+      : "bg-emerald-50/90 border-emerald-200 text-emerald-700 shadow-sm";
 
   return (
     <div className={`flex items-center justify-between rounded-[1.25rem] border backdrop-blur-md px-5 py-4 ${badgeColor}`}>
@@ -122,6 +135,9 @@ function ShrinkageDisplay({ input, output }: { input: number; output: number }) 
       <div className="text-right">
         <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">Susut</p>
         <p className="text-lg font-bold tabular-nums">{formatKg(lossKg)}</p>
+        <p className="mt-1 text-[10px] font-medium opacity-80">
+          Acuan {outcome.expectedMinPercent.toFixed(1)}–{outcome.expectedMaxPercent.toFixed(1)}%
+        </p>
       </div>
     </div>
   );
@@ -135,6 +151,7 @@ interface RoastingFormProps {
   id: string;
   gbOptions: GBStockOption[];
   rbOptions: RBProductOption[];
+  batches: ParentRoastingBatchRow[];
   onSuccess: () => void;
   onPendingChange: (pending: boolean) => void;
 }
@@ -147,10 +164,13 @@ export function RoastingForm({
   id,
   gbOptions,
   rbOptions,
+  batches,
   onSuccess,
   onPendingChange,
 }: RoastingFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [operationKey, setOperationKey] = useState(() => crypto.randomUUID());
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const {
     register,
@@ -158,14 +178,15 @@ export function RoastingForm({
     control,
     watch,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      mode: "ARTISAN",
+      mode: "MANUAL",
       inputProductId: "",
       targetWeightKg: 0,
-      outputMode: rbOptions.length > 0 ? "existing" : "new",
+      outputMode: "auto",
       outputProductId: "",
       outputProductName: "",
       outputProductOrigin: "",
@@ -175,17 +196,19 @@ export function RoastingForm({
     },
   });
 
-  const [mode, inputProductId, targetWeightKg, actualOutputKg, outputMode] = watch([
+  const [mode, inputProductId, targetWeightKg, actualOutputKg, outputMode, outputProductId, outputRoastLevel] = watch([
     "mode",
     "inputProductId",
     "targetWeightKg",
     "actualOutputKg",
     "outputMode",
+    "outputProductId",
+    "outputRoastLevel",
   ]);
 
   const selectedGB = gbOptions.find((g) => g.id === inputProductId);
 
-  const filteredRbOptions = rbOptions.filter((rb) => {
+  const likelyRbOptions = useMemo(() => rbOptions.filter((rb) => {
     if (!selectedGB || !selectedGB.origin) return true;
     if (rb.origin) return rb.origin === selectedGB.origin;
     
@@ -194,20 +217,44 @@ export function RoastingForm({
     const gbWords = gbName.split(" ").filter(w => w.length > 3 && !['green', 'bean'].includes(w));
     
     return gbWords.some(w => rbName.includes(w));
-  });
+  }), [rbOptions, selectedGB]);
+
+  const rankedRbOptions = useMemo(() => [
+    ...likelyRbOptions,
+    ...rbOptions.filter((rb) => !likelyRbOptions.some((likely) => likely.id === rb.id)),
+  ], [likelyRbOptions, rbOptions]);
 
   useEffect(() => {
-    const currentRbId = watch("outputProductId");
-    if (currentRbId && !filteredRbOptions.some(r => r.id === currentRbId)) {
-      reset((prev) => ({ ...prev, outputProductId: "" }));
+    if (!inputProductId) return;
+    setValue("outputMode", "auto");
+    setValue("outputProductId", "");
+    if (selectedGB?.origin && !watch("outputProductOrigin")) {
+      setValue("outputProductOrigin", selectedGB.origin);
     }
-  }, [inputProductId, filteredRbOptions, watch, reset]);
+  }, [inputProductId, selectedGB, setValue, watch]);
+
+  const automaticRb = rbOptions.find((rb) =>
+    rb.sourceGreenBeanId === inputProductId && rb.roastLevel === outputRoastLevel
+  );
+  const resolvedOutputProductId = outputMode === "auto" ? automaticRb?.id : outputProductId;
+
+  const recentComparableLosses = useMemo(() => batches
+    .filter((batch) =>
+      batch.status === "COMPLETED"
+      && batch.inputProductId === inputProductId
+      && batch.outputProductId === resolvedOutputProductId
+      && batch.totalShrinkagePercent !== null
+    )
+    .slice(0, 10)
+    .map((batch) => Number(batch.totalShrinkagePercent)), [batches, inputProductId, resolvedOutputProductId]);
 
   const onSubmit = async (values: FormValues) => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     onPendingChange(true);
     try {
       const result = await createParentRoastingBatch({
+        operationKey,
         mode: values.mode,
         inputProductId: values.inputProductId,
         targetWeightKg: values.targetWeightKg,
@@ -225,12 +272,19 @@ export function RoastingForm({
         return;
       }
 
-      toast.success(
-        values.mode === "ARTISAN"
-          ? `Sesi roasting dimulai — ${result.batchCode}`
-          : `Batch roasting dicatat — ${result.batchCode}`
-      );
+      if (result.outcome?.status === "REVIEW") {
+        toast.warning(
+          `Batch ${result.batchCode} tersimpan. Susut ${result.outcome.lossPercent.toFixed(1)}% di luar acuan ${result.outcome.expectedMinPercent.toFixed(1)}–${result.outcome.expectedMaxPercent.toFixed(1)}%; periksa timbangan atau profil.`,
+        );
+      } else {
+        toast.success(
+          values.mode === "ARTISAN"
+            ? `Sesi roasting dimulai — ${result.batchCode}`
+            : `Batch roasting masuk stok — ${result.batchCode}`
+        );
+      }
       reset();
+      setOperationKey(crypto.randomUUID());
       onSuccess();
     } catch {
       toast.error("Terjadi kesalahan sistem. Coba lagi.");
@@ -244,42 +298,6 @@ export function RoastingForm({
     <form id={id} onSubmit={handleSubmit(onSubmit)} className="space-y-5 relative">
 
       {/* ── Mode Toggle ── */}
-      <div>
-        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-2 block">
-          Pilih Metode Pencatatan
-        </Label>
-        <Controller
-          control={control}
-          name="mode"
-          render={({ field }) => (
-            <div className="flex gap-2 bg-white/30 p-1 rounded-xl shadow-sm border border-white/60 backdrop-blur-md">
-              {(["ARTISAN", "MANUAL"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => field.onChange(m)}
-                  className={cn(
-                    "flex-1 rounded-lg py-2 text-xs font-bold transition-all",
-                    field.value === m
-                      ? m === "ARTISAN" ? "bg-indigo-500 text-white shadow-md" : "bg-emerald-500 text-white shadow-md"
-                      : "text-slate-500 hover:bg-white/50"
-                  )}
-                >
-                  {m === "ARTISAN" ? "Mulai Sesi (Zero-Touch)" : "Catat Manual Cepat"}
-                </button>
-              ))}
-            </div>
-          )}
-        />
-        <p className="text-[10.5px] mt-2 font-medium text-slate-500 leading-tight">
-          {mode === "ARTISAN"
-            ? "Pilih ini di pagi hari. Target stok akan di-lock, dan Anda tinggal menunggu Webhook Artisan masuk."
-            : "Pilih ini untuk mencatat hasil akhir secara instan tanpa perlu koneksi ke aplikasi Artisan."}
-        </p>
-      </div>
-
-      <Separator className="bg-white/50" />
-
       {/* ── Pilih Green Bean ── */}
       <FieldGroup>
         <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
@@ -327,7 +345,7 @@ export function RoastingForm({
       {/* ── Berat Masuk ── */}
       <FieldGroup>
         <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-          Berat Masuk / Green Bean (kg) <span className="text-red-500">*</span>
+          Berat Green Bean masuk (kg) <span className="text-red-500">*</span>
         </Label>
         <Input
           type="number"
@@ -347,35 +365,41 @@ export function RoastingForm({
 
       <Separator className="bg-white/50" />
 
-      {/* ── Output RB mode toggle ── */}
-      <div>
-        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-2 block">
-          Target Roasted Bean <span className="text-red-500">*</span>
+      {/* Operator chooses the roast fact; product identity is inherited from GB. */}
+      <FieldGroup>
+        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+          Roast Level <span className="text-red-500">*</span>
         </Label>
         <Controller
           control={control}
-          name="outputMode"
+          name="outputRoastLevel"
           render={({ field }) => (
-            <div className="flex gap-2">
-              {(["existing", "new"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => field.onChange(m)}
-                  className={cn(
-                    "flex-1 rounded-xl border py-2 text-xs font-bold transition-all shadow-sm",
-                    field.value === m
-                      ? "border-blue-500 bg-blue-500 text-white shadow-md ring-2 ring-blue-500/20 ring-offset-1"
-                      : "border-white/60 bg-white/40 text-slate-500 hover:bg-white/60"
-                  )}
-                >
-                  {m === "existing" ? "Produk Existing" : "+ Produk Baru"}
-                </button>
-              ))}
-            </div>
+            <Select value={field.value} onValueChange={(val: string | null) => field.onChange(val ?? "")}>
+              <SelectTrigger className={cn("w-full h-9", glassInput)}>
+                <SelectValue placeholder="Pilih Light, Medium, atau Dark...">
+                  {field.value ? ROAST_LEVEL_LABELS[field.value] : null}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {ROAST_LEVELS.map((level) => (
+                  <SelectItem key={level} value={level}>{ROAST_LEVEL_LABELS[level]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         />
-      </div>
+        <FieldError message={errors.outputRoastLevel?.message} />
+        {selectedGB && outputRoastLevel && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-700">
+            <span className="font-semibold">
+              {roastedBeanName(selectedGB.name, outputRoastLevel as RoastLevelValue)}
+            </span>
+            <span className="ml-1 text-emerald-600">
+              {automaticRb ? "dipakai otomatis" : "akan dibuat otomatis"}
+            </span>
+          </div>
+        )}
+      </FieldGroup>
 
       {/* ── Select existing RB ── */}
       {outputMode === "existing" && (
@@ -391,14 +415,14 @@ export function RoastingForm({
               >
                 <SelectTrigger className={cn("w-full h-9", glassInput)}>
                   <SelectValue placeholder="Pilih produk RB...">
-                    {field.value ? filteredRbOptions.find((r) => r.id === field.value)?.name : null}
+                    {field.value ? rankedRbOptions.find((r) => r.id === field.value)?.name : null}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {filteredRbOptions.length === 0 ? (
-                    <SelectItem value="_empty" disabled>Tidak ada RB dengan origin yang sesuai</SelectItem>
+                  {rankedRbOptions.length === 0 ? (
+                    <SelectItem value="_empty" disabled>Belum ada produk Roasted Bean</SelectItem>
                   ) : (
-                    filteredRbOptions.map((r) => (
+                    rankedRbOptions.map((r) => (
                       <SelectItem key={r.id} value={r.id}>
                         {r.name}{r.roastLevel ? ` — ${ROAST_LEVEL_LABELS[r.roastLevel] ?? r.roastLevel}` : ""}
                       </SelectItem>
@@ -473,7 +497,7 @@ export function RoastingForm({
           <Separator className="bg-white/50" />
           <FieldGroup>
             <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-              Berat Keluar / Matang (kg) <span className="text-red-500">*</span>
+              Berat Roasted Bean keluar (kg) <span className="text-red-500">*</span>
             </Label>
             <Input
               type="number"
@@ -490,20 +514,77 @@ export function RoastingForm({
           <ShrinkageDisplay
             input={Number(targetWeightKg) || 0}
             output={Number(actualOutputKg) || 0}
+            recentLosses={recentComparableLosses}
           />
         </>
       )}
 
       {/* ── Catatan ── */}
-      <FieldGroup>
-        <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Catatan (opsional)</Label>
-        <Textarea
-          placeholder="Kondisi roasting, profil, dll."
-          rows={3}
-          className={cn("resize-none text-sm", glassInput)}
-          {...register("notes")}
-        />
-      </FieldGroup>
+      <button
+        type="button"
+        onClick={() => setShowAdvanced((current) => !current)}
+        className="flex w-full items-center justify-between rounded-lg px-1 py-1 text-xs font-semibold text-slate-500 hover:text-slate-700"
+      >
+        Opsi lanjutan · Artisan & catatan
+        <ChevronDown size={14} className={cn("transition-transform", showAdvanced && "rotate-180")} />
+      </button>
+
+      {showAdvanced && (
+        <div className={cn(glassCard, "space-y-4")}>
+          <div>
+            <Label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Alur pencatatan
+            </Label>
+            <Controller
+              control={control}
+              name="mode"
+              render={({ field }) => (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => field.onChange("MANUAL")}
+                    className={cn(
+                      "min-h-10 rounded-xl border px-3 text-xs font-semibold",
+                      field.value === "MANUAL"
+                        ? "border-emerald-500 bg-emerald-500 text-white"
+                        : "border-white/60 bg-white/40 text-slate-600",
+                    )}
+                  >
+                    Hasil sekarang
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => field.onChange("ARTISAN")}
+                    className={cn(
+                      "min-h-10 rounded-xl border px-3 text-xs font-semibold",
+                      field.value === "ARTISAN"
+                        ? "border-indigo-500 bg-indigo-500 text-white"
+                        : "border-white/60 bg-white/40 text-slate-600",
+                    )}
+                  >
+                    Tunggu Artisan
+                  </button>
+                </div>
+              )}
+            />
+            <p className="mt-2 text-[10px] leading-4 text-slate-500">
+              {mode === "ARTISAN"
+                ? "Green Bean dicadangkan sekarang; hasil akhir masuk otomatis dari Artisan."
+                : "Green Bean keluar dan Roasted Bean masuk dalam satu penyimpanan."}
+            </p>
+          </div>
+
+          <FieldGroup>
+            <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Catatan (opsional)</Label>
+            <Textarea
+              placeholder="Profil, kondisi mesin, atau hasil cupping"
+              rows={2}
+              className={cn("resize-none text-sm", glassInput)}
+              {...register("notes")}
+            />
+          </FieldGroup>
+        </div>
+      )}
 
       <button type="submit" className="hidden" aria-hidden disabled={isSubmitting} />
     </form>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import {
   Table,
@@ -58,7 +58,7 @@ type PODetailData = {
 function POStatusBadge({ status }: { status: POStatus }) {
   const map: Record<POStatus, { label: string; className: string }> = {
     DRAFT: { label: "Draft", className: "bg-slate-100 text-slate-600 border-slate-200" },
-    SENT: { label: "Terkirim", className: "bg-blue-50 text-blue-700 border-blue-200" },
+    SENT: { label: "Terkirim", className: "bg-blue-50 text-amber-800 border-blue-200" },
     PARTIAL: { label: "Sebagian", className: "bg-amber-50 text-amber-700 border-amber-200" },
     RECEIVED: { label: "Diterima", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
     CANCELLED: { label: "Dibatalkan", className: "bg-red-50 text-red-600 border-red-200" },
@@ -89,11 +89,7 @@ export function PODetail({ poId, onClose, onUpdate, suppliers, products, packagi
   const [loading, setLoading] = useState(true);
   const [showReceiveForm, setShowReceiveForm] = useState(false);
 
-  useEffect(() => {
-    loadDetail();
-  }, [poId]);
-
-  const loadDetail = async () => {
+  const loadDetail = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getPODetail(poId);
@@ -101,7 +97,11 @@ export function PODetail({ poId, onClose, onUpdate, suppliers, products, packagi
     } finally {
       setLoading(false);
     }
-  };
+  }, [poId]);
+
+  useEffect(() => {
+    loadDetail();
+  }, [loadDetail]);
 
   const handleCancel = async () => {
     if (!confirm("Batalkan PO ini?")) return;

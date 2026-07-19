@@ -17,9 +17,9 @@ export function PaymentTable({
   }
 
   return (
-    <>
+    <div data-testid="payment-history">
       {/* Desktop table */}
-      <div data-testid="payment-history" className="hidden md:block overflow-x-auto rounded-xl border border-white/60 bg-white/40">
+      <div className="hidden md:block overflow-x-auto rounded-xl border border-white/60 bg-white/40">
         <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-3 border-b border-white/60 px-4 py-3 text-xs font-bold uppercase text-slate-500">
           <span>Pembayaran</span>
           <span>Invoice / Customer</span>
@@ -53,7 +53,7 @@ export function PaymentTable({
       </div>
 
       {/* Mobile card view */}
-      <div data-testid="payment-history" className="md:hidden flex flex-col gap-2">
+      <div className="md:hidden flex flex-col gap-2">
         {rows.map((row) => (
           <div key={row.id} className="rounded-xl border border-white/60 bg-white/40 p-4 backdrop-blur-md">
             <div className="flex items-start justify-between">
@@ -83,6 +83,6 @@ export function PaymentTable({
           </div>
         ))}
       </div>
-    </>
+    </div>
   );
 }

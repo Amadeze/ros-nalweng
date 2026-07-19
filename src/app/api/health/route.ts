@@ -28,10 +28,18 @@ export async function GET(req: Request) {
 
   try {
     await prisma.$queryRaw`SELECT 1`;
-    const encryptedCredentials = await prisma.tenant.findMany({
-      where: { midtransServerKey: { startsWith: "enc:v1:" } },
-      select: { midtransServerKey: true },
-    });
+    const [encryptedCredentials, recentJobRuns] = await Promise.all([
+      prisma.tenant.findMany({
+        where: { midtransServerKey: { startsWith: "enc:v1:" } },
+        select: { midtransServerKey: true },
+      }),
+      prisma.jobRun.findMany({
+        where: { jobName: { in: ["subscriptions", "overdue-reminders", "daily-brief"] } },
+        orderBy: { startedAt: "desc" },
+        take: 30,
+        select: { jobName: true, status: true, startedAt: true, finishedAt: true },
+      }),
+    ]);
     let credentialDecryptFailures = 0;
     for (const tenant of encryptedCredentials) {
       if (!tenant.midtransServerKey || !isEncryptedCredential(tenant.midtransServerKey)) continue;
@@ -44,6 +52,23 @@ export async function GET(req: Request) {
     const hasMissingConfig = missingConfiguration.length > 0;
     const hasDecryptFailures = credentialDecryptFailures > 0;
     const ready = !hasMissingConfig && !hasDecryptFailures;
+    const now = getCurrentDate();
+    const freshnessThreshold = new Date(now.getTime() - 36 * 60 * 60 * 1_000);
+    const operationalJobs = ["subscriptions", "overdue-reminders", "daily-brief"].map((jobName) => {
+      const latest = recentJobRuns.find((run) => run.jobName === jobName);
+      return {
+        jobName,
+        status: !latest
+          ? "not_observed"
+          : latest.status === "FAILED"
+            ? "failed"
+            : latest.startedAt < freshnessThreshold
+              ? "stale"
+              : "fresh",
+        lastStartedAt: latest?.startedAt.toISOString() ?? null,
+        lastFinishedAt: latest?.finishedAt?.toISOString() ?? null,
+      };
+    });
     
     return NextResponse.json(
       {
@@ -54,6 +79,7 @@ export async function GET(req: Request) {
         latencyMs: Math.round(performance.now() - startedAt),
         version: process.env.npm_package_version || "unknown",
         release: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || null,
+        operationalJobs,
       },
       {
         status: ready ? 200 : 503,

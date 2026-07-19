@@ -36,6 +36,7 @@ const FaqSchema = z.object({
 
 const SettingsSchema = z.object({
   name: optionalText(120),
+  timezone: z.enum(["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"]).optional(),
   themeColor: z.enum(["amber", "blue", "emerald", "rose", "violet", "zinc"]).optional(),
   heroText: optionalText(300),
   logoUrl: optionalUrl,
@@ -84,6 +85,7 @@ export async function updateTenantSettings(_tenantId: string, data: unknown) {
       where: { id: tenantId },
       data: {
         name: parsed.name,
+        timezone: parsed.timezone,
         themeColor: parsed.themeColor,
         heroText: parsed.heroText,
         logoUrl: parsed.logoUrl,

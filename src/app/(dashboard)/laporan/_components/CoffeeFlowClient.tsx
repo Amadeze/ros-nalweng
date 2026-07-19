@@ -43,7 +43,7 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 sm:text-sm transition-all"
+            className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-700/20 focus:border-amber-700 sm:text-sm transition-all"
             placeholder="Cari nama kopi..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

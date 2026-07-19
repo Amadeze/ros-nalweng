@@ -39,6 +39,29 @@ export function getPurchasePaymentStatus(
   return "PARTIAL";
 }
 
+/** Derive accounting state from the one fact the user knows: how much was paid. */
+export function resolvePurchasePaymentFromAmount(
+  totalCost: number,
+  requestedPaidAmount: number | undefined,
+) {
+  if (!Number.isFinite(totalCost) || totalCost <= 0) {
+    throw new Error("Total pembelian harus lebih dari 0.");
+  }
+  const paidAmount = requestedPaidAmount ?? totalCost;
+  if (!Number.isFinite(paidAmount) || paidAmount < 0) {
+    throw new Error("Jumlah dibayar tidak valid.");
+  }
+  if (paidAmount > totalCost + 0.01) {
+    throw new Error("Jumlah dibayar tidak boleh melebihi total pembelian.");
+  }
+  const normalizedPaidAmount = Math.min(paidAmount, totalCost);
+  return {
+    paymentStatus: getPurchasePaymentStatus(normalizedPaidAmount, totalCost),
+    paidAmount: normalizedPaidAmount,
+    balance: Math.max(0, totalCost - normalizedPaidAmount),
+  };
+}
+
 export function getPayableAgingBucket(
   dueDate: Date | null,
   asOf = getCurrentDate(),

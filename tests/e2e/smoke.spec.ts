@@ -17,7 +17,6 @@ const DASHBOARD_ROUTES = [
   "/keuangan",
   "/laporan",
   "/master-data",
-  "/mitra",
   "/audit",
   "/settings",
   "/billing",
@@ -225,7 +224,7 @@ test("all owner dashboard modules render", async ({ context, page }) => {
           await expect(page.getByRole("heading", { name: "Bayar Supplier" })).not.toBeVisible();
 
           await page.getByRole("button", { name: /^Bayar Supplier \(/ }).click();
-          await expect(page.getByText(temporaryPurchaseCode)).toBeVisible();
+          await expect(page.getByText(temporaryPurchaseCode).filter({ visible: true })).toBeVisible();
         }
       }
       if (route === "/audit") {

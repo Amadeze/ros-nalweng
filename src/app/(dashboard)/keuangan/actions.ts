@@ -6,7 +6,9 @@ import { recordAudit } from "@/lib/audit";
 import { randomBytes } from "crypto";
 import { appendLedger } from "@/lib/stock";
 import { getPurchasePaymentStatus } from "@/lib/purchase-payments";
-import { getCurrentDate } from "@/lib/date-utils";
+import { getCurrentDate, getZonedMonthRange } from "@/lib/date-utils";
+import { calculateSalesPerformance } from "@/lib/financial-reporting";
+import { prisma } from "@/lib/prisma";
 
 // =============================================================================
 // TYPES
@@ -137,6 +139,10 @@ export type PnLReport = {
   previousMonthGrossProfit?: number;
   previousMonthOpex?: number;
   previousMonthNetProfit?: number;
+  periodStart: string;
+  periodEnd: string;
+  timezone: string;
+  reconciliationDifference: number;
 };
 
 // =============================================================================
@@ -145,9 +151,17 @@ export type PnLReport = {
 
 export async function getKeuanganPageData(): Promise<KeuanganPageData> {
   const now = getCurrentDate();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+  const tenantId = await getCurrentTenantId();
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { timezone: true } });
+  const localNow = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tenant?.timezone ?? "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(now);
+  const year = Number(localNow.find((part) => part.type === "year")?.value);
+  const month = Number(localNow.find((part) => part.type === "month")?.value);
+  const currentPeriod = getZonedMonthRange(year, month, tenant?.timezone);
+  const previousPeriod = getZonedMonthRange(month === 1 ? year - 1 : year, month === 1 ? 12 : month - 1, tenant?.timezone);
 
   const [piutangInvoices, revenueMTDRaw, revenueLastMonthRaw] = await Promise.all([
     (await requireTenantPrisma()).invoice.findMany({
@@ -162,12 +176,12 @@ export async function getKeuanganPageData(): Promise<KeuanganPageData> {
       },
     }),
     (await requireTenantPrisma()).invoice.aggregate({
-      where: { status: "PAID", issuedAt: { gte: startOfMonth } },
-      _sum: { grandTotal: true },
+      where: { status: { in: ["ISSUED", "PARTIAL", "PAID"] }, issuedAt: { gte: currentPeriod.start, lt: currentPeriod.end } },
+      _sum: { subtotal: true, discount: true },
     }),
     (await requireTenantPrisma()).invoice.aggregate({
-      where: { status: "PAID", issuedAt: { gte: startOfLastMonth, lte: endOfLastMonth } },
-      _sum: { grandTotal: true },
+      where: { status: { in: ["ISSUED", "PARTIAL", "PAID"] }, issuedAt: { gte: previousPeriod.start, lt: previousPeriod.end } },
+      _sum: { subtotal: true, discount: true },
     }),
   ]);
 
@@ -217,8 +231,8 @@ export async function getKeuanganPageData(): Promise<KeuanganPageData> {
       piutangCount: piutangRows.length,
       overdueCount,
       overdueTotal,
-      revenueMTD: Number(revenueMTDRaw._sum.grandTotal ?? 0),
-      revenueLastMonth: Number(revenueLastMonthRaw._sum.grandTotal ?? 0),
+      revenueMTD: Number(revenueMTDRaw._sum.subtotal ?? 0) - Number(revenueMTDRaw._sum.discount ?? 0),
+      revenueLastMonth: Number(revenueLastMonthRaw._sum.subtotal ?? 0) - Number(revenueLastMonthRaw._sum.discount ?? 0),
     },
   };
 }
@@ -344,163 +358,134 @@ export async function getPnLReport(month: number, year: number): Promise<PnLRepo
   ) {
     throw new Error("Periode laporan tidak valid.");
   }
-  const startDate = new Date(year, month - 1, 1);
-  const endDate   = new Date(year, month, 0, 23, 59, 59, 999);
-
   let prevMonth = month - 1;
   let prevYear  = year;
   if (prevMonth < 1) {
     prevMonth = 12;
     prevYear -= 1;
   }
-  const prevStartDate = new Date(prevYear, prevMonth - 1, 1);
-  const prevEndDate   = new Date(prevYear, prevMonth, 0, 23, 59, 59, 999);
-
+  const tenantId = await getCurrentTenantId();
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { timezone: true },
+  });
+  const period = getZonedMonthRange(year, month, tenant?.timezone);
+  const previousPeriod = getZonedMonthRange(prevYear, prevMonth, tenant?.timezone);
   const tp = await requireTenantPrisma();
 
   const [invoices, expenses, prevInvoices, prevExpenses] = await Promise.all([
     tp.invoice.findMany({
-      where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: startDate, lte: endDate } },
-      select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, hpp: true, unitPrice: true, discount: true, product: { select: { type: true, name: true } } } } },
+      where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: period.start, lt: period.end } },
+      select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, subtotal: true, hpp: true, product: { select: { type: true, name: true } } } } },
     }),
-    tp.expense.findMany({ where: { voidAt: null, date: { gte: startDate, lte: endDate } }, select: { category: true, amount: true } }),
+    tp.expense.findMany({ where: { voidAt: null, date: { gte: period.start, lt: period.end } }, select: { category: true, amount: true } }),
     tp.invoice.findMany({
-      where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: prevStartDate, lte: prevEndDate } },
-      select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, hpp: true, unitPrice: true, discount: true, product: { select: { type: true, name: true } } } } },
+      where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: previousPeriod.start, lt: previousPeriod.end } },
+      select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, subtotal: true, hpp: true, product: { select: { type: true, name: true } } } } },
     }),
-    tp.expense.findMany({ where: { voidAt: null, date: { gte: prevStartDate, lte: prevEndDate } }, select: { category: true, amount: true } }),
+    tp.expense.findMany({ where: { voidAt: null, date: { gte: previousPeriod.start, lt: previousPeriod.end } }, select: { category: true, amount: true } }),
   ]);
 
-  // ==========================================
-  // MATERIAL LOSSES / GAINS (ABNORMAL SHRINKAGE / OPNAME)
-  // ==========================================
-  const adjustments = await tp.inventoryLedger.findMany({
-    where: { refType: { in: ["ADJUSTMENT_IN", "ADJUSTMENT_OUT"] }, createdAt: { gte: startDate, lte: endDate } },
-    include: { product: { include: { purchases: { where: { status: "COMPLETED" }, orderBy: { receivedAt: "desc" }, take: 1 }, productionBatches: { where: { status: "COMPLETED" }, orderBy: { producedAt: "desc" }, take: 1 } } }, packaging: true }
-  });
+  const toFinancialInvoices = (rows: typeof invoices) => rows.map((invoice) => ({
+    subtotal: Number(invoice.subtotal),
+    discount: Number(invoice.discount),
+    tax: Number(invoice.tax),
+    customerName: invoice.customer?.name ?? null,
+    items: invoice.items.map((item) => ({
+      productType: item.product?.type ?? null,
+      productName: item.product?.name ?? null,
+      quantity: item.quantity,
+      subtotal: Number(item.subtotal),
+      hpp: Number(item.hpp),
+    })),
+  }));
 
-  let totalAdjustmentOutValue = 0;
-  let totalAdjustmentInValue = 0;
+  const currentSales = calculateSalesPerformance(toFinancialInvoices(invoices));
+  const previousSales = calculateSalesPerformance(toFinancialInvoices(prevInvoices));
 
-  for (const adj of adjustments) {
-    let unitCost = 0;
-    if (adj.packaging) {
-      unitCost = Number(adj.packaging.costPerUnit);
-    } else if (adj.product) {
-      if (adj.product.type === "GREEN_BEAN" && adj.product.purchases?.[0]) {
-        const pur = adj.product.purchases[0];
-        const wKg = Number(pur.weightKg);
-        unitCost = wKg > 0 ? (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost || 0)) / wKg : 0;
-      } else if (adj.product.type === "FINISHED_GOODS" && adj.product.productionBatches?.[0]) {
-        unitCost = Number(adj.product.productionBatches[0].hppPerUnit);
-      } else if (adj.product.type === "ROASTED_BEAN") {
-        const lastRoast = await tp.parentRoastingBatch.findFirst({
-          where: { outputProductId: adj.productId as string, status: "COMPLETED" },
-          orderBy: { createdAt: "desc" },
-          include: { inputProduct: { include: { purchases: { where: { status: "COMPLETED" }, orderBy: { receivedAt: "desc" }, take: 1 } } } }
-        });
-        if (lastRoast && lastRoast.inputProduct?.purchases?.[0]) {
-          const pur = lastRoast.inputProduct.purchases[0];
-          const wKg = Number(pur.weightKg);
-          const gbCost = wKg > 0 ? (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost || 0)) / wKg : 0;
-          const outW = Number(lastRoast.actualOutputKg);
-          unitCost = outW > 0 ? gbCost * (Number(lastRoast.targetWeightKg) / outW) : gbCost;
-        }
-      }
-    }
-    const qty = Number(adj.quantityKg || adj.quantityUnit || 0);
-    const value = qty * unitCost;
-    if (adj.refType === "ADJUSTMENT_OUT") totalAdjustmentOutValue += value;
-    if (adj.refType === "ADJUSTMENT_IN") totalAdjustmentInValue += value;
-  }
+  const getAdjustmentValues = async (start: Date, end: Date) => {
+    const rows = await tp.inventoryLedger.findMany({
+      where: {
+        refType: { in: ["ADJUSTMENT_IN", "ADJUSTMENT_OUT"] },
+        createdAt: { gte: start, lt: end },
+      },
+      select: {
+        refType: true,
+        quantityKg: true,
+        quantityUnit: true,
+        product: { select: { avgCostPerKg: true } },
+        packaging: { select: { avgCostPerUnit: true, costPerUnit: true } },
+      },
+    });
+    return rows.reduce(
+      (result, row) => {
+        const quantity = Number(row.quantityKg ?? row.quantityUnit ?? 0);
+        const unitCost = row.product
+          ? Number(row.product.avgCostPerKg ?? 0)
+          : Number(row.packaging?.avgCostPerUnit ?? row.packaging?.costPerUnit ?? 0);
+        const value = quantity * unitCost;
+        if (row.refType === "ADJUSTMENT_IN") result.income += value;
+        if (row.refType === "ADJUSTMENT_OUT") result.loss += value;
+        return result;
+      },
+      { income: 0, loss: 0 },
+    );
+  };
+  const [currentAdjustments, previousAdjustments] = await Promise.all([
+    getAdjustmentValues(period.start, period.end),
+    getAdjustmentValues(previousPeriod.start, previousPeriod.end),
+  ]);
 
-  const grossSales      = invoices.reduce((s, inv) => s + Number(inv.subtotal), 0);
-  const invoiceDiscount = invoices.reduce((s, inv) => s + Number(inv.discount), 0);
-  const tax             = invoices.reduce((s, inv) => s + Number(inv.tax), 0);
-  const netSales        = grossSales - invoiceDiscount;
-  let revenue           = netSales;
-  const revenueMap: Record<string, number> = {};
-  const cogsMap: Record<string, number> = {};
-  const productMap: Record<string, { quantity: number; revenue: number }> = {};
-  const customerMap: Record<string, { count: number; revenue: number }> = {};
-  let salesVolumeUnits = 0;
-
-  const cogs = invoices.reduce((sum, inv) => {
-    const invRevenue = Number(inv.subtotal) - Number(inv.discount);
-    if (inv.customer && inv.customer.name && inv.customer.name.trim().toLowerCase() !== "umum") {
-      const cName = inv.customer.name.trim();
-      if (!customerMap[cName]) customerMap[cName] = { count: 0, revenue: 0 };
-      customerMap[cName].count += 1;
-      customerMap[cName].revenue += invRevenue;
-    }
-
-    return sum + inv.items.reduce((itemSum, item) => {
-      const type = item.product?.type || "LAINNYA";
-      const pName = item.product?.name || "Produk Tidak Dikenal";
-      const itemCogs = Number(item.hpp) * item.quantity;
-      cogsMap[type] = (cogsMap[type] ?? 0) + itemCogs;
-
-      const itemRev = (Number(item.unitPrice) - Number(item.discount)) * item.quantity;
-      revenueMap[type] = (revenueMap[type] ?? 0) + itemRev;
-      
-      salesVolumeUnits += item.quantity;
-
-      if (!productMap[pName]) productMap[pName] = { quantity: 0, revenue: 0 };
-      productMap[pName].quantity += item.quantity;
-      productMap[pName].revenue += itemRev;
-
-      return itemSum + itemCogs;
-    }, 0);
-  }, 0);
-
-  if (totalAdjustmentInValue > 0) {
-    revenueMap["PENDAPATAN_LAINNYA"] = (revenueMap["PENDAPATAN_LAINNYA"] ?? 0) + totalAdjustmentInValue;
-  }
-  const revenueBreakdown = Object.entries(revenueMap).map(([category, amount]) => ({ category, amount }));
-  revenue = revenueBreakdown.reduce((s, e) => s + e.amount, 0);
-
-  const cogsBreakdown = Object.entries(cogsMap).map(([category, amount]) => ({ category, amount }));
-  
-  const topProducts = Object.entries(productMap)
-    .map(([name, data]) => ({ name, ...data }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5);
-    
-  const topCustomers = Object.entries(customerMap)
-    .map(([name, data]) => ({ name, ...data }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5);
-
-  const grossProfit = revenue - cogs;
-  
   const opexMap: Record<string, number> = {};
-  for (const e of expenses) { opexMap[e.category] = (opexMap[e.category] ?? 0) + Number(e.amount); }
-  
-  if (totalAdjustmentOutValue > 0) {
-    opexMap["KERUGIAN_MATERIAL"] = (opexMap["KERUGIAN_MATERIAL"] ?? 0) + totalAdjustmentOutValue;
+  for (const expense of expenses) {
+    opexMap[expense.category] = (opexMap[expense.category] ?? 0) + Number(expense.amount);
   }
-  
+  if (currentAdjustments.loss > 0) {
+    opexMap.KERUGIAN_MATERIAL = currentAdjustments.loss;
+  }
   const opexBreakdown = Object.entries(opexMap).map(([category, amount]) => ({ category, amount }));
-  const opex = opexBreakdown.reduce((s, e) => s + e.amount, 0);
-  
-  const netProfit = grossProfit - opex;
+  const opex = opexBreakdown.reduce((sum, row) => sum + row.amount, 0);
 
-  const prevGrossSales = prevInvoices.reduce((s, inv) => s + Number(inv.subtotal), 0);
-  const prevDiscount   = prevInvoices.reduce((s, inv) => s + Number(inv.discount), 0);
-  const prevRevenue    = prevGrossSales - prevDiscount;
-  const prevCogs       = prevInvoices.reduce((sum, inv) => sum + inv.items.reduce((itemSum, item) => itemSum + Number(item.hpp) * item.quantity, 0), 0);
-  const prevGrossProfit = prevRevenue - prevCogs;
-  const prevOpex       = prevExpenses.reduce((s, e) => s + Number(e.amount), 0);
-  const prevNetProfit  = prevGrossProfit - prevOpex;
+  const previousOpex = prevExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0) + previousAdjustments.loss;
+  const revenue = currentSales.netSales + currentAdjustments.income;
+  const revenueBreakdown = [...currentSales.revenueBreakdown];
+  if (currentAdjustments.income > 0) {
+    revenueBreakdown.push({ category: "PENDAPATAN_LAINNYA", amount: currentAdjustments.income });
+  }
+  const grossProfit = revenue - currentSales.cogs;
+  const netProfit = grossProfit - opex;
+  const revenueBreakdownTotal = revenueBreakdown.reduce(
+    (sum, row) => sum + row.amount,
+    0,
+  );
 
   return { 
-    month, year, grossSales, invoiceDiscount, tax, netSales, revenue, cogs, grossProfit, opex, netProfit, 
-    opexBreakdown, revenueBreakdown, cogsBreakdown, salesVolumeUnits, topProducts, topCustomers,
-    previousMonthRevenue: prevRevenue,
-    previousMonthCogs: prevCogs,
-    previousMonthGrossProfit: prevGrossProfit,
-    previousMonthOpex: prevOpex,
-    previousMonthNetProfit: prevNetProfit,
+    month,
+    year,
+    grossSales: currentSales.grossSales,
+    invoiceDiscount: currentSales.invoiceDiscount,
+    tax: currentSales.tax,
+    netSales: currentSales.netSales,
+    revenue,
+    cogs: currentSales.cogs,
+    grossProfit,
+    opex,
+    netProfit,
+    opexBreakdown,
+    revenueBreakdown,
+    cogsBreakdown: currentSales.cogsBreakdown,
+    salesVolumeUnits: currentSales.salesVolumeUnits,
+    topProducts: currentSales.topProducts,
+    topCustomers: currentSales.topCustomers,
+    previousMonthRevenue: previousSales.netSales + previousAdjustments.income,
+    previousMonthCogs: previousSales.cogs,
+    previousMonthGrossProfit: previousSales.grossProfit + previousAdjustments.income,
+    previousMonthOpex: previousOpex,
+    previousMonthNetProfit: previousSales.grossProfit + previousAdjustments.income - previousOpex,
+    periodStart: period.start.toISOString(),
+    periodEnd: period.end.toISOString(),
+    timezone: period.timezone,
+    reconciliationDifference: revenue - revenueBreakdownTotal,
   };
 }
 

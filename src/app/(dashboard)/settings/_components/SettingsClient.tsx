@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { updateTenantSettings } from "../actions";
 import { toast } from "sonner";
 import { Tenant } from "@prisma/client";
@@ -36,6 +36,7 @@ type ExtendedTenant = Omit<Tenant, "midtransServerKey" | "artisanWebhookToken"> 
 export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
   const portalPath = `/tenant/${tenant.subdomain}`;
   const [name, setName] = useState(tenant.name || "");
+  const [timezone, setTimezone] = useState(tenant.timezone || "Asia/Jakarta");
   const [themeColor, setThemeColor] = useState(tenant.themeColor || "amber");
   const [heroText, setHeroText] = useState(tenant.heroText || "");
   const [logoUrl, setLogoUrl] = useState(tenant.logoUrl || "");
@@ -81,6 +82,15 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
   const [isTestingMidtrans, setIsTestingMidtrans] = useState(false);
 
   const [refreshKey, setRefreshKey] = useState(0);
+  const [previewEnabled, setPreviewEnabled] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1280px)");
+    const syncPreview = () => setPreviewEnabled(media.matches);
+    syncPreview();
+    media.addEventListener("change", syncPreview);
+    return () => media.removeEventListener("change", syncPreview);
+  }, []);
 
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState<{ logo: boolean; hero: boolean; background: boolean }>({ logo: false, hero: false, background: false });
@@ -175,6 +185,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
     try {
       await updateTenantSettings(tenant.id, {
         name,
+        timezone,
         themeColor,
         heroText,
         logoUrl,
@@ -214,9 +225,9 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 h-[calc(100vh-140px)]">
+    <div className="grid min-h-0 grid-cols-1 gap-6 xl:h-[calc(100dvh-176px)] xl:grid-cols-2">
       {/* Left Column: Form */}
-      <div className="space-y-8 pr-2 overflow-y-auto pb-24 custom-scrollbar">
+      <div className="space-y-6 pb-8 xl:overflow-y-auto xl:pr-2 custom-scrollbar">
       {/* Basic Settings */}
       <div className="bg-white/60 backdrop-blur-xl border border-white/60 rounded-2xl p-6 shadow-sm">
         <h2 className="text-lg font-bold text-slate-800 mb-4">Roastery Identity</h2>
@@ -231,11 +242,24 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
             />
           </div>
           <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Operational Timezone</label>
+            <select
+              value={timezone}
+              onChange={e => setTimezone(e.target.value)}
+              className="w-full rounded-xl border-slate-200 bg-white/50 px-4 py-2 text-sm focus:border-amber-500 focus:ring-amber-500"
+            >
+              <option value="Asia/Jakarta">WIB · Asia/Jakarta</option>
+              <option value="Asia/Makassar">WITA · Asia/Makassar</option>
+              <option value="Asia/Jayapura">WIT · Asia/Jayapura</option>
+            </select>
+            <p className="mt-1 text-xs text-slate-500">Dipakai untuk batas laporan harian, mingguan, dan bulanan.</p>
+          </div>
+          <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1">Logo Image</label>
             <div className="flex items-center gap-4">
               {logoUrl && (
                 <div className="w-16 h-16 rounded-xl overflow-hidden bg-white shadow-sm border border-slate-100 flex items-center justify-center">
-                  <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                  <img src={logoUrl} alt="Logo" loading="lazy" decoding="async" className="w-full h-full object-contain" />
                 </div>
               )}
               <div className="flex-1">
@@ -305,7 +329,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
       <div className="bg-white/60 backdrop-blur-xl border border-white/60 rounded-2xl p-6 shadow-sm">
         <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
           <h2 className="text-lg font-bold text-slate-800">Payment Gateway (Midtrans)</h2>
-          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">Future Ready</span>
+          <span className="text-xs bg-blue-100 text-amber-800 px-2 py-1 rounded font-semibold">Future Ready</span>
         </div>
         
         <div className="space-y-4">
@@ -478,7 +502,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
               <div className="flex flex-col gap-3">
                 {heroImageUrl && (
                   <div className="w-full h-32 rounded-xl overflow-hidden bg-slate-100 shadow-sm flex items-center justify-center relative group">
-                    <img src={heroImageUrl} alt="Hero" className="w-full h-full object-cover" />
+                    <img src={heroImageUrl} alt="Hero" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                        <button onClick={() => setHeroImageUrl("")} className="text-white text-xs font-bold bg-red-500 px-3 py-1 rounded">Remove</button>
                     </div>
@@ -509,7 +533,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
               <div className="flex flex-col gap-3">
                 {backgroundImageUrl && (
                   <div className="w-full h-32 rounded-xl overflow-hidden bg-slate-100 shadow-sm flex items-center justify-center relative group">
-                    <img src={backgroundImageUrl} alt="Background" className="w-full h-full object-cover" />
+                    <img src={backgroundImageUrl} alt="Background" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                        <button onClick={() => setBackgroundImageUrl("")} className="text-white text-xs font-bold bg-red-500 px-3 py-1 rounded">Remove</button>
                     </div>
@@ -738,12 +762,15 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
         
         {/* Iframe */}
         <div className="flex-1 bg-white relative">
-          <iframe 
-            key={refreshKey}
-            src={portalPath}
-            className="w-full h-full border-none"
-            title="Live Preview"
-          />
+          {previewEnabled ? (
+            <iframe
+              key={refreshKey}
+              src={portalPath}
+              loading="lazy"
+              className="w-full h-full border-none"
+              title="Live Preview"
+            />
+          ) : null}
         </div>
       </div>
     </div>

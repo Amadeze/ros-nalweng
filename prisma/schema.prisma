@@ -41,7 +41,6 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
-
 enum ProductType {
   GREEN_BEAN // biji kopi mentah
   ROASTED_BEAN // biji kopi yang sudah di-roast
@@ -99,6 +98,12 @@ enum LedgerEntryType {
   OUT // stok keluar
 }
 
+enum JobRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
 enum ExpenseCategory {
   GAJI // Gaji & tunjangan karyawan
   UTILITAS // Listrik, air, internet
@@ -126,75 +131,78 @@ enum LedgerRefType {
 // =============================================================================
 
 model Tenant {
-  id           String   @id @default(cuid())
-  code         String   @unique
-  name         String
-  subdomain    String?  @unique
-  themeColor   String   @default("amber")
-  logoUrl      String?
-  heroImageUrl String?
-  heroText     String?
-  backgroundImageUrl String?
-  whatsappNumber String?
-  contactEmail   String?
-  instagramHandle String?
-  aboutText      String?
-  catalogTitle   String?
-  catalogSubtitle String?
-  footerText     String?
-  problemStatement String?
-  solutionStatement String?
-  uspText        String?
-  features       Json?
-  testimonials   Json?
-  faqs           Json?
-  midtransClientKey String?
-  midtransServerKey String?
+  id                   String  @id @default(cuid())
+  code                 String  @unique
+  name                 String
+  subdomain            String? @unique
+  themeColor           String  @default("amber")
+  logoUrl              String?
+  heroImageUrl         String?
+  heroText             String?
+  backgroundImageUrl   String?
+  whatsappNumber       String?
+  contactEmail         String?
+  instagramHandle      String?
+  aboutText            String?
+  catalogTitle         String?
+  catalogSubtitle      String?
+  footerText           String?
+  problemStatement     String?
+  solutionStatement    String?
+  uspText              String?
+  features             Json?
+  testimonials         Json?
+  faqs                 Json?
+  midtransClientKey    String?
+  midtransServerKey    String?
   midtransIsProduction Boolean @default(false)
-  isArtisanEnabled Boolean @default(false)
-  artisanWebhookToken String? @unique
-  layoutStyle  String   @default("modern")
-  fontFamily   String   @default("sans")
-  themeMode    String   @default("light")
-  borderRadius String   @default("md")
-  animationStyle String @default("subtle")
-  animationDirection String @default("up")
-  iconStyle    String   @default("regular")
-  isActive     Boolean  @default(true)
-  themeConfig  Json?
+  isArtisanEnabled     Boolean @default(false)
+  artisanWebhookToken  String? @unique
+  layoutStyle          String  @default("modern")
+  fontFamily           String  @default("sans")
+  themeMode            String  @default("light")
+  borderRadius         String  @default("md")
+  animationStyle       String  @default("subtle")
+  animationDirection   String  @default("up")
+  iconStyle            String  @default("regular")
+  isActive             Boolean @default(true)
+  themeConfig          Json?
+  timezone             String  @default("Asia/Jakarta")
 
   // Subscription & Billing Fields
-  subscriptionTier   SubscriptionTier @default(TRIAL)
+  subscriptionTier   SubscriptionTier   @default(TRIAL)
   subscriptionStatus SubscriptionStatus @default(ACTIVE)
   trialEndsAt        DateTime?
   nextBillingDate    DateTime?
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  users               User[]
-  customers           Customer[]
-  suppliers           Supplier[]
-  products            Product[]
-  packagings          Packaging[]
-  recipes             Recipe[]
-  purchases           Purchase[]
-  purchaseOrders      PurchaseOrder[]
-  purchaseOrderItems  PurchaseOrderItem[]
+  users                 User[]
+  customers             Customer[]
+  suppliers             Supplier[]
+  products              Product[]
+  packagings            Packaging[]
+  recipes               Recipe[]
+  purchases             Purchase[]
+  purchaseOrders        PurchaseOrder[]
+  purchaseOrderItems    PurchaseOrderItem[]
   parentRoastingBatches ParentRoastingBatch[]
-  productionBatches   ProductionBatch[]
-  invoices            Invoice[]
-  payments            Payment[]
-  supplierPayments    SupplierPayment[]
-  inventoryLedgers    InventoryLedger[]
-  expenses            Expense[]
-  subscriptionPayments SubscriptionPayment[]
-  auditLogs            AuditLog[]
-  webhookEvents        WebhookEvent[]
-  reminderDeliveries   ReminderDelivery[]
-  recipeItems          RecipeItem[]
-  childRoastingBatches ChildRoastingBatch[]
-  invoiceItems         InvoiceItem[]
+  productionBatches     ProductionBatch[]
+  invoices              Invoice[]
+  payments              Payment[]
+  supplierPayments      SupplierPayment[]
+  inventoryLedgers      InventoryLedger[]
+  expenses              Expense[]
+  subscriptionPayments  SubscriptionPayment[]
+  auditLogs             AuditLog[]
+  webhookEvents         WebhookEvent[]
+  reminderDeliveries    ReminderDelivery[]
+  recipeItems           RecipeItem[]
+  childRoastingBatches  ChildRoastingBatch[]
+  invoiceItems          InvoiceItem[]
+  jobRuns               JobRun[]
+  dailyBriefSnapshots   DailyBriefSnapshot[]
 
   @@map("tenants")
 }
@@ -207,19 +215,18 @@ model SubscriptionPayment {
   id              String           @id @default(cuid())
   tenantId        String
   amount          Decimal          @db.Decimal(12, 2)
-  status          String           // "PENDING", "SUCCESS", "FAILED"
+  status          String // "PENDING", "SUCCESS", "FAILED"
   midtransOrderId String           @unique
   paymentUrl      String?
   tier            SubscriptionTier
 
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@map("subscription_payments")
 }
-
 
 // =============================================================================
 // TABLE 1 · User
@@ -235,30 +242,30 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  purchases         Purchase[]
-  purchaseOrders    PurchaseOrder[]
+  purchases             Purchase[]
+  purchaseOrders        PurchaseOrder[]
   parentRoastingBatches ParentRoastingBatch[]
-  productionBatches ProductionBatch[]
-  invoices          Invoice[]
-  payments          Payment[]
-  supplierPayments  SupplierPayment[]
-  ledgerEntries     InventoryLedger[]
-  expenses          Expense[]
-  auditLogs         AuditLog[]
-  passwordResetTokens PasswordResetToken[]
-  tenantId          String            @default("default")
-  tenant            Tenant            @relation(fields: [tenantId], references: [id])
+  productionBatches     ProductionBatch[]
+  invoices              Invoice[]
+  payments              Payment[]
+  supplierPayments      SupplierPayment[]
+  ledgerEntries         InventoryLedger[]
+  expenses              Expense[]
+  auditLogs             AuditLog[]
+  passwordResetTokens   PasswordResetToken[]
+  tenantId              String                @default("default")
+  tenant                Tenant                @relation(fields: [tenantId], references: [id])
 
   @@map("users")
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -307,10 +314,10 @@ model Supplier {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  purchases Purchase[]
+  purchases      Purchase[]
   purchaseOrders PurchaseOrder[]
-  tenantId  String     @default("default")
-  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  tenantId       String          @default("default")
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
@@ -324,39 +331,42 @@ model Supplier {
 // =============================================================================
 
 model Product {
-  id          String      @id @default(cuid())
-  code        String // e.g., "GB-GAYO-001", "RB-ETHIOPIA-MED", "FG-BLEND-250"
-  name        String
-  type        ProductType
-  category    String? // e.g. "Espresso Base", "Specialty"
-  origin      String? // asal kopi: "Gayo", "Ethiopia Yirgacheffe", dsb.
-  roastLevel  RoastLevel? // hanya relevan untuk ROASTED_BEAN
-  description String?
-  imageUrl    String? // URL gambar produk
-  price       Decimal?    @default(0) @db.Decimal(12, 2) // Harga jual retail
-  priceSilver Decimal?    @default(0) @db.Decimal(12, 2) // Harga jual Wholesale Silver
-  priceGold   Decimal?    @default(0) @db.Decimal(12, 2) // Harga jual Wholesale Gold
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id                String      @id @default(cuid())
+  code              String // e.g., "GB-GAYO-001", "RB-ETHIOPIA-MED", "FG-BLEND-250"
+  name              String
+  type              ProductType
+  category          String? // e.g. "Espresso Base", "Specialty"
+  origin            String? // asal kopi: "Gayo", "Ethiopia Yirgacheffe", dsb.
+  roastLevel        RoastLevel? // hanya relevan untuk ROASTED_BEAN
+  sourceGreenBeanId String? // exact GREEN_BEAN identity used to create this ROASTED_BEAN
+  description       String?
+  imageUrl          String? // URL gambar produk
+  price             Decimal?    @default(0) @db.Decimal(12, 2) // Harga jual retail
+  priceSilver       Decimal?    @default(0) @db.Decimal(12, 2) // Harga jual Wholesale Silver
+  priceGold         Decimal?    @default(0) @db.Decimal(12, 2) // Harga jual Wholesale Gold
+  isActive          Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
   // Caching Field untuk Performa
-  stockUnit   Int         @default(0) // Cache jumlah unit (FG)
-  stockKg      Decimal     @default(0) @db.Decimal(10, 3) // Cache berat kg (GB/RB)
-  lastHpp      Decimal?    @db.Decimal(12, 2) // HPP terakhir untuk FG
-  avgCostPerKg Decimal?    @default(0) @db.Decimal(12, 2) // Moving average HPP
+  stockUnit    Int      @default(0) // Cache jumlah unit (FG)
+  stockKg      Decimal  @default(0) @db.Decimal(10, 3) // Cache berat kg (GB/RB)
+  lastHpp      Decimal? @db.Decimal(12, 2) // HPP terakhir untuk FG
+  avgCostPerKg Decimal? @default(0) @db.Decimal(12, 2) // Moving average HPP
 
   // Reorder alert configuration
-  reorderAlertEnabled  Boolean   @default(false)
-  leadTimeDays         Int       @default(7)
-  safetyStockQuantity  Decimal   @default(0) @db.Decimal(10, 3)
-  reorderLookbackDays  Int       @default(30)
+  reorderAlertEnabled Boolean @default(false)
+  leadTimeDays        Int     @default(7)
+  safetyStockQuantity Decimal @default(0) @db.Decimal(10, 3)
+  reorderLookbackDays Int     @default(30)
 
   // Relasi transaksi hulu
-  purchases       Purchase[]
+  purchases          Purchase[]
   purchaseOrderItems PurchaseOrderItem[]
-  roastingInputs  ParentRoastingBatch[] @relation("RoastingInput")
-  roastingOutputs ParentRoastingBatch[] @relation("RoastingOutput")
+  roastingInputs     ParentRoastingBatch[] @relation("RoastingInput")
+  roastingOutputs    ParentRoastingBatch[] @relation("RoastingOutput")
+  sourceGreenBean    Product?              @relation("GreenBeanRoastOutputs", fields: [sourceGreenBeanId], references: [id], onDelete: SetNull)
+  roastLevelOutputs  Product[]             @relation("GreenBeanRoastOutputs")
 
   // Relasi resep & produksi
   recipeItems       RecipeItem[]
@@ -372,7 +382,9 @@ model Product {
   tenant        Tenant            @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, code])
+  @@unique([tenantId, sourceGreenBeanId, roastLevel])
   @@index([tenantId, type, isActive])
+  @@index([tenantId, sourceGreenBeanId])
   @@map("products")
 }
 
@@ -383,32 +395,32 @@ model Product {
 // =============================================================================
 
 model Packaging {
-  id          String   @id @default(cuid())
-  code        String // e.g., "PKG-ZIPPER-250"
-  name        String // "Zipper Bag 250g", "Kraft Box 1kg"
-  weightGrams Decimal  @db.Decimal(8, 2) // berat kemasan kosong (gram)
+  id             String   @id @default(cuid())
+  code           String // e.g., "PKG-ZIPPER-250"
+  name           String // "Zipper Bag 250g", "Kraft Box 1kg"
+  weightGrams    Decimal  @db.Decimal(8, 2) // berat kemasan kosong (gram)
   costPerUnit    Decimal  @db.Decimal(12, 2) // HPP kemasan per unit
   avgCostPerUnit Decimal? @default(0) @db.Decimal(12, 2) // Moving average HPP kemasan per unit
   isActive       Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Caching Field untuk Performa
-  stockUnit   Int      @default(0) // Cache jumlah unit tersedia
+  stockUnit Int @default(0) // Cache jumlah unit tersedia
 
   // Reorder alert configuration
-  reorderAlertEnabled  Boolean   @default(false)
-  leadTimeDays         Int       @default(7)
-  safetyStockQuantity  Int       @default(0)
-  reorderLookbackDays  Int       @default(30)
+  reorderAlertEnabled Boolean @default(false)
+  leadTimeDays        Int     @default(7)
+  safetyStockQuantity Int     @default(0)
+  reorderLookbackDays Int     @default(30)
 
-  purchases         Purchase[]
+  purchases          Purchase[]
   purchaseOrderItems PurchaseOrderItem[]
-  recipes           Recipe[]
-  productionBatches ProductionBatch[]
-  ledgerEntries     InventoryLedger[]
-  tenantId          String            @default("default")
-  tenant            Tenant            @relation(fields: [tenantId], references: [id])
+  recipes            Recipe[]
+  productionBatches  ProductionBatch[]
+  ledgerEntries      InventoryLedger[]
+  tenantId           String              @default("default")
+  tenant             Tenant              @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
@@ -458,8 +470,8 @@ model RecipeItem {
   ratioPercent Decimal @db.Decimal(5, 2) // % kontribusi dalam blend
   gramsPerUnit Decimal @db.Decimal(8, 3) // gram RB per 1 unit output
 
-  recipe  Recipe  @relation(fields: [recipeId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  recipe   Recipe  @relation(fields: [recipeId], references: [id])
+  product  Product @relation(fields: [productId], references: [id])
   tenantId String  @default("default")
   tenant   Tenant  @relation(fields: [tenantId], references: [id])
 
@@ -479,9 +491,10 @@ model RecipeItem {
 // =============================================================================
 
 model Purchase {
-  id   String       @id @default(cuid())
-  code String // e.g., "PUR-2024-001"
-  type PurchaseType
+  id           String       @id @default(cuid())
+  code         String // e.g., "PUR-2024-001"
+  operationKey String? // Idempotency key supplied by the receiving command
+  type         PurchaseType
 
   supplierId  String
   productId   String? // wajib jika type = GREEN_BEAN
@@ -510,15 +523,16 @@ model Purchase {
   purchaseOrderId String?
   purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
 
-  supplier  Supplier   @relation(fields: [supplierId], references: [id])
-  product   Product?   @relation(fields: [productId], references: [id])
-  packaging Packaging? @relation(fields: [packagingId], references: [id])
-  createdBy User       @relation(fields: [createdById], references: [id])
+  supplier  Supplier          @relation(fields: [supplierId], references: [id])
+  product   Product?          @relation(fields: [productId], references: [id])
+  packaging Packaging?        @relation(fields: [packagingId], references: [id])
+  createdBy User              @relation(fields: [createdById], references: [id])
   payments  SupplierPayment[]
-  tenantId  String     @default("default")
-  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  tenantId  String            @default("default")
+  tenant    Tenant            @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, code])
+  @@unique([tenantId, operationKey])
   @@index([tenantId, receivedAt])
   @@index([tenantId, status])
   @@index([tenantId, paymentStatus, dueDate])
@@ -535,52 +549,54 @@ model Purchase {
 // =============================================================================
 
 model ParentRoastingBatch {
-  id              String   @id @default(cuid())
-  code            String // e.g., "PRST-2024-001"
-  tenantId        String   @default("default")
+  id           String  @id @default(cuid())
+  code         String // e.g., "PRST-2024-001"
+  operationKey String? // Idempotency key supplied by the roast command
+  tenantId     String  @default("default")
 
-  inputProductId  String   // FK → Product (type = GREEN_BEAN)
-  targetWeightKg  Decimal  @db.Decimal(10, 3) // Target dari Gudang Pagi (Misal: 20 Kg)
+  inputProductId String // FK → Product (type = GREEN_BEAN)
+  targetWeightKg Decimal @db.Decimal(10, 3) // Target dari Gudang Pagi (Misal: 20 Kg)
 
-  outputProductId String   // FK → Product (type = ROASTED_BEAN)
+  outputProductId String // FK → Product (type = ROASTED_BEAN)
   actualOutputKg  Decimal? @db.Decimal(10, 3) // Hasil Akhir Sore (Misal: 16.5 Kg)
 
-  totalShrinkagePercent Decimal? @db.Decimal(5, 2)
-  status          TransactionStatus @default(PENDING) // PENDING (Aktif), COMPLETED, VOID
+  totalShrinkagePercent Decimal?          @db.Decimal(5, 2)
+  status                TransactionStatus @default(PENDING) // PENDING (Aktif), COMPLETED, VOID
 
-  notes           String?
-  voidReason      String?
-  voidAt          DateTime?
+  notes      String?
+  voidReason String?
+  voidAt     DateTime?
 
-  createdAt       DateTime @default(now())
-  completedAt     DateTime?
-  createdById     String   // FK → User (Roaster)
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+  createdById String // FK → User (Roaster)
 
-  inputProduct    Product @relation("RoastingInput", fields: [inputProductId], references: [id])
-  outputProduct   Product @relation("RoastingOutput", fields: [outputProductId], references: [id])
-  createdBy       User    @relation(fields: [createdById], references: [id])
-  tenant          Tenant  @relation(fields: [tenantId], references: [id])
+  inputProduct  Product @relation("RoastingInput", fields: [inputProductId], references: [id])
+  outputProduct Product @relation("RoastingOutput", fields: [outputProductId], references: [id])
+  createdBy     User    @relation(fields: [createdById], references: [id])
+  tenant        Tenant  @relation(fields: [tenantId], references: [id])
 
-  childBatches    ChildRoastingBatch[]
+  childBatches ChildRoastingBatch[]
 
   @@unique([tenantId, code])
+  @@unique([tenantId, operationKey])
   @@index([tenantId, status, createdAt])
   @@map("parent_roasting_batches")
 }
 
 model ChildRoastingBatch {
-  id              String   @id @default(cuid())
-  parentId        String
+  id       String @id @default(cuid())
+  parentId String
 
-  artisanEventId  String?  @unique // Mencegah duplikasi webhook (idempotency)
-  roastDuration   Int?     // Durasi sangrai dalam detik
-  dropTemp        Decimal? @db.Decimal(5, 2) // Suhu saat drop (suhu sebelum crash)
+  artisanEventId String?  @unique // Mencegah duplikasi webhook (idempotency)
+  roastDuration  Int? // Durasi sangrai dalam detik
+  dropTemp       Decimal? @db.Decimal(5, 2) // Suhu saat drop (suhu sebelum crash)
 
-  recordedAt      DateTime @default(now()) // Waktu webhook masuk
+  recordedAt DateTime @default(now()) // Waktu webhook masuk
 
-  parent          ParentRoastingBatch @relation(fields: [parentId], references: [id], onDelete: Cascade)
-  tenantId        String   @default("default")
-  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  parent   ParentRoastingBatch @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  tenantId String              @default("default")
+  tenant   Tenant              @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId])
   @@map("child_roasting_batches")
@@ -596,8 +612,9 @@ model ChildRoastingBatch {
 // =============================================================================
 
 model ProductionBatch {
-  id   String @id @default(cuid())
-  code String // e.g., "PRD-2024-001"
+  id           String  @id @default(cuid())
+  code         String // e.g., "PRD-2024-001"
+  operationKey String? // Idempotency key supplied by the production command
 
   recipeId        String? // FK → Recipe (opsional: null jika produksi bebas tanpa template resep)
   outputProductId String // FK → Product (type = FINISHED_GOODS)
@@ -624,6 +641,7 @@ model ProductionBatch {
   tenant        Tenant    @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, code])
+  @@unique([tenantId, operationKey])
   @@index([tenantId, status, producedAt])
   @@map("production_batches")
 }
@@ -635,20 +653,21 @@ model ProductionBatch {
 // =============================================================================
 
 model Invoice {
-  id   String @id @default(cuid())
-  code String // e.g., "INV-2024-001"
+  id           String  @id @default(cuid())
+  code         String // e.g., "INV-2024-001"
+  operationKey String? // Idempotency key supplied by the client command
 
   customerId String
 
-  subtotal     Decimal @db.Decimal(14, 2) // sebelum diskon, pajak & ongkir
-  discount     Decimal @default(0) @db.Decimal(14, 2)
-  tax          Decimal @default(0) @db.Decimal(14, 2)
-  shippingCost Decimal @default(0) @db.Decimal(14, 2) // ongkos kirim
-  shippingMethod String? // "PICKUP", "LOCAL_DELIVERY", "COURIER"
+  subtotal        Decimal @db.Decimal(14, 2) // sebelum diskon, pajak & ongkir
+  discount        Decimal @default(0) @db.Decimal(14, 2)
+  tax             Decimal @default(0) @db.Decimal(14, 2)
+  shippingCost    Decimal @default(0) @db.Decimal(14, 2) // ongkos kirim
+  shippingMethod  String? // "PICKUP", "LOCAL_DELIVERY", "COURIER"
   shippingAddress String? // alamat spesifik jika dikirim
-  courierName    String? // nama ekspedisi
-  trackingNumber String? // nomor resi
-  grandTotal   Decimal @db.Decimal(14, 2) // = subtotal - discount + tax + shippingCost
+  courierName     String? // nama ekspedisi
+  trackingNumber  String? // nomor resi
+  grandTotal      Decimal @db.Decimal(14, 2) // = subtotal - discount + tax + shippingCost
 
   paidAmount Decimal       @default(0) @db.Decimal(14, 2) // diupdate server tiap Payment masuk
   status     InvoiceStatus @default(DRAFT)
@@ -663,19 +682,20 @@ model Invoice {
   createdById String
   createdAt   DateTime @default(now())
 
-  customer  Customer      @relation(fields: [customerId], references: [id])
-  createdBy User          @relation(fields: [createdById], references: [id])
-  items     InvoiceItem[]
-  payments  Payment[]
+  customer           Customer           @relation(fields: [customerId], references: [id])
+  createdBy          User               @relation(fields: [createdById], references: [id])
+  items              InvoiceItem[]
+  payments           Payment[]
   reminderDeliveries ReminderDelivery[]
-  tenantId  String        @default("default")
-  tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  tenantId           String             @default("default")
+  tenant             Tenant             @relation(fields: [tenantId], references: [id])
 
   midtransOrderId String? @unique
   paymentUrl      String?
   paymentMethod   String?
 
   @@unique([tenantId, code])
+  @@unique([tenantId, operationKey])
   @@index([tenantId, status, issuedAt])
   @@index([tenantId, customerId, issuedAt])
   @@map("invoices")
@@ -699,8 +719,8 @@ model InvoiceItem {
   subtotal  Decimal @db.Decimal(14, 2) // = (unitPrice - discount) * quantity, dihitung server
   hpp       Decimal @db.Decimal(12, 2) // snapshot HPP per unit saat transaksi
 
-  invoice Invoice @relation(fields: [invoiceId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  invoice  Invoice @relation(fields: [invoiceId], references: [id])
+  product  Product @relation(fields: [productId], references: [id])
   tenantId String  @default("default")
   tenant   Tenant  @relation(fields: [tenantId], references: [id])
 
@@ -850,8 +870,6 @@ model Expense {
   @@map("expenses")
 }
 
-
-
 // =============================================================================
 // PLATFORM AUDIT & INTEGRATION INBOX
 // =============================================================================
@@ -897,15 +915,15 @@ model WebhookEvent {
 }
 
 model ReminderDelivery {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   tenantId     String
   invoiceId    String
   channel      String
-  reminderDate DateTime @db.Date
-  status       String   @default("PENDING")
+  reminderDate DateTime  @db.Date
+  status       String    @default("PENDING")
   error        String?
   sentAt       DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id])
   invoice Invoice @relation(fields: [invoiceId], references: [id])
@@ -913,6 +931,46 @@ model ReminderDelivery {
   @@unique([tenantId, invoiceId, channel, reminderDate])
   @@index([tenantId, reminderDate, status])
   @@map("reminder_deliveries")
+}
+
+model JobRun {
+  id         String       @id @default(cuid())
+  tenantId   String?
+  jobName    String
+  runKey     String       @unique
+  status     JobRunStatus @default(RUNNING)
+  attempt    Int          @default(1)
+  startedAt  DateTime     @default(now())
+  finishedAt DateTime?
+  summary    Json?
+  error      String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([jobName, startedAt])
+  @@index([status, startedAt])
+  @@index([tenantId, startedAt])
+  @@map("job_runs")
+}
+
+model DailyBriefSnapshot {
+  id          String   @id @default(cuid())
+  tenantId    String
+  reportDate  DateTime @db.Date
+  periodStart DateTime
+  periodEnd   DateTime
+  generatedAt DateTime @default(now())
+  payload     Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, reportDate])
+  @@index([tenantId, generatedAt])
+  @@map("daily_brief_snapshots")
 }
 
 model RateLimitBucket {
@@ -932,77 +990,77 @@ model RateLimitBucket {
 // =============================================================================
 
 enum POStatus {
-  DRAFT       // Belum dikirim
-  SENT        // Sudah dikirim ke supplier
-  PARTIAL     // Sebagian barang diterima
-  RECEIVED    // Semua barang diterima
-  CANCELLED   // Dibatalkan
+  DRAFT // Belum dikirim
+  SENT // Sudah dikirim ke supplier
+  PARTIAL // Sebagian barang diterima
+  RECEIVED // Semua barang diterima
+  CANCELLED // Dibatalkan
 }
 
 model PurchaseOrder {
-  id              String    @id @default(cuid())
-  code            String    // PO-YYYYMM-NNN
-  status          POStatus  @default(DRAFT)
-  
+  id     String   @id @default(cuid())
+  code   String // PO-YYYYMM-NNN
+  status POStatus @default(DRAFT)
+
   // Supplier
-  supplierId      String
-  supplier        Supplier  @relation(fields: [supplierId], references: [id])
-  
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
+
   // Snapshot data saat PO dibuat
-  expectedDate    DateTime? // Tanggal perkiraan barang datang
-  notes           String?
-  
+  expectedDate DateTime? // Tanggal perkiraan barang datang
+  notes        String?
+
   // Financial
-  totalEstimate   Decimal?  @db.Decimal(12, 2) // Total estimasi biaya
-  
+  totalEstimate Decimal? @db.Decimal(12, 2) // Total estimasi biaya
+
   // Tracking
-  sentAt          DateTime? // Kapan PO dikirim ke supplier
-  receivedAt      DateTime? // Kapan barang diterima
-  
+  sentAt     DateTime? // Kapan PO dikirim ke supplier
+  receivedAt DateTime? // Kapan barang diterima
+
   // Audit
-  createdById     String
-  createdBy       User      @relation(fields: [createdById], references: [id])
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   // Tenant
-  tenantId        String    @default("default")
-  tenant          Tenant    @relation(fields: [tenantId], references: [id])
-  
+  tenantId String @default("default")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
   // Relations
-  items           PurchaseOrderItem[]
-  purchases       Purchase[]  // Link ke Purchase saat barang datang (bisa multi untuk partial receipt)
-  
+  items     PurchaseOrderItem[]
+  purchases Purchase[] // Link ke Purchase saat barang datang (bisa multi untuk partial receipt)
+
   @@unique([tenantId, code])
   @@index([tenantId, status])
   @@map("purchase_orders")
 }
 
 model PurchaseOrderItem {
-  id              String         @id @default(cuid())
+  id              String        @id @default(cuid())
   purchaseOrderId String
-  purchaseOrder   PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
   // Produk
-  productId       String?
-  product         Product?       @relation(fields: [productId], references: [id])
-  packagingId     String?
-  packaging       Packaging?     @relation(fields: [packagingId], references: [id])
-  
+  productId   String?
+  product     Product?   @relation(fields: [productId], references: [id])
+  packagingId String?
+  packaging   Packaging? @relation(fields: [packagingId], references: [id])
+
   // Quantity & Harga
-  quantity        Decimal        @db.Decimal(10, 3) // kg atau unit
-  unitPrice       Decimal        @db.Decimal(12, 2) // Harga per kg/unit
-  totalPrice      Decimal        @db.Decimal(12, 2) // quantity × unitPrice
-  
+  quantity   Decimal @db.Decimal(10, 3) // kg atau unit
+  unitPrice  Decimal @db.Decimal(12, 2) // Harga per kg/unit
+  totalPrice Decimal @db.Decimal(12, 2) // quantity × unitPrice
+
   // Reorder reference (dari mana data ini)
-  reorderPoint    Decimal?       @db.Decimal(10, 3) // Snapshot reorder point saat PO dibuat
-  currentStock    Decimal?       @db.Decimal(10, 3) // Snapshot stok saat PO dibuat
-  
-  createdAt       DateTime       @default(now())
-  
-  tenantId        String         @default("default")
-  tenant          Tenant         @relation(fields: [tenantId], references: [id])
-  
+  reorderPoint Decimal? @db.Decimal(10, 3) // Snapshot reorder point saat PO dibuat
+  currentStock Decimal? @db.Decimal(10, 3) // Snapshot stok saat PO dibuat
+
+  createdAt DateTime @default(now())
+
+  tenantId String @default("default")
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
   @@index([tenantId, purchaseOrderId])
   @@map("purchase_order_items")
 }

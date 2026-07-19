@@ -23,10 +23,10 @@ const TONE_MAP = {
   },
   blue: {
     bg: "from-blue-50 to-cyan-50",
-    label: "text-blue-600",
-    value: "text-blue-700",
-    icon: "text-blue-600",
-    activeRing: "ring-2 ring-blue-400",
+    label: "text-amber-800",
+    value: "text-amber-800",
+    icon: "text-amber-800",
+    activeRing: "ring-2 ring-amber-600",
   },
   red: {
     bg: "from-rose-50 to-red-50",

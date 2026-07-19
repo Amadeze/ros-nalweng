@@ -36,7 +36,6 @@ describe("route resilience conventions", () => {
       "src/app/(dashboard)/keuangan/loading.tsx",
       "src/app/(dashboard)/laporan/loading.tsx",
       "src/app/(dashboard)/master-data/loading.tsx",
-      "src/app/(dashboard)/mitra/loading.tsx",
       "src/app/(dashboard)/settings/loading.tsx",
       "src/app/(dashboard)/billing/loading.tsx",
       "src/app/(dashboard)/audit/loading.tsx",

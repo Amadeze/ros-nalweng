@@ -223,13 +223,13 @@
 
   body {
     @apply text-slate-800 min-h-screen font-sans antialiased;
-    /* Elegant radial mesh background */
-    background-color: #f8fafc;
+    /* Warm neutral workspace shared by every authenticated module. */
+    background-color: #f4f0e9;
     background-image: 
-      radial-gradient(at 0% 0%, #e0e7ff 0px, transparent 50%),
-      radial-gradient(at 100% 0%, #e0f2fe 0px, transparent 50%),
-      radial-gradient(at 100% 100%, #ede9fe 0px, transparent 50%),
-      radial-gradient(at 0% 100%, #f1f5f9 0px, transparent 50%);
+      radial-gradient(at 0% 0%, rgba(180, 126, 78, 0.16) 0px, transparent 46%),
+      radial-gradient(at 100% 0%, rgba(113, 128, 103, 0.12) 0px, transparent 44%),
+      radial-gradient(at 100% 100%, rgba(196, 151, 102, 0.11) 0px, transparent 48%),
+      radial-gradient(at 0% 100%, rgba(120, 94, 72, 0.08) 0px, transparent 50%);
     background-size: 150% 150%;
     animation: gradient-xy 25s ease infinite;
     position: relative;
@@ -255,17 +255,17 @@
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.4);
+    background: rgba(120, 100, 82, 0.28);
     border-radius: 10px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.6);
+    background: rgba(120, 100, 82, 0.42);
   }
   
   /* Firefox */
   .custom-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
+    scrollbar-color: rgba(120, 100, 82, 0.3) transparent;
   }
 }
 
@@ -320,4 +320,15 @@
         -webkit-backdrop-filter: blur(20px);
         border-bottom: 1px solid rgba(255,255,255,0.05);
     }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

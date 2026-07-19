@@ -218,7 +218,7 @@ export function TerimaPaymentDialog({
             )}
             {/* Preview: will this pay off the invoice? */}
             {Number(amount) > 0 && (
-              <p className={`text-[11px] font-medium ${isFullPayment ? "text-emerald-600" : "text-blue-600"}`}>
+              <p className={`text-[11px] font-medium ${isFullPayment ? "text-emerald-600" : "text-amber-800"}`}>
                 {isFullPayment
                   ? "✔ Nota akan berstatus LUNAS setelah pembayaran ini"
                   : `Sisa tagihan setelah ini: ${formatRupiah(balance - Number(amount))}`}
@@ -256,7 +256,7 @@ export function TerimaPaymentDialog({
                         className={[
                           "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
                           active
-                            ? "border-blue-500 bg-blue-500 text-white"
+                            ? "border-amber-700 bg-amber-700 text-white"
                             : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50",
                         ].join(" ")}
                       >
@@ -334,7 +334,7 @@ export function TerimaPaymentDialog({
             form="payment-form"
             size="sm"
             disabled={isSubmitting}
-            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 shadow-md font-bold rounded-xl disabled:opacity-60"
+            className="gap-1.5 bg-amber-700 text-white hover:bg-amber-800 shadow-md font-bold rounded-xl disabled:opacity-60"
           >
             {isSubmitting && <Loader2 size={13} className="animate-spin" />}
             {isSubmitting ? "Menyimpan..." : "Catat Pembayaran"}

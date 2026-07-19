@@ -13,9 +13,6 @@ import {
   Space_Grotesk,
   Space_Mono,
 } from "next/font/google";
-import { ThemeProvider } from "next-themes";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -115,12 +112,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${storefrontFonts} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="h-full">
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-          <TooltipProvider>{children}</TooltipProvider>
-          <Toaster position="bottom-right" richColors />
-        </ThemeProvider>
-      </body>
+      <body className="h-full">{children}</body>
     </html>
   );
 }

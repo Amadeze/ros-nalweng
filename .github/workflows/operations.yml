@@ -42,3 +42,11 @@ jobs:
             --request POST \
             --header "Authorization: Bearer $PRODUCTION_CRON_SECRET" \
             "$PRODUCTION_APP_URL/api/cron/overdue-reminders"
+
+      - name: Generate tenant daily briefs
+        if: steps.config.outputs.configured == 'true'
+        run: |
+          curl --fail --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $PRODUCTION_CRON_SECRET" \
+            "$PRODUCTION_APP_URL/api/cron/daily-brief"

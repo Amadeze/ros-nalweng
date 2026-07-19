@@ -6,6 +6,8 @@ import { recordAudit } from "@/lib/audit";
 import { decryptCredential } from "@/lib/credentials";
 import { z } from "zod";
 import { randomBytes } from "crypto";
+import { Prisma } from "@prisma/client";
+import { findDuplicateSaleProductIds, resolveSalePrice } from "@/lib/sale-intent";
 
 // =============================================================================
 // TYPES
@@ -33,11 +35,11 @@ export type FGStockOption = {
 export type InvoiceItemInput = {
   productId: string;
   quantity: number;
-  unitPrice: number;
   discount: number; // per unit
 };
 
 export type CreateInvoiceInput = {
+  operationKey: string;
   customerId: string;
   items: InvoiceItemInput[];
   invoiceDiscount: number;
@@ -111,11 +113,11 @@ export type InvoicePrintData = {
 };
 
 const CreateInvoiceSchema = z.object({
+  operationKey: z.string().uuid(),
   customerId: z.string().min(1),
   items: z.array(z.object({
     productId: z.string().min(1),
     quantity: z.number().int().positive().max(100_000),
-    unitPrice: z.number().nonnegative(),
     discount: z.number().nonnegative(),
   })).min(1).max(100),
   invoiceDiscount: z.number().nonnegative(),
@@ -214,6 +216,19 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
     const tenantId = await getCurrentTenantId();
     const tenantPrisma = await requireTenantPrisma();
 
+    const previousAttempt = await tenantPrisma.invoice.findFirst({
+      where: { operationKey: parsed.operationKey },
+      select: { id: true, code: true },
+    });
+    if (previousAttempt) {
+      return { success: true, invoiceCode: previousAttempt.code, invoiceId: previousAttempt.id };
+    }
+
+    const duplicateProductIds = findDuplicateSaleProductIds(parsed.items);
+    if (duplicateProductIds.length > 0) {
+      return { success: false, error: "Produk yang sama tidak boleh ditambahkan dua kali. Ubah jumlah pada baris yang sudah ada." };
+    }
+
     // ── Validate stock for every item ──
     const [customer, products] = await Promise.all([
       tenantPrisma.customer.findUnique({
@@ -271,13 +286,11 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
     // ── Compute totals ──
     const enrichedItems = parsed.items.map((item) => {
       const product = productMap.get(item.productId)!;
-      const selectedTierPrice =
-        customer.tier === "WHOLESALE_GOLD"
-          ? Number(product.priceGold)
-          : customer.tier === "WHOLESALE_SILVER"
-            ? Number(product.priceSilver)
-            : Number(product.price);
-      const unitPrice = selectedTierPrice > 0 ? selectedTierPrice : Number(product.price);
+      const unitPrice = resolveSalePrice({
+        price: Number(product.price),
+        priceSilver: Number(product.priceSilver),
+        priceGold: Number(product.priceGold),
+      }, customer.tier);
       if (item.discount > unitPrice) {
         throw new Error(`Diskon per unit untuk "${product.name}" melebihi harga jual.`);
       }
@@ -300,6 +313,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
       const inv = await tx.invoice.create({
         data: {
           code: invoiceCode,
+          operationKey: parsed.operationKey,
           customerId: parsed.customerId,
           subtotal,
           discount: parsed.invoiceDiscount,
@@ -347,8 +361,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
       // Payment record if PAID
       if (parsed.status === "PAID" && parsed.paymentMethod) {
         const payPrefix = `PAY-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
-        const payCount = await tx.payment.count({ where: { code: { startsWith: payPrefix } } });
-        const payCode = `${payPrefix}-${String(payCount + 1).padStart(3, "0")}`;
+        const payCode = `${payPrefix}-${randomBytes(4).toString("hex").toUpperCase()}`;
 
         await tx.payment.create({
           data: {
@@ -374,7 +387,7 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
           status: inv.status,
           grandTotal: Number(inv.grandTotal),
         },
-        metadata: { itemCount: enrichedItems.length },
+        metadata: { itemCount: enrichedItems.length, operationKey: parsed.operationKey },
       });
 
       return inv;
@@ -382,10 +395,24 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
 
     revalidatePath("/penjualan");
     revalidatePath("/inventory");
+    revalidatePath("/dashboard");
+    revalidatePath("/keuangan");
+    revalidatePath("/laporan");
 
     return { success: true, invoiceCode, invoiceId: invoice.id };
   } catch (err) {
     console.error("[createInvoice]", err);
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError
+      && err.code === "P2002"
+      && input.operationKey
+    ) {
+      const existing = await (await requireTenantPrisma()).invoice.findFirst({
+        where: { operationKey: input.operationKey },
+        select: { id: true, code: true },
+      });
+      if (existing) return { success: true, invoiceCode: existing.code, invoiceId: existing.id };
+    }
     return {
       success: false,
       error: err instanceof z.ZodError

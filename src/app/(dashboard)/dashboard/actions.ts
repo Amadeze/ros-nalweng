@@ -1,7 +1,8 @@
 "use server";
 import { requireTenantPrisma } from "@/lib/auth";
 import { getCurrentUser } from "@/lib/session";
-import { getCurrentDate } from "@/lib/date-utils";
+import { getCurrentDate, getZonedDayRange } from "@/lib/date-utils";
+import type { DailyBriefPayload } from "@/lib/daily-brief";
 
 
 // =============================================================================
@@ -63,6 +64,7 @@ export type DashboardData = {
   lowStock:     LowStockItem[];
   activity:     ActivityItem[];
   asOf:         string; // ISO
+  dailyBrief:   DailyBriefPayload | null;
 };
 
 // ── Thresholds untuk peringatan stok tipis ──
@@ -75,33 +77,27 @@ const PKG_THRESHOLD_PCS = 30;  // < 30 pcs
 // MAIN QUERY
 // =============================================================================
 
-type KgAggRow    = { productId: string; stockKg: number };
-type UnitAggRow  = { refId: string; stockUnit: number };
-
 export async function getDashboardData(): Promise<DashboardData> {
   const user = await getCurrentUser();
   if (!user || !user.tenantId) throw new Error("Unauthorized");
 
-  const now          = getCurrentDate();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endOfToday   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-  
-  const sevenDaysAgo = new Date(startOfToday);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-
+  const now = getCurrentDate();
   const tp = await requireTenantPrisma();
   const tenantId = user.tenantId;
+  const tenant = await tp.tenant.findUnique({
+    where: { id: tenantId },
+    select: { timezone: true },
+  });
+  const today = getZonedDayRange(now, tenant?.timezone);
+  const sevenDayPeriod = getZonedDayRange(now, tenant?.timezone, -6);
 
   // ── All queries fire in parallel ──
   const [
     revenueTodayRaw,
     kasTodayRaw,
-    piutangAgg,
-    gbRbAgg,
-    fgAgg,
-    pkgAgg,
-    allProducts,
-    allPackagings,
+    piutangSummary,
+    stockProducts,
+    stockPackagings,
     recentPurchases,
     recentRoastings,
     recentProductions,
@@ -112,57 +108,48 @@ export async function getDashboardData(): Promise<DashboardData> {
     totalKopiTerjualRaw,
     roastYieldRaw,
     marginRaw,
+    dailyBriefSnapshot,
   ] = await Promise.all([
 
     // 1. Revenue hari ini (nota PAID yang diterbitkan hari ini)
     tp.invoice.aggregate({
-      where: { status: "PAID", issuedAt: { gte: startOfToday, lte: endOfToday } },
-      _sum: { grandTotal: true },
+      where: { status: { in: ["ISSUED", "PARTIAL", "PAID"] }, issuedAt: { gte: today.start, lt: today.end } },
+      _sum: { subtotal: true, discount: true },
     }),
 
     // 2. Kas diterima hari ini (semua Payment yang paidAt hari ini)
     tp.payment.aggregate({
-      where: { paidAt: { gte: startOfToday, lte: endOfToday } },
+      where: { voidAt: null, paidAt: { gte: today.start, lt: today.end } },
       _sum: { amount: true },
     }),
 
     // 3. Total piutang outstanding
-    tp.invoice.findMany({
-      where: { status: { in: ["ISSUED", "PARTIAL"] } },
-      select: { grandTotal: true, paidAmount: true },
-    }),
+    tp.$queryRaw<Array<{ totalOutstanding: number; invoiceCount: number }>>`
+      SELECT
+        COALESCE(SUM("grandTotal" - "paidAmount"), 0)::float AS "totalOutstanding",
+        COUNT(*)::int AS "invoiceCount"
+      FROM "invoices"
+      WHERE "tenantId" = ${tenantId}
+        AND "status" IN ('ISSUED', 'PARTIAL')
+    `,
 
     // 4a. Stok kg: GB + RB — fetch dari Product cache
     tp.product.findMany({
-      where: { type: { in: ["GREEN_BEAN", "ROASTED_BEAN"] } },
-      select: { id: true, stockKg: true },
-    }).then(rows => rows.map(r => ({ productId: r.id, stockKg: Number(r.stockKg) }))),
+      where: { isActive: true, type: { in: ["GREEN_BEAN", "ROASTED_BEAN", "FINISHED_GOODS"] } },
+      select: { id: true, name: true, type: true, stockKg: true, stockUnit: true },
+      orderBy: { name: "asc" },
+    }),
 
     // 4b. Stok FG (unit) — fetch dari Product cache
-    tp.product.findMany({
-      where: { type: "FINISHED_GOODS" },
-      select: { id: true, stockUnit: true },
-    }).then(rows => rows.map(r => ({ refId: r.id, stockUnit: Number(r.stockUnit) }))),
-
-    // 4c. Stok Packaging (unit) — fetch dari Packaging cache
-    tp.packaging.findMany({
-      select: { id: true, stockUnit: true },
-    }).then(rows => rows.map(r => ({ refId: r.id, stockUnit: Number(r.stockUnit) }))),
-
-    // 5a. Master produk aktif (GB+RB+FG)
-    tp.product.findMany({
-      where: { isActive: true, type: { in: ["GREEN_BEAN", "ROASTED_BEAN", "FINISHED_GOODS"] } },
-      select: { id: true, name: true, type: true },
-      orderBy: { name: "asc" },
-    }),
-
-    // 5b. Master kemasan aktif
     tp.packaging.findMany({
       where: { isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, stockUnit: true },
       orderBy: { name: "asc" },
     }),
 
+    // 4c. Stok Packaging (unit) — fetch dari Packaging cache
+    // 5a. Master produk aktif (GB+RB+FG)
+    // 5b. Master kemasan aktif
     // 6. Activity: 8 Purchase terbaru
     tp.purchase.findMany({
       take: 8,
@@ -213,11 +200,15 @@ export async function getDashboardData(): Promise<DashboardData> {
     }),
 
     // 10. Revenue Trend (Last 7 Days)
-    tp.$queryRaw<{ date: Date; revenue: number }[]>`
-      SELECT DATE_TRUNC('day', "issuedAt") as "date", SUM("grandTotal")::float as "revenue"
+    tp.$queryRaw<{ date: string; revenue: number }[]>`
+      SELECT TO_CHAR(("issuedAt" AT TIME ZONE ${today.timezone})::date, 'YYYY-MM-DD') as "date",
+             SUM("subtotal" - "discount")::float as "revenue"
       FROM "invoices"
-      WHERE "tenantId" = ${tenantId} AND "status" = 'PAID' AND "issuedAt" >= ${sevenDaysAgo}
-      GROUP BY DATE_TRUNC('day', "issuedAt")
+      WHERE "tenantId" = ${tenantId}
+        AND "status" IN ('PAID', 'PARTIAL', 'ISSUED')
+        AND "issuedAt" >= ${sevenDayPeriod.start}
+        AND "issuedAt" < ${today.end}
+      GROUP BY 1
       ORDER BY "date" ASC
     `,
 
@@ -240,6 +231,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       JOIN "customers" c ON i."customerId" = c.id
       WHERE i."tenantId" = ${tenantId} AND i."status" IN ('PAID', 'PARTIAL')
       GROUP BY c.id, c."name"
+      ORDER BY "totalSpent" DESC
       LIMIT 5
     `,
 
@@ -267,14 +259,18 @@ export async function getDashboardData(): Promise<DashboardData> {
       JOIN "invoices" i ON ii."invoiceId" = i.id
       WHERE i."tenantId" = ${tenantId} AND i."status" IN ('PAID', 'PARTIAL', 'ISSUED')
     `,
+
+    tp.dailyBriefSnapshot.findFirst({
+      orderBy: { reportDate: "desc" },
+      select: { payload: true },
+    }),
   ]);
 
   // ── KPI calculations ──
-  const revenueToday = Number(revenueTodayRaw._sum.grandTotal ?? 0);
+  const revenueToday = Number(revenueTodayRaw._sum.subtotal ?? 0) - Number(revenueTodayRaw._sum.discount ?? 0);
   const kasToday     = Number(kasTodayRaw._sum.amount ?? 0);
-  const totalPiutang = piutangAgg.reduce((s, inv) =>
-    s + Number(inv.grandTotal) - Number(inv.paidAmount), 0);
-  const piutangCount = piutangAgg.length;
+  const totalPiutang = Number(piutangSummary[0]?.totalOutstanding ?? 0);
+  const piutangCount = Number(piutangSummary[0]?.invoiceCount ?? 0);
   const totalKopiTerjual = totalKopiTerjualRaw[0]?.totalSoldKg ?? 0;
   
   // Calculate Roasting Yield (100% - Average Loss %)
@@ -287,16 +283,12 @@ export async function getDashboardData(): Promise<DashboardData> {
   const averageGrossMargin = totalRev > 0 ? ((totalRev - totalCogs) / totalRev) * 100 : 0;
 
   // ── Build stock maps ──
-  const gbRbMap  = new Map(gbRbAgg.map((r) => [r.productId, r.stockKg]));
-  const fgMap    = new Map(fgAgg.map((r)   => [r.refId, r.stockUnit]));
-  const pkgMap   = new Map(pkgAgg.map((r)  => [r.refId, r.stockUnit]));
-
   // ── Low stock items ──
   const lowStock: LowStockItem[] = [];
 
-  for (const p of allProducts) {
+  for (const p of stockProducts) {
     if (p.type === "FINISHED_GOODS") {
-      const stock = fgMap.get(p.id) ?? 0;
+      const stock = Number(p.stockUnit);
       if (stock < FG_THRESHOLD_PCS) {
         lowStock.push({
           id: p.id, name: p.name, type: "FINISHED_GOODS",
@@ -304,7 +296,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         });
       }
     } else {
-      const stock = gbRbMap.get(p.id) ?? 0;
+      const stock = Number(p.stockKg);
       const threshold = p.type === "GREEN_BEAN" ? GB_THRESHOLD_KG : RB_THRESHOLD_KG;
       if (stock < threshold) {
         lowStock.push({
@@ -316,8 +308,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     }
   }
 
-  for (const pkg of allPackagings) {
-    const stock = pkgMap.get(pkg.id) ?? 0;
+  for (const pkg of stockPackagings) {
+    const stock = Number(pkg.stockUnit);
     if (stock < PKG_THRESHOLD_PCS) {
       lowStock.push({
         id: pkg.id, name: pkg.name, type: "PACKAGING",
@@ -328,20 +320,22 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   // ── Transform Charts Data ──
   const revenueTrendMap = new Map(revenueTrendRaw.map(r => [
-    new Date(r.date).toISOString().split('T')[0],
+    r.date,
     r.revenue
   ]));
 
   const revenueTrend: RevenueTrend[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(sevenDaysAgo);
-    d.setDate(d.getDate() + i);
-    const isoDate = d.toISOString().split('T')[0];
-    const label = new Intl.DateTimeFormat("id-ID", { day: '2-digit', month: 'short' }).format(d);
+  for (let offset = -6; offset <= 0; offset++) {
+    const day = getZonedDayRange(now, today.timezone, offset);
+    const label = new Intl.DateTimeFormat("id-ID", {
+      day: "2-digit",
+      month: "short",
+      timeZone: today.timezone,
+    }).format(day.start);
     
     revenueTrend.push({
       date: label,
-      revenue: revenueTrendMap.get(isoDate) ?? 0,
+      revenue: revenueTrendMap.get(day.dateKey) ?? 0,
     });
   }
 
@@ -422,5 +416,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     lowStock,
     activity: activities,
     asOf: now.toISOString(),
+    dailyBrief: dailyBriefSnapshot?.payload as DailyBriefPayload | null ?? null,
   };
 }

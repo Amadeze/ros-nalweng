@@ -32,7 +32,7 @@ function renderIcon(name: string, stroke: number) {
 
 export function FeaturesSection({ features, iconStroke, skin }: FeaturesSectionProps) {
   return (
-    <section className="w-full bg-white">
+    <section className="w-full bg-[var(--t-surface)]">
       <div className="max-w-6xl mx-auto px-5 sm:px-8 py-20 md:py-28">
         {/* Header */}
         <motion.div
@@ -44,24 +44,24 @@ export function FeaturesSection({ features, iconStroke, skin }: FeaturesSectionP
         >
           {/* Decorative line */}
           <div className="flex items-center justify-center gap-4 mb-6">
-            <div className="w-12 h-[1px] bg-[#c8956c]" />
+            <div className="w-12 h-[1px] bg-[var(--t-accent)]" />
             <span
-              className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#8b7e74]"
+              className="text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--t-text-muted)]"
               style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
             >
               What We Offer
             </span>
-            <div className="w-12 h-[1px] bg-[#c8956c]" />
+            <div className="w-12 h-[1px] bg-[var(--t-accent)]" />
           </div>
 
           <h2
-            className="text-3xl md:text-4xl font-semibold tracking-tight text-[#2c2420] mb-4"
+            className="text-3xl md:text-4xl font-semibold tracking-tight text-[var(--t-text)] mb-4"
             style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
           >
             Crafted With Intention
           </h2>
           <p
-            className="text-[#8b7e74] text-base leading-[1.75]"
+            className="text-[var(--t-text-muted)] text-base leading-[1.75]"
             style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
           >
             Every detail is considered. Every step, purposeful.
@@ -80,22 +80,22 @@ export function FeaturesSection({ features, iconStroke, skin }: FeaturesSectionP
               whileHover={{ y: -6, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } }}
               className="group"
             >
-              <div className="relative p-7 md:p-8 rounded-[20px] bg-white border border-[#e8e0d8] transition-all duration-500 group-hover:shadow-[0_12px_32px_rgba(107,68,35,0.06)] group-hover:border-[#c8956c]/30 h-full">
+              <div className="relative p-7 md:p-8 rounded-[20px] bg-[var(--t-surface)] border border-[var(--t-border)] transition-all duration-500 group-hover:shadow-[0_12px_32px_rgba(107,68,35,0.06)] group-hover:border-[var(--t-accent)]/30 h-full">
                 {/* Icon */}
-                <div className="w-11 h-11 rounded-[12px] bg-[#6b4423]/8 flex items-center justify-center text-[#c8956c] mb-5 group-hover:bg-[#6b4423] group-hover:text-white transition-all duration-400">
+                <div className="w-11 h-11 rounded-[12px] bg-[var(--t-primary)]/8 flex items-center justify-center text-[var(--t-accent)] mb-5 group-hover:bg-[var(--t-primary)] group-hover:text-white transition-all duration-400">
                   {renderIcon(f.iconName, iconStroke)}
                 </div>
 
                 {/* Content */}
                 <div>
                   <h3
-                    className="text-lg font-semibold text-[#2c2420] mb-2"
+                    className="text-lg font-semibold text-[var(--t-text)] mb-2"
                     style={{ fontFamily: "'Playfair Display', 'Source Serif 4', Georgia, serif" }}
                   >
                     {f.title}
                   </h3>
                   <p
-                    className="text-sm text-[#8b7e74] leading-[1.75]"
+                    className="text-sm text-[var(--t-text-muted)] leading-[1.75]"
                     style={{ fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif" }}
                   >
                     {f.desc}
