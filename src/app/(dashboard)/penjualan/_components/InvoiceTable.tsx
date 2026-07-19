@@ -111,7 +111,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <Input
           placeholder="Cari kode atau nama customer..."
-          className="pl-9 h-10 bg-white/40 border-white/60 backdrop-blur-md rounded-xl focus-visible:ring-slate-400"
+          className="h-10 rounded-lg border-stone-200 bg-white pl-9 focus-visible:ring-stone-400"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
@@ -119,7 +119,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
       <select
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
-        className="h-10 px-3 rounded-xl border border-white/60 bg-white/40 backdrop-blur-md text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-slate-400"
+        className="h-10 rounded-lg border border-stone-200 bg-white px-3 text-sm font-medium text-stone-700 outline-none focus:ring-2 focus:ring-stone-400"
       >
         <option value="ALL">Semua Status</option>
         <option value="DRAFT">Draft</option>
@@ -130,10 +130,10 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
       </select>
     </div>
 
-    <div className="hidden md:block overflow-hidden rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl shadow-lg shadow-slate-200/30">
+    <div className="hidden overflow-hidden rounded-xl border border-stone-200 bg-white md:block">
       <Table>
         <TableHeader>
-          <TableRow className="bg-white/40 border-b border-white/50 backdrop-blur-md">
+          <TableRow className="border-b border-stone-200 bg-stone-50">
             <TableHead className="w-36 text-xs font-bold uppercase tracking-widest text-slate-500">No. Nota</TableHead>
             <TableHead className="text-xs font-bold uppercase tracking-widest text-slate-500">Customer</TableHead>
             <TableHead className=" text-center text-xs font-bold uppercase tracking-widest text-slate-500">Item</TableHead>
@@ -150,7 +150,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
             <EmptyState isFiltered={invoices.length > 0} />
           ) : (
             filteredInvoices.map((inv) => (
-              <TableRow key={inv.id} className="hover:bg-white/40 transition-colors">
+              <TableRow key={inv.id} className="transition-colors hover:bg-stone-50">
                 <TableCell >
                   <p className="font-mono text-xs font-semibold text-slate-600">{inv.code}</p>
                 </TableCell>
@@ -244,14 +244,14 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
 
         <div className="md:hidden flex flex-col gap-3">
       {filteredInvoices.length === 0 ? (
-        <div className="py-12 text-center rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl">
+        <div className="rounded-xl border border-stone-200 bg-white py-12 text-center">
            <p className="text-sm font-medium text-zinc-400">
              {invoices.length > 0 ? "Tidak ada nota yang cocok." : "Belum ada nota."}
            </p>
         </div>
       ) : (
         filteredInvoices.map((inv) => (
-          <div key={inv.id} className="flex flex-col gap-2 rounded-[1.25rem] border border-white/60 bg-white/30 p-4 shadow-sm backdrop-blur-xl">
+          <div key={inv.id} className="flex flex-col gap-2 rounded-xl border border-stone-200 bg-white p-4">
             <div className="flex justify-between items-start">
               <div>
                 <p className="font-bold text-slate-900">{inv.customerName}</p>
@@ -269,7 +269,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
               </div>
             </div>
             
-            <div className="flex justify-between items-end mt-2 pt-2 border-t border-white/40">
+            <div className="mt-2 flex items-end justify-between border-t border-stone-200 pt-2">
               <div className="flex flex-col gap-1">
                 <StatusBadge status={inv.status} />
                 <span className="text-[10px] font-semibold text-slate-500">{formatDate(inv.issuedAt)}</span>

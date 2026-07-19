@@ -112,13 +112,14 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
                 <TableHead className="text-right font-semibold text-amber-900">Susut (Loss)</TableHead>
                 <TableHead className="text-right font-semibold text-amber-900">Rugi Penyusutan</TableHead>
                 <TableHead className="text-right font-semibold text-amber-900">Masuk Produksi</TableHead>
+                <TableHead className="text-right font-semibold text-amber-900">Sample</TableHead>
                 <TableHead className="text-right font-semibold text-amber-900">Koreksi/Hilang</TableHead>
                 <TableHead className="text-right font-semibold text-amber-900 bg-amber-50/50">Sisa Stok (kg)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRB.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center text-slate-500 py-6">Belum ada data Roasted Bean</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center text-slate-500 py-6">Belum ada data Roasted Bean</TableCell></TableRow>
               )}
               {filteredRB.map(rb => {
                 const lossPct = rb.producedKg + rb.roastLossKg > 0 ? (rb.roastLossKg / (rb.producedKg + rb.roastLossKg)) * 100 : 0;
@@ -137,6 +138,7 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
                       ) : '-'}
                     </TableCell>
                     <TableCell className="text-right text-orange-600">-{rb.packagedKg.toLocaleString('id-ID', { maximumFractionDigits: 2 })} kg</TableCell>
+                    <TableCell className="text-right text-fuchsia-600">{rb.sampleOutKg > 0 ? `-${rb.sampleOutKg.toLocaleString('id-ID', { maximumFractionDigits: 3 })} kg` : '-'}</TableCell>
                     <TableCell className="text-right text-red-500">{rb.adjustmentOutKg > 0 ? `-${rb.adjustmentOutKg.toLocaleString('id-ID')} kg` : '-'}</TableCell>
                     <TableCell className="text-right font-bold text-slate-800 bg-amber-50/30">{rb.currentStockKg.toLocaleString('id-ID', { maximumFractionDigits: 2 })} kg</TableCell>
                   </TableRow>
@@ -163,6 +165,7 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
                 <TableHead className="font-semibold text-indigo-900 w-[20%]">Produk</TableHead>
                 <TableHead className="text-right font-semibold text-indigo-900">Total Diproduksi</TableHead>
                 <TableHead className="text-right font-semibold text-indigo-900">Total Terjual</TableHead>
+                <TableHead className="text-right font-semibold text-indigo-900">Sample</TableHead>
                 <TableHead className="text-right font-semibold text-indigo-900">Laba Penjualan (Kotor)</TableHead>
                 <TableHead className="text-right font-semibold text-indigo-900">Koreksi/Hilang</TableHead>
                 <TableHead className="text-right font-semibold text-indigo-900 bg-indigo-50/50">Sisa Stok (Unit)</TableHead>
@@ -170,7 +173,7 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
             </TableHeader>
             <TableBody>
               {filteredFG.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center text-slate-500 py-6">Belum ada data Finished Goods</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-slate-500 py-6">Belum ada data Finished Goods</TableCell></TableRow>
               )}
               {filteredFG.map(fg => (
                 <TableRow key={fg.id} className="hover:bg-indigo-50/20">
@@ -199,6 +202,9 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
                         </span>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell className="text-right text-fuchsia-600">
+                    {fg.sampleOutUnits > 0 ? `-${fg.sampleOutUnits.toLocaleString('id-ID')} unit` : '-'}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex flex-col items-end">

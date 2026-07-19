@@ -121,6 +121,9 @@ enum LedgerRefType {
   PRODUCTION_PKG_OUT // Packaging keluar ke produksi
   PRODUCTION_FG_IN // Finished Goods masuk dari produksi
   SALE_FG_OUT // Finished Goods keluar via penjualan
+  SAMPLE_RB_OUT // Roasted Bean keluar untuk sample / tester
+  SAMPLE_FG_OUT // Finished Goods keluar untuk sample / tester
+  SAMPLE_PKG_OUT // Kemasan keluar untuk sample / tester
   ADJUSTMENT_IN // Penyesuaian stok masuk (Opname)
   ADJUSTMENT_OUT // Penyesuaian stok keluar (Opname)
   VOID_REVERSAL // entri kebalikan saat VOID
@@ -203,6 +206,8 @@ model Tenant {
   invoiceItems          InvoiceItem[]
   jobRuns               JobRun[]
   dailyBriefSnapshots   DailyBriefSnapshot[]
+  sampleUsages          SampleUsage[]
+  sampleUsageComponents SampleUsageComponent[]
 
   @@map("tenants")
 }
@@ -253,6 +258,7 @@ model User {
   expenses              Expense[]
   auditLogs             AuditLog[]
   passwordResetTokens   PasswordResetToken[]
+  sampleUsages          SampleUsage[]
   tenantId              String                @default("default")
   tenant                Tenant                @relation(fields: [tenantId], references: [id])
 
@@ -378,6 +384,7 @@ model Product {
 
   // Ledger
   ledgerEntries InventoryLedger[]
+  sampleUsageComponents SampleUsageComponent[]
   tenantId      String            @default("default")
   tenant        Tenant            @relation(fields: [tenantId], references: [id])
 
@@ -419,6 +426,7 @@ model Packaging {
   recipes            Recipe[]
   productionBatches  ProductionBatch[]
   ledgerEntries      InventoryLedger[]
+  sampleUsageComponents SampleUsageComponent[]
   tenantId           String              @default("default")
   tenant             Tenant              @relation(fields: [tenantId], references: [id])
 
@@ -841,6 +849,69 @@ model InventoryLedger {
   // Index untuk audit trail per transaksi
   @@index([tenantId, refType, refId])
   @@map("inventory_ledger")
+}
+
+// =============================================================================
+// TABLE 14B · SampleUsage
+// Pemakaian stok untuk sample/tester. Tidak membuat invoice atau arus kas.
+// HPP dicatat sebagai biaya promosi non-kas di laporan laba rugi.
+// =============================================================================
+
+model SampleUsage {
+  id           String  @id @default(cuid())
+  code         String
+  operationKey String?
+  sourceType   String // FINISHED_GOODS | RECIPE | CUSTOM_BLEND
+  sourceLabel  String
+
+  packCount  Int
+  totalGrams Decimal @db.Decimal(12, 3)
+  totalCost  Decimal @db.Decimal(14, 2)
+  recipient  String?
+  notes      String?
+  givenAt    DateTime @default(now())
+  status     TransactionStatus @default(COMPLETED)
+
+  voidReason String?
+  voidAt     DateTime?
+
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy User                   @relation(fields: [createdById], references: [id])
+  components SampleUsageComponent[]
+  tenantId   String                 @default("default")
+  tenant     Tenant                 @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, operationKey])
+  @@index([tenantId, givenAt, status])
+  @@map("sample_usages")
+}
+
+model SampleUsageComponent {
+  id            String  @id @default(cuid())
+  sampleUsageId String
+  productId     String?
+  packagingId   String?
+  label         String
+
+  quantityKg   Decimal? @db.Decimal(10, 3)
+  quantityUnit Int?
+  ratioPercent Decimal? @db.Decimal(5, 2)
+  unitCost     Decimal  @db.Decimal(14, 4)
+  totalCost    Decimal  @db.Decimal(14, 2)
+
+  sampleUsage SampleUsage @relation(fields: [sampleUsageId], references: [id], onDelete: Cascade)
+  product     Product?    @relation(fields: [productId], references: [id])
+  packaging   Packaging?  @relation(fields: [packagingId], references: [id])
+  tenantId    String      @default("default")
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, sampleUsageId])
+  @@index([tenantId, productId])
+  @@index([tenantId, packagingId])
+  @@map("sample_usage_components")
 }
 
 // =============================================================================

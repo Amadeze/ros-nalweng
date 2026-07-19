@@ -15,39 +15,29 @@ interface InventoryMetricCardProps {
 
 const TONE_MAP = {
   green: {
-    bg: "from-emerald-50 to-green-50",
-    label: "text-emerald-600",
     value: "text-emerald-700",
-    icon: "text-emerald-600",
-    activeRing: "ring-2 ring-emerald-400",
+    icon: "bg-emerald-50 text-emerald-700",
+    activeBorder: "border-emerald-500 ring-1 ring-emerald-500",
   },
   blue: {
-    bg: "from-blue-50 to-cyan-50",
-    label: "text-amber-800",
-    value: "text-amber-800",
-    icon: "text-amber-800",
-    activeRing: "ring-2 ring-amber-600",
+    value: "text-stone-900",
+    icon: "bg-sky-50 text-sky-700",
+    activeBorder: "border-sky-500 ring-1 ring-sky-500",
   },
   red: {
-    bg: "from-rose-50 to-red-50",
-    label: "text-red-600",
     value: "text-red-700",
-    icon: "text-red-500",
-    activeRing: "ring-2 ring-red-400",
+    icon: "bg-red-50 text-red-700",
+    activeBorder: "border-red-500 ring-1 ring-red-500",
   },
   orange: {
-    bg: "from-orange-50 to-amber-50",
-    label: "text-orange-600",
-    value: "text-orange-700",
-    icon: "text-orange-500",
-    activeRing: "ring-2 ring-orange-400",
+    value: "text-amber-700",
+    icon: "bg-amber-50 text-amber-700",
+    activeBorder: "border-amber-500 ring-1 ring-amber-500",
   },
   neutral: {
-    bg: "from-slate-50 to-gray-50",
-    label: "text-slate-500",
-    value: "text-slate-700",
-    icon: "text-slate-400",
-    activeRing: "ring-2 ring-slate-300",
+    value: "text-stone-700",
+    icon: "bg-stone-100 text-stone-600",
+    activeBorder: "border-stone-500 ring-1 ring-stone-500",
   },
 };
 
@@ -69,24 +59,23 @@ export function InventoryMetricCard({
       onClick={onClick}
       disabled={!onClick}
       className={`
-        rounded-2xl border border-white/60 bg-gradient-to-br ${t.bg}
-        p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group
-        text-left transition-all
-        ${onClick ? "cursor-pointer hover:shadow-md active:scale-[0.98]" : "cursor-default"}
-        ${active ? t.activeRing : ""}
+        relative min-w-0 rounded-xl border border-stone-200 bg-white p-4
+        text-left transition-colors
+        ${onClick ? "cursor-pointer hover:border-stone-400" : "cursor-default"}
+        ${active ? t.activeBorder : ""}
       `}
     >
-      <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity">
-        <Icon size={48} className={t.icon} />
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs font-medium leading-4 text-stone-500">{label}</p>
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${t.icon}`}>
+          <Icon size={17} aria-hidden="true" />
+        </span>
       </div>
-      <p className={`text-xs font-medium ${t.label} relative z-10`}>{label}</p>
-      <p className={`mt-1 font-mono text-2xl font-black tabular-nums ${t.value} relative z-10`}>
+      <p className={`mt-2 whitespace-nowrap font-mono text-sm font-bold tabular-nums sm:text-xl ${t.value}`}>
         {typeof value === "number" ? value.toLocaleString("id-ID") : value}
-        {unit && <span className="text-sm font-semibold ml-0.5">{unit}</span>}
+        {unit && <span className="ml-0.5 text-sm font-semibold">{unit}</span>}
       </p>
-      {helperText && (
-        <p className="mt-1 text-[10px] text-slate-400 relative z-10">{helperText}</p>
-      )}
+      {helperText && <p className="mt-2 text-[10px] leading-4 text-stone-400">{helperText}</p>}
     </button>
   );
 }

@@ -53,11 +53,11 @@ function KpiCard({ label, value, sub, accent = "default", icon }: KpiCardProps) 
   }[accent];
 
   return (
-    <div className="flex items-start gap-4 rounded-[1.25rem] border border-white/60 bg-white/30 backdrop-blur-xl shadow-lg shadow-slate-200/30 p-4">
-      <div className="mt-0.5 shrink-0 rounded-xl bg-white/50 border border-white/60 p-2 text-slate-500 shadow-sm">{icon}</div>
+    <div className="flex min-w-0 items-start gap-3 rounded-xl border border-stone-200 bg-white p-4">
+      <div className="mt-0.5 shrink-0 rounded-lg bg-stone-100 p-2 text-stone-600">{icon}</div>
       <div className="min-w-0">
         <p className="text-xs font-medium text-zinc-500">{label}</p>
-        <p className={`mt-0.5 font-mono text-xl font-black tabular-nums ${accentCls}`}>{value}</p>
+        <p className={`mt-1 break-words font-mono text-base font-bold tabular-nums sm:text-lg ${accentCls}`}>{value}</p>
         {sub && <p className="mt-0.5 text-[11px] text-zinc-400">{sub}</p>}
       </div>
     </div>
@@ -175,7 +175,7 @@ export function KeuanganClient({
         </div>
 
         {/* ── Tabs ── */}
-        <div className="mb-4 grid grid-cols-2 gap-2 bg-white/20 p-2 rounded-2xl backdrop-blur-md border border-white/50 w-fit md:grid-cols-5">
+        <div className="custom-scrollbar mb-4 flex w-full overflow-x-auto border-b border-stone-200">
           {([
             { id: "piutang",      label: `Piutang (${piutangRows.length})` },
             { id: "pembayaran",   label: `Pembayaran (${payments.length})` },
@@ -187,10 +187,10 @@ export function KeuanganClient({
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "rounded-xl px-5 py-2 text-xs font-bold transition-all duration-300 shadow-sm",
+                "-mb-px shrink-0 border-b-2 px-4 py-3 text-xs font-semibold transition-colors",
                 activeTab === tab.id
-                  ? "bg-amber-700 text-white shadow-md scale-[1.02]"
-                  : "bg-white/40 text-slate-600 border border-white/60 hover:bg-white/60 hover:text-slate-800"
+                  ? "border-stone-900 text-stone-900"
+                  : "border-transparent text-stone-500 hover:text-stone-800"
               )}
             >
               {tab.label}

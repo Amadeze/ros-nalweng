@@ -1,173 +1,160 @@
-"use client";
-
-import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
-  BadgeCheck,
   BarChart3,
   Boxes,
   Check,
   ChevronRight,
   CircleDollarSign,
   Flame,
-  Menu,
   PackageCheck,
+  ShieldCheck,
   ShoppingBag,
-  X,
+  Workflow,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { getCurrentDate } from "@/lib/date-utils";
 
 const NAV_LINKS = [
-  { label: "Sistem", href: "#system" },
-  { label: "Alur kerja", href: "#workflow" },
+  { label: "Cara kerja", href: "#workflow" },
+  { label: "Fitur", href: "#system" },
   { label: "Harga", href: "#pricing" },
 ];
 
 const MODULES = [
   {
     icon: Boxes,
-    code: "01 / STOCK",
-    title: "Inventory intelligence",
-    description:
-      "Setiap gram green bean, roasted bean, dan packaging bergerak dalam satu ledger yang dapat diaudit.",
-    detail: "Lot · supplier · average cost · reorder point",
+    eyebrow: "Stok",
+    title: "Stok yang selalu terhubung",
+    description: "Green bean, roasted bean, dan kemasan bergerak otomatis dari transaksi asalnya.",
+    detail: "Lot, supplier, average cost, reorder point",
   },
   {
     icon: Flame,
-    code: "02 / ROAST",
-    title: "Production control",
-    description:
-      "Hubungkan batch roasting dengan yield, profil, biaya, dan output produksi—tanpa menyalin data antar sheet.",
-    detail: "Batch · recipe · shrinkage · production history",
+    eyebrow: "Produksi",
+    title: "Batch yang lebih konsisten",
+    description: "Hubungkan green bean, roast level, yield, biaya, dan hasil produksi dalam satu alur.",
+    detail: "Batch, recipe, shrinkage, production history",
   },
   {
     icon: ShoppingBag,
-    code: "03 / SELL",
-    title: "B2B commerce",
-    description:
-      "Tenant portal bermerek sendiri, katalog wholesale, tier harga, checkout, dan rekonsiliasi pembayaran.",
-    detail: "Portal · catalog · QRIS · WhatsApp checkout",
+    eyebrow: "Penjualan",
+    title: "Order B2B tanpa kerja ulang",
+    description: "Katalog wholesale, tier harga, checkout, dan pembayaran terhubung langsung ke operasional.",
+    detail: "Portal, katalog, QRIS, WhatsApp checkout",
   },
   {
     icon: BarChart3,
-    code: "04 / KNOW",
-    title: "Financial clarity",
-    description:
-      "Lihat HPP, margin, piutang, payable, arus kas, serta P&L dari transaksi yang sama dengan operasional.",
-    detail: "COGS · margin · P&L · audit trail",
+    eyebrow: "Laporan",
+    title: "Margin yang benar-benar terlihat",
+    description: "Pantau HPP, margin, piutang, kas, dan laba rugi dari transaksi yang sama.",
+    detail: "COGS, margin, P&L, audit trail",
   },
 ];
 
 const WORKFLOW = [
-  { step: "01", label: "Terima", detail: "Green bean & biaya pembelian masuk" },
-  { step: "02", label: "Roast", detail: "Yield dan profil tercatat per batch" },
+  { step: "01", label: "Beli", detail: "Green bean dan biaya pembelian masuk" },
+  { step: "02", label: "Roast", detail: "Profil, yield, dan hasil tercatat per batch" },
   { step: "03", label: "Pack", detail: "Output berpindah ke finished goods" },
-  { step: "04", label: "Sell", detail: "Order mengurangi stok dan membentuk revenue" },
-  { step: "05", label: "Read", detail: "Margin dan laporan terbentuk otomatis" },
+  { step: "04", label: "Jual", detail: "Order mengurangi stok dan mencatat revenue" },
+  { step: "05", label: "Pantau", detail: "Margin dan laporan terbentuk otomatis" },
 ];
 
 const PLAN_FEATURES = [
-  "Inventory ledger & purchase workflow",
-  "Roasting, production, dan HPP",
+  "Inventory ledger dan purchase workflow",
+  "Roasting, produksi, dan HPP",
   "Sales, finance, dan laporan",
   "B2B tenant storefront",
   "Multi-user role access",
-  "Audit trail & operational health checks",
+  "Audit trail dan health checks",
 ];
 
-const ease = [0.16, 1, 0.3, 1] as const;
-
-function Reveal({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
-  const reduceMotion = useReducedMotion();
+function BrandMark() {
   return (
-    <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 24 }}
-      whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.7, delay, ease }}
-      className={className}
-    >
-      {children}
-    </motion.div>
+    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2a211b] font-mono text-[10px] font-bold tracking-wide text-[#f4b27d]">
+      ROS
+    </span>
   );
 }
 
 function SystemPreview() {
+  const operationalChain = [
+    { icon: Boxes, name: "Green stock", value: "248.4 kg", tone: "bg-emerald-50 text-emerald-700" },
+    { icon: Flame, name: "Roasting WIP", value: "12.0 kg", tone: "bg-orange-50 text-orange-700" },
+    { icon: PackageCheck, name: "Ready stock", value: "86 unit", tone: "bg-sky-50 text-sky-700" },
+  ];
+
   return (
-    <div className="relative mx-auto w-full max-w-[600px]">
-      <div className="absolute -inset-8 rounded-[42px] bg-[radial-gradient(circle_at_50%_40%,rgba(214,147,90,0.18),transparent_65%)] blur-2xl" />
-      <div className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[#12100e]/95 shadow-[0_40px_120px_rgba(0,0,0,0.55)]">
-        <div className="flex items-center justify-between border-b border-white/8 px-5 py-4">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[#d6935a] shadow-[0_0_12px_rgba(214,147,90,0.8)]" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/45">Roast floor / live</span>
+    <div className="overflow-hidden rounded-2xl border border-[#ded8d1] bg-white shadow-[0_24px_70px_rgba(55,42,31,0.12)]">
+      <div className="flex items-center justify-between border-b border-[#ece7e1] px-5 py-4">
+        <div className="flex items-center gap-2.5">
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <span className="text-xs font-semibold text-[#51473f]">Operasional hari ini</span>
+        </div>
+        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+          Live
+        </span>
+      </div>
+
+      <div className="grid md:grid-cols-[1.1fr_0.9fr]">
+        <div className="border-b border-[#ece7e1] p-5 sm:p-6 md:border-b-0 md:border-r">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#9a8d82]">Active roast</p>
+              <h3 className="mt-2 text-lg font-semibold tracking-tight text-[#211a16]">Gayo Natural</h3>
+              <p className="mt-1 text-xs text-[#81746a]">Batch B-2048</p>
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fff2e7] text-[#b9602d]">
+              <Flame className="h-5 w-5" aria-hidden="true" />
+            </div>
           </div>
-          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/8 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.16em] text-emerald-300">Synced</span>
+
+          <div className="mt-7 flex h-28 items-end gap-2 rounded-xl bg-[#f7f4f0] px-4 pb-4 pt-6" aria-label="Roast profile preview">
+            {[22, 30, 38, 49, 58, 70, 82, 92].map((height, index) => (
+              <span
+                key={height}
+                className={`flex-1 rounded-t-sm ${index === 7 ? "bg-[#b9602d]" : "bg-[#dcc4b2]"}`}
+                style={{ height: `${height}%` }}
+              />
+            ))}
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {[
+              { value: "11:42", label: "Durasi" },
+              { value: "201°C", label: "Suhu" },
+              { value: "84.6%", label: "Yield" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl border border-[#ece7e1] px-3 py-3">
+                <p className="text-sm font-bold text-[#211a16]">{item.value}</p>
+                <p className="mt-1 text-[10px] text-[#9a8d82]">{item.label}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="grid gap-px bg-white/8 md:grid-cols-[1.15fr_0.85fr]">
-          <div className="bg-[#12100e] p-5 sm:p-7">
-            <div className="mb-7 flex items-start justify-between gap-4">
-              <div>
-                <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.2em] text-white/35">Active batch</p>
-                <h3 className="text-xl font-semibold tracking-[-0.03em] text-[#f6efe8]">Gayo Natural / B-2048</h3>
-              </div>
-              <Flame className="h-5 w-5 text-[#d6935a]" />
-            </div>
-
-            <div className="relative h-44 overflow-hidden rounded-2xl border border-white/8 bg-[#0b0a09] p-4">
-              <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:28px_28px]" />
-              <svg aria-hidden="true" viewBox="0 0 400 150" className="relative h-full w-full" fill="none">
-                <path d="M0 135 C55 130 74 110 110 108 C160 104 153 70 205 68 C254 66 258 38 300 39 C345 40 360 18 400 12" stroke="rgba(214,147,90,.18)" strokeWidth="12" />
-                <motion.path
-                  d="M0 135 C55 130 74 110 110 108 C160 104 153 70 205 68 C254 66 258 38 300 39 C345 40 360 18 400 12"
-                  stroke="#d6935a"
-                  strokeWidth="2"
-                  initial={{ pathLength: 0 }}
-                  whileInView={{ pathLength: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 1.4, ease }}
-                />
-                <path d="M0 122 C70 126 90 96 138 100 C188 104 202 78 250 82 C306 87 335 54 400 65" stroke="rgba(130,174,154,.75)" strokeWidth="1.5" strokeDasharray="5 7" />
-              </svg>
-              <div className="absolute bottom-3 left-4 right-4 flex justify-between font-mono text-[8px] uppercase tracking-[0.16em] text-white/25">
-                <span>Charge</span><span>Dry end</span><span>1st crack</span><span>Drop</span>
-              </div>
-            </div>
-
-            <div className="mt-5 grid grid-cols-3 gap-3">
-              {[{ value: "11:42", label: "Duration" }, { value: "201°C", label: "Bean temp" }, { value: "84.6%", label: "Yield" }].map((item) => (
-                <div key={item.label} className="rounded-xl border border-white/8 bg-white/[0.025] p-3">
-                  <p className="font-mono text-sm font-semibold text-[#f6efe8]">{item.value}</p>
-                  <p className="mt-1 text-[9px] uppercase tracking-[0.13em] text-white/30">{item.label}</p>
+        <div className="bg-[#fcfbf9] p-5 sm:p-6">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#9a8d82]">Alur stok</p>
+          <div className="mt-5 space-y-3">
+            {operationalChain.map((item) => (
+              <div key={item.name} className="flex items-center gap-3 rounded-xl border border-[#ece7e1] bg-white p-3">
+                <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${item.tone}`}>
+                  <item.icon className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-[#81746a]">{item.name}</p>
+                  <p className="mt-0.5 text-sm font-bold text-[#211a16]">{item.value}</p>
                 </div>
-              ))}
-            </div>
+                <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+              </div>
+            ))}
           </div>
 
-          <div className="bg-[#171411] p-5 sm:p-7">
-            <p className="mb-5 font-mono text-[9px] uppercase tracking-[0.2em] text-white/35">Operational chain</p>
-            <div className="space-y-3">
-              {[
-                { icon: Boxes, name: "Green stock", value: "248.4 kg", tone: "text-emerald-300" },
-                { icon: Flame, name: "Roasting WIP", value: "12.0 kg", tone: "text-[#d6935a]" },
-                { icon: PackageCheck, name: "Ready stock", value: "86 units", tone: "text-sky-300" },
-                { icon: CircleDollarSign, name: "Batch margin", value: "31.8%", tone: "text-amber-200" },
-              ].map((item, index) => (
-                <div key={item.name} className="relative flex items-center gap-3 rounded-xl border border-white/8 bg-black/10 p-3.5">
-                  {index < 3 && <span className="absolute -bottom-4 left-[25px] h-4 w-px bg-white/10" />}
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5">
-                    <item.icon className={`h-4 w-4 ${item.tone}`} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-white/45">{item.name}</p>
-                    <p className="font-mono text-sm font-medium text-[#f6efe8]">{item.value}</p>
-                  </div>
-                  <BadgeCheck className="h-3.5 w-3.5 text-white/20" />
-                </div>
-              ))}
+          <div className="mt-4 rounded-xl bg-[#2a211b] p-4 text-white">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] text-white/55">Estimasi margin batch</p>
+                <p className="mt-1 text-xl font-semibold">31.8%</p>
+              </div>
+              <CircleDollarSign className="h-5 w-5 text-[#f4b27d]" aria-hidden="true" />
             </div>
           </div>
         </div>
@@ -177,207 +164,179 @@ function SystemPreview() {
 }
 
 export function LandingClient() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#090806] text-[#f6efe8] selection:bg-[#d6935a]/30">
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/8 bg-[#090806]/82 backdrop-blur-xl">
-        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
+    <div className="min-h-screen overflow-x-hidden bg-[#f7f5f1] text-[#211a16] selection:bg-[#efc5a5]">
+      <header className="sticky top-0 z-50 border-b border-[#e6e0d9] bg-[#f7f5f1]">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
           <Link href="/" className="flex items-center gap-3" aria-label="Roastery OS home">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#d6935a]/35 bg-[#d6935a]/10 font-mono text-[10px] font-bold text-[#e9aa75]">ROS</span>
-            <span className="text-sm font-semibold tracking-[-0.01em] text-white">Roastery Operating System</span>
+            <BrandMark />
+            <span className="text-sm font-semibold tracking-tight">Roastery OS</span>
           </Link>
 
-          <nav className="hidden items-center gap-8 md:flex" aria-label="Primary navigation">
+          <nav className="hidden items-center gap-7 md:flex" aria-label="Navigasi utama">
             {NAV_LINKS.map((link) => (
-              <a key={link.href} href={link.href} className="text-sm text-white/50 transition-colors hover:text-white">{link.label}</a>
+              <a key={link.href} href={link.href} className="text-sm font-medium text-[#6f6258] transition-colors hover:text-[#211a16]">
+                {link.label}
+              </a>
             ))}
           </nav>
 
           <div className="hidden items-center gap-4 md:flex">
-            <Link href="/login" className="text-sm font-medium text-white/55 transition-colors hover:text-white">Masuk</Link>
-            <Link href="/register" className="inline-flex items-center gap-2 rounded-full bg-[#d6935a] px-5 py-2.5 text-sm font-semibold text-[#160f0a] transition hover:bg-[#efb27f]">
-              Mulai gratis <ArrowRight className="h-4 w-4" />
+            <Link href="/login" className="text-sm font-semibold text-[#6f6258] transition-colors hover:text-[#211a16]">
+              Masuk
+            </Link>
+            <Link href="/register" className="inline-flex items-center gap-2 rounded-xl bg-[#2a211b] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#43362d]">
+              Mulai gratis <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
 
-          <button className="rounded-lg p-2 text-white/65 md:hidden" onClick={() => setMobileOpen((open) => !open)} aria-expanded={mobileOpen} aria-label="Buka menu">
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          <Link href="/register" className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#2a211b] px-4 py-2 text-sm font-semibold text-white md:hidden">
+            Mulai <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
         </div>
-
-        {mobileOpen && (
-          <div className="border-t border-white/8 bg-[#0d0b09] px-5 py-5 md:hidden">
-            <nav className="space-y-1" aria-label="Mobile navigation">
-              {NAV_LINKS.map((link) => (
-                <a key={link.href} href={link.href} onClick={() => setMobileOpen(false)} className="block rounded-xl px-3 py-3 text-sm text-white/60 hover:bg-white/5 hover:text-white">{link.label}</a>
-              ))}
-              <div className="my-3 h-px bg-white/8" />
-              <Link href="/login" className="block rounded-xl px-3 py-3 text-sm text-white/60">Masuk</Link>
-              <Link href="/register" className="mt-2 block rounded-xl bg-[#d6935a] px-4 py-3 text-center text-sm font-semibold text-[#160f0a]">Mulai gratis</Link>
-            </nav>
-          </div>
-        )}
       </header>
 
       <main>
-        <section className="relative px-5 pb-24 pt-36 sm:px-8 sm:pt-44 lg:pb-32">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_12%,rgba(214,147,90,0.14),transparent_28%),radial-gradient(circle_at_86%_18%,rgba(87,128,111,0.11),transparent_25%)]" />
-          <div className="pointer-events-none absolute inset-0 opacity-[0.12] [background-image:linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px)] [background-size:72px_72px]" />
-
-          <div className="relative mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-[0.9fr_1.1fr] lg:gap-14">
+        <section className="px-5 pb-20 pt-16 sm:px-8 sm:pb-24 sm:pt-24">
+          <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[0.88fr_1.12fr] lg:gap-16">
             <div>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="mb-7 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.035] px-3.5 py-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(110,231,183,.7)]" />
-                <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-white/50">Built for Indonesian specialty roasteries</span>
-              </motion.div>
-              <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease }} className="max-w-3xl text-[clamp(3.35rem,7vw,6.8rem)] font-semibold leading-[0.92] tracking-[-0.065em] text-[#f7f1ea]">
-                Dari green bean<br />sampai <span className="font-serif italic font-normal text-[#dca06d]">margin.</span>
-              </motion.h1>
-              <motion.p initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.75, delay: 0.12, ease }} className="mt-8 max-w-xl text-base leading-8 text-white/52 sm:text-lg">
-                Satu sistem operasional untuk inventory, roasting, produksi, penjualan, keuangan, dan portal wholesale—dengan setiap angka terhubung ke transaksi asalnya.
-              </motion.p>
-              <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.75, delay: 0.22, ease }} className="mt-10 flex flex-col gap-3 sm:flex-row">
-                <Link href="/register" className="inline-flex items-center justify-center gap-2 rounded-full bg-[#d6935a] px-7 py-3.5 text-sm font-semibold text-[#160f0a] transition hover:-translate-y-0.5 hover:bg-[#efb27f]">
-                  Mulai 14 hari gratis <ArrowRight className="h-4 w-4" />
-                </Link>
-                <a href="#system" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 px-7 py-3.5 text-sm font-semibold text-white/75 transition hover:border-white/25 hover:bg-white/5 hover:text-white">
-                  Lihat cara kerjanya <ChevronRight className="h-4 w-4" />
-                </a>
-              </motion.div>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.35 }} className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/35">
-                {["Tanpa kartu kredit", "Tenant-ready", "Audit-friendly"].map((item) => <span key={item} className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-emerald-300/70" />{item}</span>)}
-              </motion.div>
-            </div>
-            <motion.div initial={{ opacity: 0, x: 28 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 1, delay: 0.18, ease }}>
-              <SystemPreview />
-            </motion.div>
-          </div>
-        </section>
-
-        <section className="border-y border-white/8 bg-[#0c0a08] px-5 py-6 sm:px-8">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-10 gap-y-3 text-center font-mono text-[9px] uppercase tracking-[0.18em] text-white/30 lg:justify-between">
-            <span>Inventory ledger</span><span className="text-[#d6935a]/45">→</span><span>Roast batch</span><span className="text-[#d6935a]/45">→</span><span>Finished goods</span><span className="text-[#d6935a]/45">→</span><span>Sales & payment</span><span className="text-[#d6935a]/45">→</span><span>P&amp;L</span>
-          </div>
-        </section>
-
-        <section id="system" className="px-5 py-24 sm:px-8 lg:py-32">
-          <div className="mx-auto max-w-7xl">
-            <Reveal className="mb-14 grid gap-6 md:grid-cols-[0.8fr_1.2fr] md:items-end">
-              <div>
-                <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.22em] text-[#d6935a]">The operating layer</p>
-                <h2 className="text-4xl font-semibold tracking-[-0.045em] text-[#f6efe8] sm:text-5xl">Satu sumber kebenaran.</h2>
+              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#ded8d1] bg-white px-3 py-1.5 text-xs font-semibold text-[#6f6258]">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Dibuat untuk roastery Indonesia
               </div>
-              <p className="max-w-2xl text-base leading-7 text-white/45 md:justify-self-end">Bukan kumpulan modul yang berdiri sendiri. Setiap pembelian, roast, produksi, order, dan pembayaran membentuk satu rantai data operasional.</p>
-            </Reveal>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              {MODULES.map((module, index) => (
-                <Reveal key={module.code} delay={index * 0.06}>
-                  <article className="group relative min-h-[290px] overflow-hidden rounded-[24px] border border-white/8 bg-[#100e0c] p-7 transition hover:border-[#d6935a]/25 sm:p-9">
-                    <div className="absolute right-0 top-0 h-44 w-44 translate-x-1/3 -translate-y-1/3 rounded-full bg-[#d6935a]/[0.055] blur-2xl transition group-hover:bg-[#d6935a]/10" />
-                    <div className="relative flex h-full flex-col">
-                      <div className="mb-10 flex items-center justify-between">
-                        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-white/28">{module.code}</span>
-                        <module.icon className="h-5 w-5 text-[#d6935a]" strokeWidth={1.5} />
-                      </div>
-                      <h3 className="text-2xl font-semibold tracking-[-0.035em] text-[#f6efe8]">{module.title}</h3>
-                      <p className="mt-4 max-w-lg text-sm leading-7 text-white/43">{module.description}</p>
-                      <p className="mt-auto pt-8 font-mono text-[9px] uppercase tracking-[0.14em] text-white/25">{module.detail}</p>
-                    </div>
-                  </article>
-                </Reveal>
-              ))}
+              <h1 className="max-w-2xl text-[clamp(3rem,6.3vw,6rem)] font-semibold leading-[0.96] tracking-[-0.055em] text-[#211a16]">
+                Operasional roastery, dibuat lebih sederhana.
+              </h1>
+              <p className="mt-7 max-w-xl text-base leading-7 text-[#6f6258] sm:text-lg sm:leading-8">
+                Catat sekali. Stok, roasting, HPP, penjualan, pembayaran, dan laporan bergerak otomatis dalam satu sistem yang cepat dan mudah dipahami.
+              </p>
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+                <Link href="/register" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#b9602d] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#a45125]">
+                  Mulai 14 hari gratis <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+                <a href="#workflow" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#d6cfc7] bg-white px-6 py-3 text-sm font-semibold text-[#51473f] transition-colors hover:border-[#bcb2a8]">
+                  Lihat cara kerja <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </a>
+              </div>
+              <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 text-xs font-medium text-[#81746a]">
+                {["Untuk tim kecil", "Tanpa setup rumit", "Data real-time"].map((item) => (
+                  <span key={item} className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-emerald-600" aria-hidden="true" />{item}
+                  </span>
+                ))}
+              </div>
             </div>
+            <SystemPreview />
           </div>
         </section>
 
-        <section id="workflow" className="border-y border-white/8 bg-[#0d0b09] px-5 py-24 sm:px-8 lg:py-32">
+        <section className="border-y border-[#e6e0d9] bg-white px-5 py-7 sm:px-8">
+          <div className="mx-auto grid max-w-7xl gap-5 text-sm font-semibold text-[#51473f] sm:grid-cols-3">
+            <div className="flex items-center gap-3"><Workflow className="h-5 w-5 text-[#b9602d]" aria-hidden="true" /> Satu input, semua proses terhubung</div>
+            <div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-[#b9602d]" aria-hidden="true" /> Guardrail mencegah salah input</div>
+            <div className="flex items-center gap-3"><BarChart3 className="h-5 w-5 text-[#b9602d]" aria-hidden="true" /> Laporan mengikuti transaksi nyata</div>
+          </div>
+        </section>
+
+        <section id="workflow" className="scroll-mt-20 px-5 py-20 sm:px-8 sm:py-28">
           <div className="mx-auto max-w-7xl">
-            <Reveal className="max-w-2xl">
-              <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300/80">Connected workflow</p>
-              <h2 className="text-4xl font-semibold tracking-[-0.045em] text-[#f6efe8] sm:text-5xl">Ikuti perjalanan bean, bukan file.</h2>
-              <p className="mt-5 text-base leading-7 text-white/45">Mekanisme inti tetap sederhana: catat sekali di titik kejadian, lalu biarkan sistem membawa dampaknya ke stok, biaya, dan laporan.</p>
-            </Reveal>
+            <div className="grid gap-8 lg:grid-cols-[0.75fr_1.25fr] lg:items-end">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#b9602d]">Cara kerja</p>
+                <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Alur yang mengikuti pekerjaan tim Anda.</h2>
+              </div>
+              <p className="max-w-2xl text-base leading-7 text-[#6f6258] lg:justify-self-end">
+                Tidak perlu menguasai sistem yang rumit. Setiap aktivitas harian memperbarui stok, biaya, dan laporan secara otomatis.
+              </p>
+            </div>
 
-            <div className="mt-16 grid gap-px overflow-hidden rounded-[24px] border border-white/8 bg-white/8 md:grid-cols-5">
+            <ol className="mt-12 grid overflow-hidden rounded-2xl border border-[#ded8d1] bg-white md:grid-cols-5">
               {WORKFLOW.map((item, index) => (
-                <Reveal key={item.step} delay={index * 0.07} className="h-full">
-                  <div className="relative h-full min-h-56 bg-[#12100e] p-6 sm:p-7">
-                    {index < WORKFLOW.length - 1 && <ChevronRight className="absolute -right-3 top-1/2 z-10 hidden h-6 w-6 -translate-y-1/2 rounded-full border border-white/10 bg-[#12100e] p-1 text-[#d6935a] md:block" />}
-                    <span className="font-mono text-[10px] text-[#d6935a]">{item.step}</span>
-                    <h3 className="mt-16 text-xl font-semibold text-[#f6efe8]">{item.label}</h3>
-                    <p className="mt-3 text-sm leading-6 text-white/38">{item.detail}</p>
+                <li key={item.step} className={`min-h-48 p-6 ${index < WORKFLOW.length - 1 ? "border-b border-[#e6e0d9] md:border-b-0 md:border-r" : ""}`}>
+                  <span className="text-xs font-bold text-[#b9602d]">{item.step}</span>
+                  <h3 className="mt-8 text-lg font-semibold">{item.label}</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#81746a]">{item.detail}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section id="system" className="scroll-mt-20 border-y border-[#e6e0d9] bg-[#efebe5] px-5 py-20 sm:px-8 sm:py-28">
+          <div className="mx-auto max-w-7xl">
+            <div className="max-w-2xl">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#b9602d]">Satu sistem</p>
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Semua yang penting. Tanpa keramaian.</h2>
+              <p className="mt-5 text-base leading-7 text-[#6f6258]">Empat area kerja terhubung, dengan tampilan yang tetap fokus pada tugas hari ini.</p>
+            </div>
+
+            <div className="mt-12 grid gap-4 md:grid-cols-2">
+              {MODULES.map((module) => (
+                <article key={module.eyebrow} className="rounded-2xl border border-[#ded8d1] bg-white p-7 sm:p-8">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#b9602d]">{module.eyebrow}</span>
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f7f3ee] text-[#51473f]">
+                      <module.icon className="h-5 w-5" aria-hidden="true" />
+                    </span>
                   </div>
-                </Reveal>
+                  <h3 className="mt-8 text-2xl font-semibold tracking-tight">{module.title}</h3>
+                  <p className="mt-4 max-w-xl text-sm leading-7 text-[#6f6258]">{module.description}</p>
+                  <p className="mt-7 border-t border-[#ece7e1] pt-5 text-xs text-[#9a8d82]">{module.detail}</p>
+                </article>
               ))}
             </div>
           </div>
         </section>
 
-        <section id="pricing" className="px-5 py-24 sm:px-8 lg:py-32">
-          <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
-            <Reveal>
-              <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.22em] text-[#d6935a]">Simple pricing</p>
-              <h2 className="text-4xl font-semibold tracking-[-0.045em] text-[#f6efe8] sm:text-5xl">Mulai kecil.<br />Tumbuh tanpa ganti sistem.</h2>
-              <p className="mt-6 max-w-md text-base leading-7 text-white/45">Coba seluruh alur utama selama 14 hari. Tidak perlu kartu kredit dan tidak perlu memindahkan ide operasional Anda.</p>
-            </Reveal>
+        <section id="pricing" className="scroll-mt-20 px-5 py-20 sm:px-8 sm:py-28">
+          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+            <div className="max-w-xl">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#b9602d]">Harga sederhana</p>
+              <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Mulai dari yang dibutuhkan sekarang.</h2>
+              <p className="mt-5 text-base leading-7 text-[#6f6258]">Satu paket inti untuk operasional harian. Fitur lanjutan dapat mengikuti pertumbuhan roastery Anda.</p>
+            </div>
 
-            <Reveal delay={0.08}>
-              <div className="relative overflow-hidden rounded-[28px] border border-[#d6935a]/28 bg-[#12100e] p-7 shadow-[0_30px_100px_rgba(0,0,0,.35)] sm:p-10">
-                <div className="absolute right-0 top-0 h-64 w-64 translate-x-1/3 -translate-y-1/3 rounded-full bg-[#d6935a]/10 blur-3xl" />
-                <div className="relative">
-                  <div className="flex flex-wrap items-start justify-between gap-5">
-                    <div>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#d6935a]">Pro</p>
-                      <p className="mt-3 text-sm text-white/40">Untuk roastery yang ingin satu operasi terhubung.</p>
-                    </div>
-                    <span className="rounded-full border border-emerald-300/20 bg-emerald-300/8 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-emerald-200">14 hari gratis</span>
-                  </div>
-                  <div className="my-8 h-px bg-white/8" />
-                  <div className="flex items-end gap-2">
-                    <span className="font-mono text-5xl font-semibold tracking-[-0.05em] text-[#f6efe8]">Rp299k</span>
-                    <span className="pb-1 text-sm text-white/35">/ bulan</span>
-                  </div>
-                  <div className="mt-9 grid gap-3 sm:grid-cols-2">
-                    {PLAN_FEATURES.map((feature) => (
-                      <div key={feature} className="flex items-start gap-3 text-sm leading-6 text-white/48">
-                        <Check className="mt-1 h-3.5 w-3.5 shrink-0 text-emerald-300" />
-                        <span>{feature}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <Link href="/register" className="mt-10 flex w-full items-center justify-center gap-2 rounded-full bg-[#d6935a] px-7 py-4 text-sm font-semibold text-[#160f0a] transition hover:bg-[#efb27f]">
-                    Mulai free trial <ArrowRight className="h-4 w-4" />
-                  </Link>
+            <div className="rounded-2xl bg-[#2a211b] p-7 text-white sm:p-9">
+              <div className="flex flex-col gap-5 border-b border-white/10 pb-7 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#f4b27d]">Roastery OS Core</p>
+                  <p className="mt-3 text-sm text-white/60">Untuk tim yang ingin berhenti mengulang pekerjaan.</p>
+                </div>
+                <div className="sm:text-right">
+                  <p className="text-4xl font-semibold tracking-tight">Rp299rb</p>
+                  <p className="mt-1 text-xs text-white/45">per bulan · per roastery</p>
                 </div>
               </div>
-            </Reveal>
+              <div className="grid gap-x-8 gap-y-3 py-7 sm:grid-cols-2">
+                {PLAN_FEATURES.map((feature) => (
+                  <div key={feature} className="flex items-start gap-3 text-sm text-white/72">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />{feature}
+                  </div>
+                ))}
+              </div>
+              <Link href="/register" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#f4b27d] px-6 py-3 text-sm font-semibold text-[#2a211b] transition-colors hover:bg-[#ffc79b]">
+                Coba gratis 14 hari <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </div>
           </div>
         </section>
 
-        <section className="border-t border-white/8 px-5 py-24 sm:px-8">
-          <Reveal className="mx-auto max-w-4xl text-center">
-            <p className="font-serif text-lg italic text-[#dca06d]">Roast more. Reconcile less.</p>
-            <h2 className="mt-5 text-4xl font-semibold tracking-[-0.05em] text-[#f6efe8] sm:text-6xl">Operasi yang rapi terasa di setiap batch.</h2>
-            <Link href="/register" className="mt-9 inline-flex items-center gap-2 rounded-full bg-[#f6efe8] px-7 py-3.5 text-sm font-semibold text-[#160f0a] transition hover:bg-white">
-              Bangun sistem Anda <ArrowRight className="h-4 w-4" />
+        <section className="border-t border-[#e6e0d9] bg-white px-5 py-20 sm:px-8 sm:py-24">
+          <div className="mx-auto max-w-3xl text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#b9602d]">Siap digunakan</p>
+            <h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Lebih sedikit admin. Lebih banyak roasting.</h2>
+            <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-[#6f6258]">Mulai dari aktivitas harian tim. Sistem akan menjaga proses berikutnya tetap terhubung.</p>
+            <Link href="/register" className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#2a211b] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#43362d]">
+              Mulai sekarang <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
-          </Reveal>
+          </div>
         </section>
       </main>
 
-      <footer className="border-t border-white/8 px-5 py-10 sm:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center sm:flex-row sm:text-left">
-          <div>
-            <p className="text-sm font-semibold text-white/75">Roastery Operating System</p>
-            <p className="mt-1 text-xs text-white/28">Built for the work behind every great cup.</p>
-          </div>
-          <div className="flex items-center gap-6 text-xs text-white/35">
-            <Link href="/login" className="hover:text-white">Masuk</Link>
-            <Link href="/register" className="hover:text-white">Daftar</Link>
-            <span>© {getCurrentDate().getFullYear()}</span>
-          </div>
+      <footer className="border-t border-[#e6e0d9] bg-[#f7f5f1] px-5 py-8 sm:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 text-sm text-[#81746a] sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3"><BrandMark /><span>Roastery Operating System</span></div>
+          <p>Built for the people behind every roast.</p>
         </div>
       </footer>
     </div>

@@ -223,15 +223,7 @@
 
   body {
     @apply text-slate-800 min-h-screen font-sans antialiased;
-    /* Warm neutral workspace shared by every authenticated module. */
-    background-color: #f4f0e9;
-    background-image: 
-      radial-gradient(at 0% 0%, rgba(180, 126, 78, 0.16) 0px, transparent 46%),
-      radial-gradient(at 100% 0%, rgba(113, 128, 103, 0.12) 0px, transparent 44%),
-      radial-gradient(at 100% 100%, rgba(196, 151, 102, 0.11) 0px, transparent 48%),
-      radial-gradient(at 0% 100%, rgba(120, 94, 72, 0.08) 0px, transparent 50%);
-    background-size: 150% 150%;
-    animation: gradient-xy 25s ease infinite;
+    background-color: #f5f5f4;
     position: relative;
   }
 
@@ -247,6 +239,37 @@
 }
 
 @layer utilities {
+  /* Authenticated workspace: flat, predictable surfaces across every module. */
+  .ros-workspace {
+    color: #292524;
+    background: #f5f5f4;
+  }
+
+  .ros-workspace [class*="backdrop-blur"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .ros-workspace [class*="bg-white/"] {
+    background-color: #ffffff !important;
+  }
+
+  .ros-workspace [class*="border-white/"] {
+    border-color: #e7e5e4 !important;
+  }
+
+  .ros-workspace [class*="shadow-lg"],
+  .ros-workspace [class*="shadow-xl"],
+  .ros-workspace [class*="shadow-2xl"] {
+    box-shadow: 0 1px 2px rgba(41, 37, 36, 0.06) !important;
+  }
+
+  .ros-workspace [class*="rounded-3xl"],
+  .ros-workspace [class*="rounded-[1.5rem]"],
+  .ros-workspace [class*="rounded-[1.75rem]"] {
+    border-radius: 1rem !important;
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;

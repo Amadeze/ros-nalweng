@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { Menu, Coffee } from "lucide-react";
+import { Menu, Coffee, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import type { PlanTier } from "@/lib/plans";
 
@@ -28,18 +28,18 @@ export function AppShell({
   }, [pathname]);
 
   return (
-    <div className="relative flex h-[100dvh] w-full overflow-hidden p-0 md:p-4 xl:p-6">
+    <div className="ros-workspace relative flex h-[100dvh] w-full overflow-hidden bg-stone-100">
 
       {/* ── MOBILE OVERLAY ── */}
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 z-40 bg-white/20 backdrop-blur-sm md:hidden transition-all"
+          className="fixed inset-0 z-40 bg-stone-950/35 md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
       {/* ── MAIN CONTAINER ── */}
-      <div className="mx-auto flex h-full w-full max-w-[1800px] overflow-hidden flex-col bg-[#fbfaf8] md:flex-row md:rounded-[1.75rem] md:border md:border-stone-200/80 md:shadow-2xl md:shadow-stone-300/30 md:ring-1 md:ring-white/70">
+      <div className="flex h-full w-full overflow-hidden flex-col bg-stone-50 md:flex-row">
 
         {/* ── DESKTOP SIDEBAR ── */}
         {/* Hidden on mobile, shown on desktop */}
@@ -49,34 +49,43 @@ export function AppShell({
 
         {/* ── MOBILE SIDEBAR (drawer) ── */}
         <div
-          className={`fixed inset-y-2 left-2 z-50 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) md:hidden ${
+          className={`fixed inset-y-0 left-0 z-50 transition-transform duration-200 md:hidden ${
             isMobileMenuOpen ? "translate-x-0" : "translate-x-[-120%]"
           }`}
         >
-          {/* On mobile, always show expanded sidebar */}
-          <Sidebar userRole={userRole} subscriptionTier={subscriptionTier} forceExpanded />
+          <div className="relative h-full">
+            <Sidebar userRole={userRole} subscriptionTier={subscriptionTier} forceExpanded />
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+              aria-label="Tutup menu"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* ── MAIN CONTENT AREA ── */}
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-[#fbfaf8] md:bg-transparent">
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-stone-50">
 
           {/* MOBILE HEADER */}
-          <div className="flex h-16 shrink-0 items-center gap-3 border-b border-stone-200/80 bg-[#fbfaf8]/90 px-4 backdrop-blur-xl md:hidden">
+          <div className="flex h-14 shrink-0 items-center gap-3 border-b border-stone-200 bg-white px-4 md:hidden">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-stone-200 bg-white/80 text-stone-800 shadow-sm active:scale-95 transition-all hover:bg-white"
-              aria-label="Open menu"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-stone-200 bg-white text-stone-700 transition-colors hover:bg-stone-50"
+              aria-label="Buka menu"
             >
               <Menu size={20} />
             </button>
-            <div className="flex items-center ml-3 gap-2">
-              <Coffee className="h-6 w-6 text-slate-800" />
-              <span className="font-bold text-slate-800 tracking-tight">Roastery OS</span>
+            <div className="flex items-center gap-2">
+              <Coffee className="h-5 w-5 text-stone-800" />
+              <span className="text-sm font-bold tracking-tight text-stone-800">Roastery OS</span>
             </div>
           </div>
 
           {/* CONTENT */}
-          <div className="flex-1 overflow-auto custom-scrollbar">
+          <div className="custom-scrollbar flex-1 overflow-auto">
             <div className="flex h-full w-full flex-col">{children}</div>
           </div>
         </main>

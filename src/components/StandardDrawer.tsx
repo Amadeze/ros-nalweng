@@ -47,7 +47,7 @@ export function StandardDrawer({
         className={[
           SIZE_MAP[size],
           "flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[calc(100dvh-3rem)]",
-          "rounded-[1.5rem] border border-stone-200/90 bg-[#fbfaf8]/95 backdrop-blur-3xl shadow-2xl shadow-stone-950/15",
+          "rounded-xl border border-stone-200 bg-white shadow-xl",
         ].join(" ")}
       >
         {/* ── Modal Header ── */}
@@ -66,7 +66,7 @@ export function StandardDrawer({
           <DialogClose
             render={
               <button
-                className="mt-0.5 flex shrink-0 items-center justify-center rounded-full border border-stone-200 bg-white/80 p-2 text-stone-500 shadow-sm transition-colors hover:bg-stone-900 hover:text-white focus-visible:outline-none"
+                className="mt-0.5 flex shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-white p-2 text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-900 focus-visible:outline-none"
                 aria-label="Tutup"
               />
             }
@@ -81,21 +81,21 @@ export function StandardDrawer({
         </div>
 
         {/* ── Modal Footer ── */}
-        <div className="shrink-0 border-t border-stone-200/70 bg-white/55 px-5 py-4 sm:px-6">
+        <div className="shrink-0 border-t border-stone-200 bg-stone-50 px-5 py-4 sm:px-6">
           <DialogFooter className="flex-row justify-end gap-3 sm:justify-end bg-transparent border-none p-0">
             <DialogClose
               render={
                 <Button
                   type="button"
                   variant="outline"
-                  className="rounded-xl border-stone-200 bg-white text-stone-700 shadow-sm hover:bg-stone-50 hover:text-stone-900 px-5"
+                  className="rounded-lg border-stone-200 bg-white px-5 text-stone-700 shadow-none hover:bg-stone-50 hover:text-stone-900"
                 />
               }
             >
               Batal
             </DialogClose>
             {submitButton && (
-              <div className="[&>button]:rounded-xl [&>button]:px-6 [&>button]:font-bold [&>button]:shadow-md">
+              <div className="[&>button]:rounded-lg [&>button]:px-6 [&>button]:font-semibold [&>button]:shadow-none">
                 {submitButton}
               </div>
             )}

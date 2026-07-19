@@ -373,17 +373,25 @@ export async function getPnLReport(month: number, year: number): Promise<PnLRepo
   const previousPeriod = getZonedMonthRange(prevYear, prevMonth, tenant?.timezone);
   const tp = await requireTenantPrisma();
 
-  const [invoices, expenses, prevInvoices, prevExpenses] = await Promise.all([
+  const [invoices, expenses, samples, prevInvoices, prevExpenses, prevSamples] = await Promise.all([
     tp.invoice.findMany({
       where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: period.start, lt: period.end } },
       select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, subtotal: true, hpp: true, product: { select: { type: true, name: true } } } } },
     }),
     tp.expense.findMany({ where: { voidAt: null, date: { gte: period.start, lt: period.end } }, select: { category: true, amount: true } }),
+    tp.sampleUsage.aggregate({
+      where: { status: "COMPLETED", givenAt: { gte: period.start, lt: period.end } },
+      _sum: { totalCost: true },
+    }),
     tp.invoice.findMany({
       where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: previousPeriod.start, lt: previousPeriod.end } },
       select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, subtotal: true, hpp: true, product: { select: { type: true, name: true } } } } },
     }),
     tp.expense.findMany({ where: { voidAt: null, date: { gte: previousPeriod.start, lt: previousPeriod.end } }, select: { category: true, amount: true } }),
+    tp.sampleUsage.aggregate({
+      where: { status: "COMPLETED", givenAt: { gte: previousPeriod.start, lt: previousPeriod.end } },
+      _sum: { totalCost: true },
+    }),
   ]);
 
   const toFinancialInvoices = (rows: typeof invoices) => rows.map((invoice) => ({
@@ -443,10 +451,14 @@ export async function getPnLReport(month: number, year: number): Promise<PnLRepo
   if (currentAdjustments.loss > 0) {
     opexMap.KERUGIAN_MATERIAL = currentAdjustments.loss;
   }
+  const sampleCost = Number(samples._sum.totalCost ?? 0);
+  if (sampleCost > 0) {
+    opexMap.BIAYA_SAMPLE_PROMOSI = sampleCost;
+  }
   const opexBreakdown = Object.entries(opexMap).map(([category, amount]) => ({ category, amount }));
   const opex = opexBreakdown.reduce((sum, row) => sum + row.amount, 0);
 
-  const previousOpex = prevExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0) + previousAdjustments.loss;
+  const previousOpex = prevExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0) + previousAdjustments.loss + Number(prevSamples._sum.totalCost ?? 0);
   const revenue = currentSales.netSales + currentAdjustments.income;
   const revenueBreakdown = [...currentSales.revenueBreakdown];
   if (currentAdjustments.income > 0) {

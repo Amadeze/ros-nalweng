@@ -29,6 +29,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   ROASTED_BEAN: "Biji Kopi Sangrai",
   GREEN_BEAN: "Biji Kopi Mentah",
   PACKAGING:   "Kemasan",
+  BIAYA_SAMPLE_PROMOSI: "Biaya Sample & Promosi",
+  KERUGIAN_MATERIAL: "Kerugian Material",
 };
 
 function pct(part: number, total: number): string {
@@ -235,14 +237,14 @@ interface KpiCardProps {
 
 function KpiCard({ label, value, subtitle, variant, icon }: KpiCardProps) {
   const colors = {
-    emerald: { bg: "bg-emerald-50",  text: "text-emerald-700",  icon: "bg-emerald-100 text-emerald-600" },
-    rose:    { bg: "bg-rose-50",     text: "text-rose-700",     icon: "bg-rose-100 text-rose-600"       },
-    blue:    { bg: "bg-blue-50",     text: "text-amber-800",     icon: "bg-blue-100 text-amber-800"       },
-    violet:  { bg: "bg-violet-50",   text: "text-violet-700",   icon: "bg-violet-100 text-violet-600"   },
+    emerald: { text: "text-emerald-700", icon: "bg-emerald-50 text-emerald-700" },
+    rose: { text: "text-rose-700", icon: "bg-rose-50 text-rose-700" },
+    blue: { text: "text-stone-900", icon: "bg-sky-50 text-sky-700" },
+    violet: { text: "text-violet-700", icon: "bg-violet-50 text-violet-700" },
   }[variant];
 
   return (
-    <div className={cn("rounded-2xl border border-white/60 p-4 backdrop-blur-sm shadow-sm", colors.bg)}>
+    <div className="rounded-xl border border-stone-200 bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium text-zinc-500">{label}</p>
@@ -294,7 +296,7 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
         rincian pendapatan terhadap total berbeda {formatRupiah(report.reconciliationDifference)} · periode dihitung dalam {report.timezone}.
       </div>
       {/* â”€â”€ KPI Summary Row â”€â”€ */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <KpiCard
           label="Total Pendapatan"
           value={revenue}
@@ -302,9 +304,9 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
           variant="blue"
           icon={<TrendingUp size={16} />}
         />
-        <div className="rounded-2xl border border-white/60 bg-gradient-to-br from-amber-50 to-orange-50 p-4 shadow-sm backdrop-blur-sm flex flex-col justify-center">
+        <div className="flex flex-col justify-center rounded-xl border border-stone-200 bg-white p-4">
           <div className="flex items-center gap-2 mb-2">
-            <span className="p-1.5 rounded-lg bg-white/60 text-amber-600 shadow-sm"><TrendingUp size={16} /></span>
+            <span className="rounded-lg bg-amber-50 p-1.5 text-amber-700"><TrendingUp size={16} /></span>
             <h3 className="text-sm font-semibold text-slate-600">Volume Terjual</h3>
           </div>
           <p className="text-2xl font-black text-amber-700 tracking-tight">{salesVolumeUnits.toLocaleString("id-ID")} <span className="text-sm font-normal">Pcs</span></p>
@@ -334,7 +336,7 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
 
       {/* â”€â”€ Charts Row â”€â”€ */}
       <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4 print:hidden">
-        <div className="rounded-2xl border border-white/60 bg-white/40 backdrop-blur-md p-4 shadow-sm flex flex-col h-[280px]">
+        <div className="flex h-[280px] flex-col rounded-xl border border-stone-200 bg-white p-4">
           <h3 className="text-xs font-bold text-slate-700 mb-4 uppercase tracking-wider">Distribusi Pendapatan</h3>
           <div className="flex-1 min-h-0">
             {revenue > 0 ? (() => {
@@ -372,7 +374,7 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
           </div>
         </div>
         
-        <div className="rounded-2xl border border-white/60 bg-white/40 backdrop-blur-md p-4 shadow-sm flex flex-col h-[280px]">
+        <div className="flex h-[280px] flex-col rounded-xl border border-stone-200 bg-white p-4">
           <h3 className="text-xs font-bold text-slate-700 mb-4 uppercase tracking-wider">Bulan Lalu vs Bulan Ini</h3>
           <div className="flex-1 min-h-0">
             <ResponsiveContainer width="100%" height="100%">

@@ -12,7 +12,6 @@ import type { DashboardData, ActivityItem, LowStockItem } from "../actions";
 import { RevenueChart } from "./RevenueChart";
 import { TopProductsChart } from "./TopProductsChart";
 import { TopCustomersChart } from "./TopCustomersChart";
-import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { getCurrentDate } from "@/lib/date-utils";
 import { StandardPageLayout } from "@/components/StandardPageLayout";
@@ -66,7 +65,7 @@ function KpiCard({ label, value, sub, icon, accent = "zinc", href }: KpiCardProp
   };
 
   const content = (
-    <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { duration: 0.4 } } }} className="group relative flex flex-col gap-4 rounded-[1.5rem] md:rounded-3xl border border-white/60 bg-white/40 p-5 shadow-lg shadow-slate-200/30 backdrop-blur-xl transition-all hover:bg-white/50 hover:shadow-xl hover:shadow-slate-200/40">
+    <div className="group relative flex flex-col gap-4 rounded-xl border border-stone-200 bg-white p-5 transition-colors hover:border-stone-300">
       <div className="flex items-start justify-between">
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide leading-none">
           {label}
@@ -87,7 +86,7 @@ function KpiCard({ label, value, sub, icon, accent = "zinc", href }: KpiCardProp
           className="absolute bottom-5 right-5 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-slate-500"
         />
       )}
-    </motion.div>
+    </div>
   );
 
   return href ? <Link href={href} className="block">{content}</Link> : content;
@@ -198,12 +197,13 @@ function DailyBriefCard({ brief }: { brief: NonNullable<DashboardData["dailyBrie
         </Badge>
       </div>
 
-      <div className="grid grid-cols-2 gap-px bg-amber-200/40 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-px bg-amber-200/40 lg:grid-cols-5">
         {[
           ["Penjualan akrual", formatRupiah(brief.salesAccrued), `${brief.invoiceCount} nota`],
           ["Kas diterima", formatRupiah(brief.cashCollected), "Pembayaran aktual"],
           ["Roasting", `${brief.roasting.yieldPercent.toFixed(1)}%`, `${brief.roasting.batchCount} batch · ${formatKg(brief.roasting.outputKg)}`],
           ["Produksi", formatUnit(brief.production.unitsProduced), `${brief.production.batchCount} batch selesai`],
+          ["Sample", `${brief.samples?.packCount ?? 0} pack`, `${(brief.samples?.totalGrams ?? 0).toLocaleString("id-ID")} g · ${formatRupiah(brief.samples?.totalCost ?? 0)}`],
         ].map(([label, value, detail]) => (
           <div key={label} className="bg-white/65 px-5 py-4">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</p>
@@ -394,6 +394,10 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             <ReceiptText size={16} />
             Buat Nota
           </Link>
+          <Link href="/penjualan?action=sample" className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 shadow-sm transition-all hover:bg-amber-100">
+            <Beaker size={14} />
+            Kasih Sample
+          </Link>
           <Link href="/roasting" className="flex items-center gap-2 rounded-full border border-white/60 bg-white/40 px-4 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur-md transition-all hover:bg-white/60 hover:text-slate-900">
             <Flame size={14} />
             Roasting
@@ -412,12 +416,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
         {/* ── KPI Cards ── */}
         {data.dailyBrief && <DailyBriefCard brief={data.dailyBrief} />}
 
-        <motion.div 
-          initial="hidden" 
-          animate="show" 
-          variants={{ show: { transition: { staggerChildren: 0.1 } } }} 
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5"
-        >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 md:gap-5">
 
           {/* Card 1 — Revenue */}
           <KpiCard
@@ -496,7 +495,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             <LowStockCard items={lowStock} />
           </div>
 
-        </motion.div>
+        </div>
 
         {/* ── Charts ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-5">

@@ -1,12 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useId } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-
-// ── Types ──
 
 interface SpeedDialItem {
   label: string;
@@ -25,33 +22,13 @@ interface MobileFabAction {
 interface StandardPageLayoutProps {
   title: string;
   description?: string;
-  /** Desktop header actions (all work + utility actions) */
   actionButton?: React.ReactNode;
-  /** Single mobile FAB (for pages with 1 work action) */
   mobileFabAction?: MobileFabAction;
-  /** Mobile speed dial items (for pages with multiple work actions) */
   mobileSpeedDialItems?: SpeedDialItem[];
-  /** Mobile header utility actions (export, print, etc.) */
   mobileHeaderActions?: React.ReactNode;
   children: React.ReactNode;
   isLoading?: boolean;
 }
-
-// ── Reduced motion ──
-
-function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const h = (e: MediaQueryListEvent) => setReduced(e.matches);
-    mq.addEventListener("change", h);
-    return () => mq.removeEventListener("change", h);
-  }, []);
-  return reduced;
-}
-
-// ── Main component ──
 
 export function StandardPageLayout({
   title,
@@ -67,176 +44,109 @@ export function StandardPageLayout({
   const fabRef = useRef<HTMLButtonElement>(null);
   const speedDialRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
-  const reducedMotion = usePrefersReducedMotion();
 
   const closeSpeedDial = useCallback(() => {
     setSpeedDialOpen(false);
     requestAnimationFrame(() => fabRef.current?.focus());
   }, []);
 
-  const animDuration = reducedMotion ? 0 : 0.15;
-
-  // Close speed dial on Escape / click outside
   useEffect(() => {
     if (!speedDialOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); closeSpeedDial(); }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeSpeedDial();
     };
-    const onClick = (e: MouseEvent) => {
+    const onPointerDown = (event: MouseEvent) => {
       if (
-        speedDialRef.current && !speedDialRef.current.contains(e.target as Node) &&
-        fabRef.current && !fabRef.current.contains(e.target as Node)
-      ) closeSpeedDial();
+        speedDialRef.current &&
+        !speedDialRef.current.contains(event.target as Node) &&
+        fabRef.current &&
+        !fabRef.current.contains(event.target as Node)
+      ) {
+        closeSpeedDial();
+      }
     };
     document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onClick);
+    document.addEventListener("mousedown", onPointerDown);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("mousedown", onPointerDown);
     };
   }, [speedDialOpen, closeSpeedDial]);
 
-  const hasSpeedDial = !isLoading && mobileSpeedDialItems && mobileSpeedDialItems.length > 0;
-  const hasSingleFab = !isLoading && !hasSpeedDial && !!mobileFabAction;
-  const hasFab = hasSpeedDial || hasSingleFab;
+  const hasSpeedDial = !isLoading && !!mobileSpeedDialItems?.length;
+  const hasSingleAction = !isLoading && !hasSpeedDial && !!mobileFabAction;
+  const hasMobileAction = hasSpeedDial || hasSingleAction;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      {/* ── Header ── */}
-      <header className="h-[72px] shrink-0 border-b border-stone-200/80 bg-[#fbfaf8]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-full w-full max-w-[1600px] items-center justify-between gap-4 px-4 md:px-6 lg:px-8">
+    <div className="flex h-full min-w-0 flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-stone-200 bg-white">
+        <div className="mx-auto flex min-h-[72px] w-full max-w-[1600px] items-center justify-between gap-4 px-4 py-3 md:px-6 lg:px-8">
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-bold tracking-tight text-stone-900 md:text-xl">
-              {title}
-            </h1>
-            {description && (
-              <p className="mt-0.5 truncate text-xs font-medium text-stone-500">
-                {description}
-              </p>
-            )}
+            <h1 className="truncate text-lg font-bold tracking-tight text-stone-900 md:text-xl">{title}</h1>
+            {description && <p className="mt-0.5 truncate text-xs text-stone-500">{description}</p>}
           </div>
-
-          {/* Desktop actions */}
-          {actionButton && (
-            <div className="hidden shrink-0 items-center gap-2 md:flex">
-              {actionButton}
-            </div>
-          )}
-
-          {/* Mobile header utility actions */}
-          {mobileHeaderActions && (
-            <div className="shrink-0 md:hidden">
-              {mobileHeaderActions}
-            </div>
-          )}
+          {actionButton && <div className="hidden shrink-0 items-center gap-2 md:flex">{actionButton}</div>}
+          {mobileHeaderActions && <div className="shrink-0 md:hidden">{mobileHeaderActions}</div>}
         </div>
       </header>
 
-      {/* ── Mobile Speed Dial (multiple work actions) ── */}
       {hasSpeedDial && (
         <>
-          <AnimatePresence>
+          {speedDialOpen && <button type="button" className="fixed inset-0 z-[99] bg-stone-950/25 md:hidden" onClick={closeSpeedDial} aria-label="Tutup menu aksi" />}
+          <div ref={speedDialRef} className="fixed bottom-[calc(16px+env(safe-area-inset-bottom,0px))] right-4 z-[100] flex flex-col items-end md:hidden">
             {speedDialOpen && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: animDuration }}
-                className="md:hidden fixed inset-0 z-[99] bg-black/10"
-                onClick={closeSpeedDial}
-                aria-hidden="true"
-              />
+              <div id={panelId} role="menu" aria-label="Menu aksi" className="mb-2 flex flex-col items-end gap-2">
+                {mobileSpeedDialItems?.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      item.onClick();
+                      closeSpeedDial();
+                    }}
+                    className={cn(
+                      "flex min-h-11 items-center gap-2.5 rounded-xl border px-4 py-2.5 text-sm font-semibold shadow-sm",
+                      item.variant === "primary"
+                        ? "border-stone-900 bg-stone-900 text-white"
+                        : "border-stone-200 bg-white text-stone-700",
+                    )}
+                  >
+                    {item.icon}<span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
             )}
-          </AnimatePresence>
-
-          <div
-            ref={speedDialRef}
-            className="md:hidden fixed z-[100] flex flex-col items-end"
-            style={{ bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", right: "16px" }}
-          >
-            <AnimatePresence>
-              {speedDialOpen && (
-                <motion.div
-                  id={panelId}
-                  role="menu"
-                  aria-label="Menu aksi"
-                  className="flex flex-col items-end gap-2 mb-3"
-                >
-                  {(mobileSpeedDialItems ?? []).map((item, i) => (
-                    <motion.button
-                      key={item.label}
-                      role="menuitem"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      transition={{ duration: animDuration, delay: reducedMotion ? 0 : ((mobileSpeedDialItems?.length ?? 0) - 1 - i) * 0.04 }}
-                      onClick={() => { item.onClick(); closeSpeedDial(); }}
-                      className={cn(
-                        "flex items-center gap-2.5 rounded-full px-4 py-2.5 text-sm font-semibold shadow-lg active:scale-95 transition-transform min-h-[44px]",
-                        item.variant === "primary"
-                          ? "bg-amber-700 text-white shadow-amber-950/25"
-                          : "border border-stone-200 bg-[#fbfaf8]/95 backdrop-blur-xl text-stone-700 shadow-stone-200/50"
-                      )}
-                    >
-                      <span className={item.variant === "primary" ? "text-white/80" : "text-slate-500"}>
-                        {item.icon}
-                      </span>
-                      <span>{item.label}</span>
-                    </motion.button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <motion.button
+            <button
               ref={fabRef}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setSpeedDialOpen((p) => !p)}
-              className={cn(
-                "flex h-14 w-14 items-center justify-center rounded-full shadow-xl active:scale-95 transition-colors min-h-[56px] min-w-[56px]",
-                speedDialOpen ? "bg-stone-900 text-white shadow-stone-950/30" : "bg-amber-700 text-white shadow-amber-950/25"
-              )}
+              type="button"
+              onClick={() => setSpeedDialOpen((open) => !open)}
+              className="flex min-h-12 items-center gap-2 rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white shadow-lg"
               aria-label={speedDialOpen ? "Tutup menu aksi" : "Buka menu aksi"}
               aria-expanded={speedDialOpen}
               aria-controls={panelId}
             >
-              <motion.span
-                animate={{ rotate: speedDialOpen ? 45 : 0 }}
-                transition={{ duration: animDuration }}
-                className="flex items-center justify-center"
-              >
-                {speedDialOpen ? <X size={22} /> : <Plus size={22} />}
-              </motion.span>
-            </motion.button>
+              {speedDialOpen ? <X size={19} /> : <Plus size={19} />}
+              {speedDialOpen ? "Tutup" : "Aksi"}
+            </button>
           </div>
         </>
       )}
 
-      {/* ── Mobile Single FAB (one work action) ── */}
-      {hasSingleFab && (
-        <div
-          className="md:hidden fixed z-[100]"
-          style={{ bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", right: "16px" }}
+      {hasSingleAction && (
+        <button
+          type="button"
+          onClick={mobileFabAction?.onClick}
+          className="fixed bottom-[calc(16px+env(safe-area-inset-bottom,0px))] right-4 z-[100] flex min-h-12 items-center gap-2 rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white shadow-lg md:hidden"
+          aria-label={mobileFabAction?.["aria-label"] || mobileFabAction?.label}
         >
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={mobileFabAction!.onClick}
-            className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-amber-700 text-white shadow-xl shadow-amber-950/25 active:scale-95 transition-all min-h-[52px] min-w-[52px]"
-            aria-label={mobileFabAction!["aria-label"] || mobileFabAction!.label}
-          >
-            {mobileFabAction!.icon || <Plus size={22} />}
-          </motion.button>
-        </div>
+          {mobileFabAction?.icon || <Plus size={19} />}
+          <span>{mobileFabAction?.label}</span>
+        </button>
       )}
 
-      {/* ── Content area ── */}
-      <div
-        className={cn(
-          "flex-1 overflow-auto custom-scrollbar relative",
-          hasFab && "pb-[calc(88px+env(safe-area-inset-bottom,0px))] md:pb-0"
-        )}
-      >
-        <div className="mx-auto w-full max-w-[1600px] p-4 md:p-6 lg:p-8">
+      <div className={cn("custom-scrollbar relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden", hasMobileAction && "pb-[calc(80px+env(safe-area-inset-bottom,0px))] md:pb-0")}>
+        <div className="mx-auto min-w-0 w-full max-w-[1600px] p-4 md:p-6 lg:p-8">
           {isLoading ? <PageSkeleton /> : children}
         </div>
       </div>
@@ -244,25 +154,21 @@ export function StandardPageLayout({
   );
 }
 
-// ── Skeleton ──
-
 export function PageSkeleton() {
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-4 rounded-[1rem] border border-white/60 bg-white/40 px-4 py-3 backdrop-blur-xl shadow-sm">
-        <Skeleton className="h-4 w-4 rounded bg-white/50" />
-        <Skeleton className="h-4 w-32 bg-white/50" />
-        <Skeleton className="h-4 w-24 ml-auto bg-white/50" />
-        <Skeleton className="h-4 w-20 bg-white/50" />
-        <Skeleton className="h-4 w-16 bg-white/50" />
+      <div className="flex items-center gap-4 rounded-xl border border-stone-200 bg-white px-4 py-3">
+        <Skeleton className="h-4 w-4 rounded" />
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="ml-auto h-4 w-24" />
+        <Skeleton className="h-4 w-20" />
       </div>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-4 rounded-[1rem] border border-white/50 bg-white/30 px-4 py-3.5 backdrop-blur-md shadow-sm">
-          <Skeleton className="h-4 w-4 rounded bg-white/50" />
-          <Skeleton className="h-4 w-48 bg-white/50" />
-          <Skeleton className="h-4 w-28 ml-auto bg-white/50" />
-          <Skeleton className="h-4 w-20 bg-white/50" />
-          <Skeleton className="h-6 w-16 rounded-full bg-white/50" />
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="flex items-center gap-4 rounded-xl border border-stone-200 bg-white px-4 py-3.5">
+          <Skeleton className="h-4 w-4 rounded" />
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="ml-auto h-4 w-28" />
+          <Skeleton className="h-4 w-20" />
         </div>
       ))}
     </div>

@@ -431,6 +431,7 @@ export type RoastedBeanFlow = {
   roastLossKg: number;
   packagedKg: number;
   adjustmentOutKg: number;
+  sampleOutKg: number;
   currentStockKg: number;
   roastLossValue: number;
 };
@@ -441,6 +442,7 @@ export type FinishedGoodsFlow = {
   producedUnits: number;
   soldUnits: number;
   adjustmentOutUnits: number;
+  sampleOutUnits: number;
   currentStockUnits: number;
   weightPerUnitGrams: number;
   soldEquivalentKg: number;
@@ -478,6 +480,10 @@ export async function getCoffeeFlowReport(
       }
     }
   });
+  const activeSampleIds = new Set((await tp.sampleUsage.findMany({
+    where: { status: "COMPLETED", givenAt: { lt: periodEnd, ...(periodStart ? { gte: periodStart } : {}) } },
+    select: { id: true },
+  })).map((sample) => sample.id));
 
   const greenBeans: GreenBeanFlow[] = [];
   const roastedBeans: RoastedBeanFlow[] = [];
@@ -508,7 +514,7 @@ export async function getCoffeeFlowReport(
         avgPurchasePrice
       });
     } else if (p.type === "ROASTED_BEAN") {
-      let produced = 0, packaged = 0, adjOut = 0, stock = 0;
+      let produced = 0, packaged = 0, adjOut = 0, sampleOut = 0, stock = 0;
       for (const l of p.ledgerEntries) {
         const qty = Number(l.quantityKg || 0);
         if (l.entryType === "IN") stock += qty; else stock -= qty;
@@ -516,14 +522,15 @@ export async function getCoffeeFlowReport(
         if (l.refType === "ROASTING_RB_IN" && l.entryType === "IN") produced += qty;
         if (l.refType === "PRODUCTION_RB_OUT" && l.entryType === "OUT") packaged += qty;
         if (l.refType === "ADJUSTMENT_OUT" && l.entryType === "OUT") adjOut += qty;
+        if (l.refType === "SAMPLE_RB_OUT" && l.entryType === "OUT" && activeSampleIds.has(l.refId)) sampleOut += qty;
       }
       
       roastedBeans.push({
-        id: p.id, name: p.name, producedKg: produced, roastLossKg: 0, packagedKg: packaged, adjustmentOutKg: adjOut, currentStockKg: stock,
+        id: p.id, name: p.name, producedKg: produced, roastLossKg: 0, packagedKg: packaged, adjustmentOutKg: adjOut, sampleOutKg: sampleOut, currentStockKg: stock,
         roastLossValue: 0
       });
     } else if (p.type === "FINISHED_GOODS") {
-      let producedU = 0, soldU = 0, adjOutU = 0, stockU = 0;
+      let producedU = 0, soldU = 0, adjOutU = 0, sampleOutU = 0, stockU = 0;
       for (const l of p.ledgerEntries) {
         const qty = Number(l.quantityUnit || 0);
         if (l.entryType === "IN") stockU += qty; else stockU -= qty;
@@ -531,6 +538,7 @@ export async function getCoffeeFlowReport(
         if (l.refType === "PRODUCTION_FG_IN" && l.entryType === "IN") producedU += qty;
         if (l.refType === "SALE_FG_OUT" && l.entryType === "OUT") soldU += qty;
         if (l.refType === "ADJUSTMENT_OUT" && l.entryType === "OUT") adjOutU += qty;
+        if (l.refType === "SAMPLE_FG_OUT" && l.entryType === "OUT" && activeSampleIds.has(l.refId)) sampleOutU += qty;
       }
       
       let salesRevenue = 0;
@@ -549,7 +557,7 @@ export async function getCoffeeFlowReport(
 
       const weightGrams = p.recipes.length > 0 ? Number(p.recipes[0].outputGrams) : 0;
       finishedGoods.push({
-        id: p.id, name: p.name, producedUnits: producedU, soldUnits: soldU, adjustmentOutUnits: adjOutU, currentStockUnits: stockU,
+        id: p.id, name: p.name, producedUnits: producedU, soldUnits: soldU, adjustmentOutUnits: adjOutU, sampleOutUnits: sampleOutU, currentStockUnits: stockU,
         weightPerUnitGrams: weightGrams,
         soldEquivalentKg: (soldU * weightGrams) / 1000,
         producedEquivalentKg: (producedU * weightGrams) / 1000,

@@ -54,10 +54,10 @@ export function ProductionClient({
         actionButton={
           <Button
             size="default"
-            className="gap-2 bg-amber-700 text-white hover:bg-amber-800 shadow-md hover:shadow-lg rounded-xl font-semibold px-5 transition-all group"
+            className="gap-2 rounded-lg bg-stone-900 px-5 font-semibold text-white shadow-none hover:bg-stone-800"
             onClick={() => setDrawerOpen(true)}
           >
-            <Factory size={16} className="group-hover:scale-110 transition-transform" />
+            <Factory size={16} />
             Batch Baru
           </Button>
         }
@@ -68,22 +68,22 @@ export function ProductionClient({
           "aria-label": "Buat batch baru",
         }}
       >
-        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-3">
-          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-indigo-50 to-blue-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><Factory size={48} className="text-indigo-600" /></div>
-            <p className="text-xs font-medium text-indigo-600 relative z-10">Total Batch Produksi</p>
-            <p className="mt-1 font-mono text-2xl font-black tabular-nums text-indigo-700 relative z-10">{kpi.count}</p>
-          </div>
-          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-fuchsia-50 to-pink-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><Package size={48} className="text-fuchsia-600" /></div>
-            <p className="text-xs font-medium text-fuchsia-600 relative z-10">Total Produk Jadi (FG)</p>
-            <p className="mt-1 font-mono text-2xl font-black tabular-nums text-fuchsia-700 relative z-10">{kpi.totalFG} <span className="text-sm">pcs</span></p>
-          </div>
-          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><Thermometer size={48} className="text-amber-600" /></div>
-            <p className="text-xs font-medium text-amber-600 relative z-10">Ekstraksi Roasted Bean</p>
-            <p className="mt-1 font-mono text-2xl font-black tabular-nums text-amber-700 relative z-10">{kpi.totalRB.toFixed(1)} <span className="text-sm">kg</span></p>
-          </div>
+        <div className="mb-6 grid overflow-hidden rounded-xl border border-stone-200 bg-white sm:grid-cols-3">
+          {[
+            { label: "Total batch", value: kpi.count, icon: Factory, tone: "bg-sky-50 text-sky-700" },
+            { label: "Produk jadi", value: `${kpi.totalFG} pcs`, icon: Package, tone: "bg-violet-50 text-violet-700" },
+            { label: "Roasted bean terpakai", value: `${kpi.totalRB.toFixed(1)} kg`, icon: Thermometer, tone: "bg-amber-50 text-amber-700" },
+          ].map((metric, index) => (
+            <div key={metric.label} className={`min-w-0 p-4 sm:p-5 ${index < 2 ? "border-b border-stone-200 sm:border-b-0 sm:border-r" : ""}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-stone-500">{metric.label}</p>
+                  <p className="mt-2 break-words font-mono text-base font-bold tabular-nums text-stone-900 sm:text-lg">{metric.value}</p>
+                </div>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${metric.tone}`}><metric.icon size={17} aria-hidden="true" /></span>
+              </div>
+            </div>
+          ))}
         </div>
         
         <ProductionHistoryTable batches={batches} />

@@ -18,6 +18,9 @@ describe("generateDailyBriefForTenant", () => {
         findMany: vi.fn().mockResolvedValue([{ targetWeightKg: 10, actualOutputKg: 8.5 }]),
       },
       productionBatch: { findMany: vi.fn().mockResolvedValue([{ unitsProduced: 40 }]) },
+      sampleUsage: {
+        aggregate: vi.fn().mockResolvedValue({ _count: { id: 2 }, _sum: { packCount: 3, totalGrams: 300, totalCost: 75_000 } }),
+      },
       purchase: {
         findMany: vi.fn().mockResolvedValue([
           { totalCost: 300_000, paidAmount: 100_000, dueDate: new Date("2026-07-10T00:00:00.000Z") },
@@ -43,6 +46,7 @@ describe("generateDailyBriefForTenant", () => {
     expect(payload.salesAccrued).toBe(900_000);
     expect(payload.cashCollected).toBe(250_000);
     expect(payload.roasting.yieldPercent).toBe(85);
+    expect(payload.samples).toEqual({ transactionCount: 2, packCount: 3, totalGrams: 300, totalCost: 75_000 });
     expect(payload.inventoryAlertCount).toBe(1);
     expect(payload.receivables.overdueTotal).toBe(400_000);
     expect(upsert).toHaveBeenCalledOnce();

@@ -16,6 +16,7 @@ export type DailyBriefPayload = {
   invoiceCount: number;
   roasting: { batchCount: number; inputKg: number; outputKg: number; yieldPercent: number };
   production: { batchCount: number; unitsProduced: number };
+  samples?: { transactionCount: number; packCount: number; totalGrams: number; totalCost: number };
   receivables: { total: number; overdueCount: number; overdueTotal: number };
   payables: { total: number; overdueCount: number; overdueTotal: number };
   inventoryAlertCount: number;
@@ -39,7 +40,7 @@ export async function generateDailyBriefForTenant(
   if (!tenant?.isActive) throw new Error(`Tenant ${tenantId} is not active.`);
 
   const period = getZonedDayRange(now, tenant.timezone, -1);
-  const [invoices, payments, roasts, productions, receivableInvoices, payablePurchases, products, packagings, failedWebhookCount] = await Promise.all([
+  const [invoices, payments, roasts, productions, samples, receivableInvoices, payablePurchases, products, packagings, failedWebhookCount] = await Promise.all([
     client.invoice.findMany({
       where: {
         tenantId,
@@ -66,6 +67,11 @@ export async function generateDailyBriefForTenant(
     client.productionBatch.findMany({
       where: { tenantId, status: "COMPLETED", producedAt: { gte: period.start, lt: period.end } },
       select: { unitsProduced: true },
+    }),
+    client.sampleUsage.aggregate({
+      where: { tenantId, status: "COMPLETED", givenAt: { gte: period.start, lt: period.end } },
+      _count: { id: true },
+      _sum: { packCount: true, totalGrams: true, totalCost: true },
     }),
     client.invoice.findMany({
       where: { tenantId, status: { in: ["ISSUED", "PARTIAL"] } },
@@ -133,6 +139,12 @@ export async function generateDailyBriefForTenant(
     production: {
       batchCount: productions.length,
       unitsProduced: productions.reduce((sum, production) => sum + production.unitsProduced, 0),
+    },
+    samples: {
+      transactionCount: samples._count.id,
+      packCount: samples._sum.packCount ?? 0,
+      totalGrams: Number(samples._sum.totalGrams ?? 0),
+      totalCost: Number(samples._sum.totalCost ?? 0),
     },
     receivables: {
       total: receivables.reduce((sum, row) => sum + row.balance, 0),

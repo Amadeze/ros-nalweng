@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Plus, Building2, Users, Package, CheckCircle2, XCircle, Pencil, UserCog, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { StandardPageLayout } from "@/components/StandardPageLayout";
 import { StandardDrawer } from "@/components/StandardDrawer";
 import { Button } from "@/components/ui/button";
@@ -416,7 +415,7 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
         title="Data Master"
         description="Tambah data dasar sekali, lalu gunakan langsung di transaksi"
         actionButton={
-          <Button size="sm" onClick={openCreate} className="gap-1.5 bg-amber-700 text-white hover:bg-amber-800 font-bold shadow-md rounded-xl">
+          <Button size="sm" onClick={openCreate} className="gap-1.5 rounded-lg bg-stone-900 font-semibold text-white shadow-none hover:bg-stone-800">
             <Plus size={14} />
             Tambah {activeTabMeta.label}
           </Button>
@@ -429,7 +428,7 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
         }}
       >
         {/* ── Tab pills ── */}
-        <div className="mb-6 grid grid-cols-2 md:grid-cols-5 gap-2 bg-white/20 p-2 rounded-2xl backdrop-blur-md border border-white/50">
+        <div className="custom-scrollbar mb-6 flex w-full overflow-x-auto border-b border-stone-200">
           {TABS.map((tab) => {
             const Icon   = tab.icon;
             const active = tab.id === activeTab;
@@ -439,10 +438,10 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
                 className={cn(
-                  "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-xl py-2 px-2 text-[10px] sm:text-xs font-bold transition-all duration-300 shadow-sm text-center",
+                  "-mb-px flex shrink-0 items-center justify-center gap-2 border-b-2 px-4 py-3 text-xs font-semibold transition-colors",
                   active
-                    ? "bg-amber-700 text-white shadow-md ring-2 ring-amber-700/20 scale-[1.02]"
-                    : "bg-white/40 text-slate-600 border border-white/60 hover:bg-white/60 hover:text-slate-800 hover:scale-[1.02]"
+                    ? "border-stone-900 text-stone-900"
+                    : "border-transparent text-stone-500 hover:text-stone-800"
                 )}
               >
                 <div className="flex items-center gap-1.5">
@@ -451,7 +450,7 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
                 </div>
                 <span className={cn(
                   "rounded-full px-2 py-0.5 text-[9px] font-black tracking-wider",
-                  active ? "bg-white/20 text-white" : "bg-slate-900/10 text-slate-500"
+                  active ? "bg-stone-900 text-white" : "bg-stone-100 text-stone-500"
                 )}>
                   {count}
                 </span>
@@ -461,21 +460,13 @@ export function MasterDataClient({ data, userRole }: MasterDataClientProps) {
         </div>
 
         {/* ── Table content ── */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
-          >
+        <div key={activeTab}>
             {activeTab === "supplier"  && <SupplierTable rows={data.suppliers} onEdit={openEditSupplier} />}
             {activeTab === "pelanggan" && <CustomerTable rows={data.customers} onEdit={openEditCustomer} />}
             {activeTab === "produk"    && <ProductTable  rows={data.products}  onEdit={openEditProduct}  />}
             {activeTab === "kemasan"   && <PackagingTable rows={data.packagings} onEdit={openEditPackaging} />}
             {activeTab === "pengguna"  && <UserTable     rows={data.users}     onEdit={openEditUser}     />}
-          </motion.div>
-        </AnimatePresence>
+        </div>
       </StandardPageLayout>
 
       {/* ── Drawer ── */}

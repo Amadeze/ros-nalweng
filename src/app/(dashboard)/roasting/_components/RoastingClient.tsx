@@ -45,10 +45,10 @@ export function RoastingClient({ batches, gbOptions, rbOptions }: RoastingClient
         actionButton={
           <Button
             size="default"
-            className="gap-2 bg-amber-700 text-white hover:bg-amber-800 shadow-md hover:shadow-lg rounded-xl font-semibold px-5 transition-all group"
+            className="gap-2 rounded-lg bg-stone-900 px-5 font-semibold text-white shadow-none hover:bg-stone-800"
             onClick={() => setDrawerOpen(true)}
           >
-            <Flame size={16} className="group-hover:scale-110 transition-transform" />
+            <Flame size={16} />
             Mulai Roasting
           </Button>
         }
@@ -59,27 +59,23 @@ export function RoastingClient({ batches, gbOptions, rbOptions }: RoastingClient
           "aria-label": "Mulai roasting",
         }}
       >
-        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-4">
-          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-orange-50 to-amber-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><Flame size={48} className="text-orange-600" /></div>
-            <p className="text-xs font-medium text-orange-600 relative z-10">Total Batch Roasting</p>
-            <p className="mt-1 font-mono text-2xl font-black tabular-nums text-orange-700 relative z-10">{kpi.count}</p>
-          </div>
-          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-emerald-50 to-green-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><Scale size={48} className="text-emerald-600" /></div>
-            <p className="text-xs font-medium text-emerald-600 relative z-10">Green Bean Diproses</p>
-            <p className="mt-1 font-mono text-2xl font-black tabular-nums text-emerald-700 relative z-10">{kpi.totalGB.toFixed(1)} <span className="text-sm">kg</span></p>
-          </div>
-          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><Thermometer size={48} className="text-amber-600" /></div>
-            <p className="text-xs font-medium text-amber-600 relative z-10">Roasted Bean Dihasilkan</p>
-            <p className="mt-1 font-mono text-2xl font-black tabular-nums text-amber-700 relative z-10">{kpi.totalRB.toFixed(1)} <span className="text-sm">kg</span></p>
-          </div>
-          <div className="min-h-[108px] rounded-2xl border border-white/60 bg-gradient-to-br from-rose-50 to-red-50 p-4 shadow-sm backdrop-blur-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:opacity-30 transition-opacity"><Percent size={48} className="text-rose-600" /></div>
-            <p className="text-xs font-medium text-rose-600 relative z-10">Rata-rata Roast Loss</p>
-            <p className="mt-1 font-mono text-2xl font-black tabular-nums text-rose-700 relative z-10">{kpi.avgLoss.toFixed(1)}%</p>
-          </div>
+        <div className="mb-6 grid grid-cols-2 overflow-hidden rounded-xl border border-stone-200 bg-white xl:grid-cols-4">
+          {[
+            { label: "Total batch", value: kpi.count, icon: Flame, tone: "bg-orange-50 text-orange-700" },
+            { label: "Green bean diproses", value: `${kpi.totalGB.toFixed(1)} kg`, icon: Scale, tone: "bg-emerald-50 text-emerald-700" },
+            { label: "Roasted bean", value: `${kpi.totalRB.toFixed(1)} kg`, icon: Thermometer, tone: "bg-amber-50 text-amber-700" },
+            { label: "Rata-rata roast loss", value: `${kpi.avgLoss.toFixed(1)}%`, icon: Percent, tone: "bg-rose-50 text-rose-700" },
+          ].map((metric, index) => (
+            <div key={metric.label} className={`min-w-0 p-4 sm:p-5 ${index % 2 === 0 ? "border-r border-stone-200" : ""} ${index < 2 ? "border-b border-stone-200 xl:border-b-0" : ""} ${index === 1 || index === 2 ? "xl:border-r" : ""}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-stone-500">{metric.label}</p>
+                  <p className="mt-2 break-words font-mono text-base font-bold tabular-nums text-stone-900 sm:text-lg">{metric.value}</p>
+                </div>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${metric.tone}`}><metric.icon size={17} aria-hidden="true" /></span>
+              </div>
+            </div>
+          ))}
         </div>
 
         <RoastingHistoryTable batches={batches} />
