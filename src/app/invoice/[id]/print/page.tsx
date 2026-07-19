@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { getInvoiceForPrint } from "@/app/(dashboard)/penjualan/actions";
 import { PrintButton } from "./PrintButton";
 import { getCurrentDate } from "@/lib/date-utils";
+import { getCurrentTenantId } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,13 @@ export default async function InvoicePrintPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const tenantId = await getCurrentTenantId();
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { name: true },
+  });
+  const tenantName = tenant?.name || "BEANSLAB ROASTERY";
+
   const inv = await getInvoiceForPrint(id);
   if (!inv) notFound();
 
@@ -112,8 +121,8 @@ export default async function InvoicePrintPage({
             {/* ── Header ── */}
             <div className="flex items-start justify-between mb-8">
               <div>
-                <h1 className="text-2xl font-black tracking-tight text-zinc-900">
-                  BEANSLAB ROASTERY
+                <h1 className="text-2xl font-black tracking-tight text-zinc-900 uppercase">
+                  {tenantName}
                 </h1>
                 <p className="mt-1 text-xs text-zinc-500">
                   Artisan Coffee Roaster · Indonesia

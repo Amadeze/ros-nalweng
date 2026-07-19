@@ -18,6 +18,7 @@ export type ValuationRow = {
   totalValue: number;
   retailPrice?: number;
   potentialRevenue?: number;
+  sampleWriteOff: number;
 };
 
 export type InventoryValuationReport = {
@@ -34,6 +35,7 @@ export type InventoryValuationReport = {
   asOf: string;
   costMethod: "WEIGHTED_AVERAGE";
   zeroCostItemCount: number;
+  totalSampleWriteOff: number;
 };
 
 export async function getInventoryValuationReport(asOf = getCurrentDate()): Promise<InventoryValuationReport> {
@@ -102,6 +104,28 @@ export async function getInventoryValuationReport(asOf = getCurrentDate()): Prom
     roastedBeanCost.set(product.id, weightedAverageCost(layers));
   }
 
+  // Compute sample write-off per item from completed samples in the period
+  const sampleComponents = await tp.sampleUsageComponent.findMany({
+    where: {
+      sampleUsage: { status: "COMPLETED", givenAt: { lte: asOf } },
+    },
+    select: {
+      productId: true,
+      packagingId: true,
+      quantityKg: true,
+      quantityUnit: true,
+      unitCost: true,
+    },
+  });
+
+  const sampleWriteOffMap = new Map<string, number>();
+  for (const comp of sampleComponents) {
+    const key = comp.productId ?? comp.packagingId;
+    if (!key) continue;
+    const cost = Number(comp.unitCost) * (comp.quantityKg ? Number(comp.quantityKg) : (comp.quantityUnit ?? 0));
+    sampleWriteOffMap.set(key, (sampleWriteOffMap.get(key) ?? 0) + cost);
+  }
+
   const items: ValuationRow[] = [];
 
   for (const p of products) {
@@ -127,6 +151,7 @@ export async function getInventoryValuationReport(asOf = getCurrentDate()): Prom
           unit: "kg",
           unitCost,
           totalValue: stockKg * unitCost,
+          sampleWriteOff: sampleWriteOffMap.get(p.id) ?? 0,
           ...(p.type === "ROASTED_BEAN" && { retailPrice, potentialRevenue }),
         });
       }
@@ -152,6 +177,7 @@ export async function getInventoryValuationReport(asOf = getCurrentDate()): Prom
           unit: "pcs",
           unitCost,
           totalValue: stockUnit * unitCost,
+          sampleWriteOff: sampleWriteOffMap.get(p.id) ?? 0,
           retailPrice,
           potentialRevenue,
         });
@@ -199,6 +225,7 @@ export async function getInventoryValuationReport(asOf = getCurrentDate()): Prom
         unit: "pcs",
         unitCost,
         totalValue: stockUnit * unitCost,
+        sampleWriteOff: sampleWriteOffMap.get(pkg.id) ?? 0,
       });
     }
   }
@@ -216,6 +243,7 @@ export async function getInventoryValuationReport(asOf = getCurrentDate()): Prom
   const totalPotentialRevenue = items.reduce((s, i) => s + (i.potentialRevenue || 0), 0);
   const totalGrossMargin = totalPotentialRevenue - (totalFinishedGoodsValue + totalRoastedBeanValue);
   const totalMarginHealth = totalPotentialRevenue > 0 ? (totalGrossMargin / totalPotentialRevenue) * 100 : 0;
+  const totalSampleWriteOff = items.reduce((s, i) => s + i.sampleWriteOff, 0);
 
   return {
     items,
@@ -231,6 +259,7 @@ export async function getInventoryValuationReport(asOf = getCurrentDate()): Prom
     asOf: asOf.toISOString(),
     costMethod: "WEIGHTED_AVERAGE",
     zeroCostItemCount: items.filter((item) => item.unitCost <= 0).length,
+    totalSampleWriteOff,
   };
 }
 
@@ -599,5 +628,128 @@ export async function getCoffeeFlowReport(
     finishedGoods,
     periodStart: periodStart?.toISOString() ?? null,
     periodEnd: periodEnd.toISOString(),
+  };
+}
+
+// =============================================================================
+// SAMPLE USAGE REPORT
+// =============================================================================
+
+export type SampleReport = {
+  totalSamples: number;
+  totalCost: number;
+  totalGrams: number;
+  bySourceType: { source: string; count: number; cost: number; grams: number }[];
+  byProduct: { productName: string; quantityKg: number; quantityUnit: number; cost: number }[];
+  topRecipients: { recipient: string; count: number; cost: number }[];
+  monthlyTrend: { month: string; count: number; cost: number }[];
+};
+
+export async function getSampleReport(
+  periodStart?: Date,
+  periodEnd = getCurrentDate(),
+): Promise<SampleReport> {
+  await requireFeature("ADVANCED_REPORTS");
+  const tp = await requireTenantPrisma();
+
+  const samples = await tp.sampleUsage.findMany({
+    where: {
+      status: "COMPLETED",
+      givenAt: { lt: periodEnd, ...(periodStart ? { gte: periodStart } : {}) },
+    },
+    select: {
+      id: true,
+      sourceType: true,
+      sourceLabel: true,
+      packCount: true,
+      totalGrams: true,
+      totalCost: true,
+      recipient: true,
+      givenAt: true,
+      components: {
+        select: {
+          label: true,
+          quantityKg: true,
+          quantityUnit: true,
+          unitCost: true,
+          totalCost: true,
+          product: { select: { name: true, type: true } },
+          packaging: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { givenAt: "desc" },
+  });
+
+  // Aggregate by source type
+  const sourceTypeMap = new Map<string, { count: number; cost: number; grams: number }>();
+  for (const s of samples) {
+    const key = s.sourceType;
+    const entry = sourceTypeMap.get(key) ?? { count: 0, cost: 0, grams: 0 };
+    entry.count += s.packCount;
+    entry.cost += Number(s.totalCost);
+    entry.grams += Number(s.totalGrams);
+    sourceTypeMap.set(key, entry);
+  }
+  const bySourceType = Array.from(sourceTypeMap.entries()).map(([source, data]) => ({
+    source,
+    ...data,
+  }));
+
+  // Aggregate by product
+  const productMap = new Map<string, { quantityKg: number; quantityUnit: number; cost: number }>();
+  for (const s of samples) {
+    for (const comp of s.components) {
+      const name = comp.product?.name ?? comp.packaging?.name ?? comp.label;
+      const entry = productMap.get(name) ?? { quantityKg: 0, quantityUnit: 0, cost: 0 };
+      entry.quantityKg += comp.quantityKg ? Number(comp.quantityKg) : 0;
+      entry.quantityUnit += comp.quantityUnit ?? 0;
+      entry.cost += Number(comp.totalCost);
+      productMap.set(name, entry);
+    }
+  }
+  const byProduct = Array.from(productMap.entries())
+    .map(([productName, data]) => ({ productName, ...data }))
+    .sort((a, b) => b.cost - a.cost);
+
+  // Top recipients
+  const recipientMap = new Map<string, { count: number; cost: number }>();
+  for (const s of samples) {
+    const name = s.recipient?.trim() || "Tidak disebutkan";
+    const entry = recipientMap.get(name) ?? { count: 0, cost: 0 };
+    entry.count += 1;
+    entry.cost += Number(s.totalCost);
+    recipientMap.set(name, entry);
+  }
+  const topRecipients = Array.from(recipientMap.entries())
+    .map(([recipient, data]) => ({ recipient, ...data }))
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 20);
+
+  // Monthly trend (last 6 months)
+  const monthlyTrend: { month: string; count: number; cost: number }[] = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const nextMonth = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    const label = new Intl.DateTimeFormat("id-ID", { month: "short", year: "2-digit" }).format(d);
+    const monthSamples = samples.filter(
+      (s) => s.givenAt >= d && s.givenAt < nextMonth,
+    );
+    monthlyTrend.push({
+      month: label,
+      count: monthSamples.reduce((sum, s) => sum + s.packCount, 0),
+      cost: monthSamples.reduce((sum, s) => sum + Number(s.totalCost), 0),
+    });
+  }
+
+  return {
+    totalSamples: samples.length,
+    totalCost: samples.reduce((sum, s) => sum + Number(s.totalCost), 0),
+    totalGrams: samples.reduce((sum, s) => sum + Number(s.totalGrams), 0),
+    bySourceType,
+    byProduct,
+    topRecipients,
+    monthlyTrend,
   };
 }

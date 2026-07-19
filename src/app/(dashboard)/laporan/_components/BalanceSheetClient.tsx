@@ -1,10 +1,42 @@
 "use client";
 
-import { Scale } from "lucide-react";
+import { Scale, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { BalanceSheetReport } from "../actions";
 
 interface BalanceSheetClientProps {
   report: BalanceSheetReport;
+}
+
+
+function exportBalanceSheetCSV(report: BalanceSheetReport) {
+  const { assets, liabilities, equity } = report;
+  const rows: string[][] = [
+    ["Neraca (Balance Sheet)"],
+    [""],
+    ["ASET (Assets)"],
+    ["Kas & Bank", String(assets.cashAndBank)],
+    ["Piutang Usaha", String(assets.accountsReceivable)],
+    ["Persediaan", String(assets.inventory)],
+    ["Total Aset", String(assets.totalAssets)],
+    [""],
+    ["LIABILITAS (Liabilities)"],
+    ["Hutang Usaha", String(liabilities.accountsPayable)],
+    ["Total Liabilitas", String(liabilities.totalLiabilities)],
+    [""],
+    ["EKUITAS (Equity)"],
+    ["Modal Disetor", String(equity.contributedCapital)],
+    ["Laba Ditahan", String(equity.retainedEarnings)],
+    ["Bagi Hasil", String(equity.distributedProfit)],
+    ["Total Ekuitas", String(equity.totalEquity)],
+  ];
+  const csvContent = "data:text/csv;charset=utf-8," + rows.map(r => r.join(",")).join("\n");
+  const link = document.createElement("a");
+  link.setAttribute("href", encodeURI(csvContent));
+  link.setAttribute("download", "Neraca_" + new Date().toISOString().slice(0, 10) + ".csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 export function BalanceSheetClient({ report }: BalanceSheetClientProps) {
@@ -28,6 +60,11 @@ export function BalanceSheetClient({ report }: BalanceSheetClientProps) {
         <div>
           <h2 className="text-lg font-bold text-slate-800">Neraca (Balance Sheet)</h2>
           <p className="text-sm text-slate-500">Posisi Keuangan Aktual</p>
+        </div>
+        <div className="ml-auto">
+          <Button onClick={() => exportBalanceSheetCSV(report)} variant="outline" className="h-9 gap-1.5">
+            <Download size={14} /> Export CSV
+          </Button>
         </div>
       </div>
 

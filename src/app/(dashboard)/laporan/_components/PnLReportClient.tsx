@@ -30,6 +30,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   GREEN_BEAN: "Biji Kopi Mentah",
   PACKAGING:   "Kemasan",
   BIAYA_SAMPLE_PROMOSI: "Biaya Sample & Promosi",
+  BIAYA_SAMPLE_RB: "Sample Roasted Bean",
+  BIAYA_SAMPLE_FG: "Sample Produk Jadi",
+  BIAYA_SAMPLE_PKG: "Sample Kemasan",
   KERUGIAN_MATERIAL: "Kerugian Material",
 };
 
@@ -683,7 +686,22 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
     </>
   );
 
-  if (hideLayout) return content;
+  if (hideLayout) return (
+    <>
+      <div className="mb-4 flex items-center gap-2 print:hidden">
+        <Button onClick={() => void exportToExcel(report)} variant="outline" className="h-8 gap-1.5 border-stone-200 bg-white shadow-sm">
+          <Download size={14} /> Export Excel
+        </Button>
+        <Button onClick={() => void exportToPdf(report)} variant="outline" className="h-8 gap-1.5 border-stone-200 bg-white shadow-sm">
+          <Download size={14} /> Export PDF
+        </Button>
+        <Button onClick={() => window.print()} variant="outline" className="h-8 gap-1.5 border-stone-200 bg-white shadow-sm">
+          <FileText size={14} /> Cetak
+        </Button>
+      </div>
+      {content}
+    </>
+  );
 
   return (
     <StandardPageLayout

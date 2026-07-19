@@ -9,7 +9,7 @@ export default async function LaporanPage({ searchParams }: { searchParams: Prom
   await requireFeature("ADVANCED_REPORTS");
   const resolvedParams = await searchParams;
   const now = getCurrentDate();
-  
+
   let month = now.getMonth() + 1;
   let year = now.getFullYear();
 

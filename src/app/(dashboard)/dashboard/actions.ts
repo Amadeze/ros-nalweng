@@ -18,6 +18,8 @@ export type DashboardKpi = {
   totalKopiTerjual: number;
   averageRoastYield: number; // calculated from totalShrinkagePercent
   averageGrossMargin: number; // (revenue - cogs) / revenue * 100
+  sampleCostMonth: number; // total sample cost this month
+  samplePacksMonth: number; // total sample packs given this month
 };
 
 export type LowStockItem = {
@@ -109,6 +111,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     roastYieldRaw,
     marginRaw,
     dailyBriefSnapshot,
+    sampleMonthAgg,
   ] = await Promise.all([
 
     // 1. Revenue hari ini (nota PAID yang diterbitkan hari ini)
@@ -264,6 +267,16 @@ export async function getDashboardData(): Promise<DashboardData> {
       orderBy: { reportDate: "desc" },
       select: { payload: true },
     }),
+
+    // 16. Sample usage this month
+    (() => {
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      return tp.sampleUsage.aggregate({
+        where: { status: "COMPLETED", givenAt: { gte: monthStart, lt: now } },
+        _sum: { totalCost: true },
+        _count: true,
+      });
+    })(),
   ]);
 
   // ── KPI calculations ──
@@ -409,6 +422,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       totalKopiTerjual,
       averageRoastYield,
       averageGrossMargin,
+      sampleCostMonth: Number(sampleMonthAgg._sum.totalCost ?? 0),
+      samplePacksMonth: sampleMonthAgg._count,
     },
     revenueTrend,
     topProducts: topProductsRaw,

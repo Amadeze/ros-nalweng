@@ -98,6 +98,12 @@ export function InventoryValuationClient({ report, hideLayout }: InventoryValuat
           <p className="text-xs font-medium text-violet-600">Kemasan</p>
           <p className="mt-1 font-mono text-lg font-black tabular-nums text-violet-700">{formatRupiah(report.totalPackagingValue)}</p>
         </div>
+        {report.totalSampleWriteOff > 0 && (
+          <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50 p-4 shadow-sm">
+            <p className="text-xs font-medium text-violet-600">Sample (Write-off)</p>
+            <p className="mt-1 font-mono text-lg font-black tabular-nums text-violet-700">{formatRupiah(report.totalSampleWriteOff)}</p>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -146,12 +152,13 @@ export function InventoryValuationClient({ report, hideLayout }: InventoryValuat
                       <TableHead className="text-right font-bold text-slate-500">Stok</TableHead>
                       <TableHead className="text-right font-bold text-slate-500">HPP / Unit</TableHead>
                       <TableHead className="text-right font-bold text-slate-500">Total Nilai HPP</TableHead>
+                      <TableHead className="text-right font-bold text-violet-600">Sample (Write-off)</TableHead>
                    </TableRow>
                 </TableHeader>
                 <TableBody>
                    {report.items.length === 0 ? (
                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-slate-400">Belum ada persediaan di gudang</TableCell>
+                        <TableCell colSpan={6} className="text-center py-8 text-slate-400">Belum ada persediaan di gudang</TableCell>
                      </TableRow>
                    ) : (
                      report.items.map((item) => (
@@ -171,6 +178,9 @@ export function InventoryValuationClient({ report, hideLayout }: InventoryValuat
                           </TableCell>
                           <TableCell className="text-right font-mono text-sm font-bold text-slate-800">
                             {formatRupiah(item.totalValue)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm text-violet-600">
+                            {item.sampleWriteOff > 0 ? formatRupiah(item.sampleWriteOff) : "\u2014"}
                           </TableCell>
                        </TableRow>
                      ))

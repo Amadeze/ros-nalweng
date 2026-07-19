@@ -4,7 +4,39 @@
 import { useState, useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { CoffeeFlowReport } from "../actions";
-import { Package, Coffee, Box, ArrowRight, Search, TrendingUp } from "lucide-react";
+import { Package, Coffee, Box, ArrowRight, Search, TrendingUp, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+function exportCoffeeFlowCSV(report: CoffeeFlowReport) {
+  const rows: string[][] = [
+    ["Laporan Arus Kopi"],
+    [`Periode: ${report.periodStart ? new Date(report.periodStart).toLocaleDateString("id-ID") : "Awal"} - ${new Date(report.periodEnd).toLocaleDateString("id-ID")}`],
+    [],
+    ["GREEN BEAN", "Beli (kg)", "Di-roast (kg)", "Opname Out (kg)", "Stok (kg)", "HPP Avg/kg"],
+    ...report.greenBeans.map(gb => [
+      gb.name, String(gb.boughtKg), String(gb.roastedKg), String(gb.adjustmentOutKg), String(gb.currentStockKg), String(gb.avgPurchasePrice)
+    ]),
+    [],
+    ["ROASTED BEAN", "Produksi (kg)", "Susut (kg)", "Packaged (kg)", "Sample (kg)", "Opname Out (kg)", "Stok (kg)", "Nilai Susut"],
+    ...report.roastedBeans.map(rb => [
+      rb.name, String(rb.producedKg), String(rb.roastLossKg), String(rb.packagedKg), String(rb.sampleOutKg), String(rb.adjustmentOutKg), String(rb.currentStockKg), String(rb.roastLossValue)
+    ]),
+    [],
+    ["FINISHED GOODS", "Produksi (unit)", "Terjual (unit)", "Sample (unit)", "Opname Out (unit)", "Stok (unit)", "Pendapatan", "HPP", "Laba Kotor"],
+    ...report.finishedGoods.map(fg => [
+      fg.name, String(fg.producedUnits), String(fg.soldUnits), String(fg.sampleOutUnits), String(fg.adjustmentOutUnits), String(fg.currentStockUnits), String(fg.salesRevenue), String(fg.cogs), String(fg.grossProfit)
+    ]),
+  ];
+
+  const csvContent = "data:text/csv;charset=utf-8," + rows.map(r => r.join(",")).join("\n");
+  const link = document.createElement("a");
+  link.setAttribute("href", encodeURI(csvContent));
+  link.setAttribute("download", `Arus_Kopi_${new Date(report.periodEnd).toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 
 export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,17 +69,22 @@ export function CoffeeFlowClient({ report }: { report: CoffeeFlowReport }) {
           </div>
         </div>
 
-        <div className="relative w-full md:w-72">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search size={16} className="text-slate-400" />
+        <div className="flex items-center gap-2">
+          <div className="relative w-full md:w-72">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search size={16} className="text-slate-400" />
+            </div>
+            <input
+              type="text"
+              className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-700/20 focus:border-amber-700 sm:text-sm transition-all"
+              placeholder="Cari nama kopi..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-700/20 focus:border-amber-700 sm:text-sm transition-all"
-            placeholder="Cari nama kopi..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <Button onClick={() => exportCoffeeFlowCSV(report)} variant="outline" className="h-9 gap-1.5 whitespace-nowrap">
+            <Download size={14} /> Export CSV
+          </Button>
         </div>
       </div>
       {/* GREEN BEAN */}

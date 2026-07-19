@@ -373,24 +373,24 @@ export async function getPnLReport(month: number, year: number): Promise<PnLRepo
   const previousPeriod = getZonedMonthRange(prevYear, prevMonth, tenant?.timezone);
   const tp = await requireTenantPrisma();
 
-  const [invoices, expenses, samples, prevInvoices, prevExpenses, prevSamples] = await Promise.all([
+  const [invoices, expenses, sampleComponents, prevInvoices, prevExpenses, prevSampleComponents] = await Promise.all([
     tp.invoice.findMany({
       where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: period.start, lt: period.end } },
       select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, subtotal: true, hpp: true, product: { select: { type: true, name: true } } } } },
     }),
     tp.expense.findMany({ where: { voidAt: null, date: { gte: period.start, lt: period.end } }, select: { category: true, amount: true } }),
-    tp.sampleUsage.aggregate({
-      where: { status: "COMPLETED", givenAt: { gte: period.start, lt: period.end } },
-      _sum: { totalCost: true },
+    tp.sampleUsageComponent.findMany({
+      where: { sampleUsage: { status: "COMPLETED", givenAt: { gte: period.start, lt: period.end } } },
+      select: { unitCost: true, quantityKg: true, quantityUnit: true, product: { select: { type: true } }, packagingId: true },
     }),
     tp.invoice.findMany({
       where: { status: { in: ["PAID", "PARTIAL", "ISSUED"] }, issuedAt: { gte: previousPeriod.start, lt: previousPeriod.end } },
       select: { subtotal: true, discount: true, tax: true, customer: { select: { name: true } }, items: { select: { quantity: true, subtotal: true, hpp: true, product: { select: { type: true, name: true } } } } },
     }),
     tp.expense.findMany({ where: { voidAt: null, date: { gte: previousPeriod.start, lt: previousPeriod.end } }, select: { category: true, amount: true } }),
-    tp.sampleUsage.aggregate({
-      where: { status: "COMPLETED", givenAt: { gte: previousPeriod.start, lt: previousPeriod.end } },
-      _sum: { totalCost: true },
+    tp.sampleUsageComponent.findMany({
+      where: { sampleUsage: { status: "COMPLETED", givenAt: { gte: previousPeriod.start, lt: previousPeriod.end } } },
+      select: { unitCost: true, quantityKg: true, quantityUnit: true, product: { select: { type: true } }, packagingId: true },
     }),
   ]);
 
@@ -451,14 +451,34 @@ export async function getPnLReport(month: number, year: number): Promise<PnLRepo
   if (currentAdjustments.loss > 0) {
     opexMap.KERUGIAN_MATERIAL = currentAdjustments.loss;
   }
-  const sampleCost = Number(samples._sum.totalCost ?? 0);
-  if (sampleCost > 0) {
-    opexMap.BIAYA_SAMPLE_PROMOSI = sampleCost;
+  // Break down sample costs by component type
+  const computeSampleCostByType = (components: typeof sampleComponents) => {
+    const result: Record<string, number> = {};
+    for (const comp of components) {
+      const qty = comp.quantityKg ? Number(comp.quantityKg) : (comp.quantityUnit ?? 0);
+      const cost = Number(comp.unitCost) * qty;
+      if (comp.product?.type === "ROASTED_BEAN") {
+        result.BIAYA_SAMPLE_RB = (result.BIAYA_SAMPLE_RB ?? 0) + cost;
+      } else if (comp.product?.type === "FINISHED_GOODS") {
+        result.BIAYA_SAMPLE_FG = (result.BIAYA_SAMPLE_FG ?? 0) + cost;
+      } else if (comp.packagingId) {
+        result.BIAYA_SAMPLE_PKG = (result.BIAYA_SAMPLE_PKG ?? 0) + cost;
+      }
+    }
+    return result;
+  };
+
+  const currentSampleBreakdown = computeSampleCostByType(sampleComponents);
+  const previousSampleBreakdown = computeSampleCostByType(prevSampleComponents);
+  for (const [key, value] of Object.entries(currentSampleBreakdown)) {
+    if (value > 0) opexMap[key] = value;
   }
+  const sampleCost = Object.values(currentSampleBreakdown).reduce((sum, v) => sum + v, 0);
   const opexBreakdown = Object.entries(opexMap).map(([category, amount]) => ({ category, amount }));
   const opex = opexBreakdown.reduce((sum, row) => sum + row.amount, 0);
 
-  const previousOpex = prevExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0) + previousAdjustments.loss + Number(prevSamples._sum.totalCost ?? 0);
+  const prevSampleCost = Object.values(previousSampleBreakdown).reduce((sum, v) => sum + v, 0);
+  const previousOpex = prevExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0) + previousAdjustments.loss + prevSampleCost;
   const revenue = currentSales.netSales + currentAdjustments.income;
   const revenueBreakdown = [...currentSales.revenueBreakdown];
   if (currentAdjustments.income > 0) {

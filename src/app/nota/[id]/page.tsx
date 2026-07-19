@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { formatRupiah, formatDate } from "@/lib/format";
-import { requireTenantPrisma } from "@/lib/auth";
-import { PrintTrigger } from "./PrintTrigger";
+import { requireTenantPrisma, getCurrentTenantId } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { PrintTrigger, PrintActionBar } from "./PrintTrigger";
 import { getCurrentDate } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,13 @@ export default async function InvoicePrintPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  
+  const tenantId = await getCurrentTenantId();
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { name: true, whatsappNumber: true, contactEmail: true },
+  });
+  const tenantName = tenant?.name || "BEANSLAB";
+
   const invoice = await (await requireTenantPrisma()).invoice.findUnique({
     where: { id },
     include: {
@@ -30,32 +37,18 @@ export default async function InvoicePrintPage({
   return (
     <div className="min-h-screen bg-slate-100 p-4 sm:p-8 print:p-0 print:bg-white flex justify-center">
       <div className="w-full max-w-3xl bg-white shadow-xl sm:rounded-2xl p-8 print:shadow-none print:rounded-none print:p-0 print:max-w-none text-slate-800">
-        
+
         {/* Action Bar (Hidden when printing) */}
-        <div className="flex justify-between items-center mb-8 print:hidden">
-          <button
-            onClick={() => window.close()}
-            className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-          >
-            &larr; Tutup
-          </button>
-          <button
-            onClick={() => window.print()}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-md transition-all active:scale-95 cursor-pointer"
-          >
-            Cetak Nota
-          </button>
-        </div>
+        <PrintActionBar />
 
         {/* Invoice Header */}
         <div className="flex justify-between items-start border-b-2 border-slate-200 pb-6 mb-6">
           <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">BEANSLAB</h1>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900 uppercase">{tenantName}</h1>
             <p className="text-xs font-semibold tracking-widest uppercase text-slate-500">Roastery OS</p>
             <div className="mt-2 text-sm text-slate-600">
-              <p>Jl. Contoh Alamat No. 123</p>
-              <p>Kota Anda, Provinsi 12345</p>
-              <p>Telp: 0812-3456-7890</p>
+              {tenant?.whatsappNumber && <p>Telp: {tenant.whatsappNumber}</p>}
+              {tenant?.contactEmail && <p>Email: {tenant.contactEmail}</p>}
             </div>
           </div>
           <div className="text-right">

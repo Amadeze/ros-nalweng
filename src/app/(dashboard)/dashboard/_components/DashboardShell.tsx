@@ -46,7 +46,7 @@ interface KpiCardProps {
   value:       string;
   sub?:        React.ReactNode;
   icon:        React.ReactNode;
-  accent?:     "zinc" | "emerald" | "amber" | "red";
+  accent?:     "zinc" | "emerald" | "amber" | "red" | "violet";
   href?:       string;
 }
 
@@ -56,12 +56,14 @@ function KpiCard({ label, value, sub, icon, accent = "zinc", href }: KpiCardProp
     emerald: "bg-emerald-100/60 text-emerald-700",
     amber:   "bg-amber-100/60   text-amber-700",
     red:     "bg-red-100/60     text-red-700",
+    violet:  "bg-violet-100/60  text-violet-700",
   };
   const valueCls: Record<string, string> = {
     zinc:    "text-slate-800",
     emerald: "text-emerald-700",
     amber:   "text-amber-700",
     red:     "text-red-600",
+    violet:  "text-violet-700",
   };
 
   const content = (
@@ -490,7 +492,20 @@ export function DashboardShell({ data }: { data: DashboardData }) {
             href="/laporan"
           />
 
-          {/* Card 7 — Stok Tipis */}
+          {/* Card 7 — Sample Bulan Ini */}
+          <KpiCard
+            label="Sample Bulan Ini"
+            value={kpi.samplePacksMonth > 0 ? `${kpi.samplePacksMonth} pack` : "0 pack"}
+            sub={kpi.sampleCostMonth > 0
+              ? `Total biaya: ${formatRupiah(kpi.sampleCostMonth)}`
+              : "Belum ada sample bulan ini"
+            }
+            icon={<Beaker size={14} />}
+            accent={kpi.samplePacksMonth > 0 ? "violet" : "zinc"}
+            href="/penjualan?action=sample"
+          />
+
+          {/* Card 8 — Stok Tipis */}
           <div className="lg:col-span-3 sm:col-span-2">
             <LowStockCard items={lowStock} />
           </div>

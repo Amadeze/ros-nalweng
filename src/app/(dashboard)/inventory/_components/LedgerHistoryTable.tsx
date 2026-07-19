@@ -18,6 +18,25 @@ import type { LedgerHistoryRow } from "../actions";
 
 const PAGE_SIZE = 25;
 
+const SAMPLE_REF_TYPES = new Set(["SAMPLE_RB_OUT", "SAMPLE_FG_OUT", "SAMPLE_PKG_OUT"]);
+
+const REF_TYPE_LABELS: Record<string, string> = {
+  PURCHASE_GB: "Pembelian GB",
+  PURCHASE_PKG: "Pembelian PKG",
+  ROASTING_GB_OUT: "Roasting GB",
+  ROASTING_RB_IN: "Roasting RB",
+  PRODUCTION_RB_OUT: "Produksi RB",
+  PRODUCTION_PKG_OUT: "Produksi PKG",
+  PRODUCTION_FG_IN: "Produksi FG",
+  SALE_FG_OUT: "Penjualan",
+  SAMPLE_RB_OUT: "Sample RB",
+  SAMPLE_FG_OUT: "Sample FG",
+  SAMPLE_PKG_OUT: "Sample PKG",
+  ADJUSTMENT_IN: "Opname Masuk",
+  ADJUSTMENT_OUT: "Opname Keluar",
+  VOID_REVERSAL: "Pembatalan",
+};
+
 /**
  * Parse a YYYY-MM-DD date string as start-of-day in WIB (Asia/Jakarta, UTC+7).
  * Returns a Date object in UTC that corresponds to 00:00:00 WIB on that date.
@@ -46,6 +65,7 @@ export function LedgerHistoryTable({
 }) {
   const [query, setQuery] = useState("");
   const [direction, setDirection] = useState<"ALL" | "IN" | "OUT">("ALL");
+  const [filterType, setFilterType] = useState<"ALL" | "SAMPLE" | "OTHER">("ALL");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
@@ -54,11 +74,15 @@ export function LedgerHistoryTable({
     const normalizedQuery = query.trim().toLowerCase();
     return entries.filter((entry) => {
       const matchesDirection = direction === "ALL" || entry.entryType === direction;
+      const isSample = SAMPLE_REF_TYPES.has(entry.refType);
+      const matchesFilterType =
+        filterType === "ALL" || (filterType === "SAMPLE" && isSample) || (filterType === "OTHER" && !isSample);
       const matchesQuery =
         !normalizedQuery ||
         [
           entry.itemCode,
           entry.itemName,
+          REF_TYPE_LABELS[entry.refType] ?? entry.refType,
           entry.refType,
           entry.refId,
           entry.notes ?? "",
@@ -67,9 +91,9 @@ export function LedgerHistoryTable({
       const entryDate = new Date(entry.createdAt);
       const matchesFrom = !dateFrom || entryDate >= parseDateAsWIBStart(dateFrom);
       const matchesTo = !dateTo || entryDate <= parseDateAsWIBEnd(dateTo);
-      return matchesDirection && matchesQuery && matchesFrom && matchesTo;
+      return matchesDirection && matchesFilterType && matchesQuery && matchesFrom && matchesTo;
     });
-  }, [direction, entries, query, dateFrom, dateTo]);
+  }, [direction, filterType, entries, query, dateFrom, dateTo]);
 
   useEffect(() => {
     setPage(1);
@@ -79,7 +103,7 @@ export function LedgerHistoryTable({
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const visibleEntries = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const hasFilters = query || direction !== "ALL" || dateFrom || dateTo;
+  const hasFilters = query || direction !== "ALL" || filterType !== "ALL" || dateFrom || dateTo;
 
   return (
     <div className="space-y-3">
@@ -125,6 +149,20 @@ export function LedgerHistoryTable({
             </Button>
           ))}
         </div>
+        <div className="inline-flex rounded-lg border border-slate-200/60 bg-white/50 p-0.5">
+          {(["ALL", "SAMPLE", "OTHER"] as const).map((value) => (
+            <Button
+              key={value}
+              type="button"
+              size="sm"
+              variant={filterType === value ? "default" : "ghost"}
+              className="h-7 min-w-12 rounded-md text-[11px] font-medium"
+              onClick={() => setFilterType(value)}
+            >
+              {value === "ALL" ? "Semua" : value === "SAMPLE" ? "Sample" : "Non-Sample"}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Desktop Table */}
@@ -164,14 +202,15 @@ export function LedgerHistoryTable({
                       <Badge
                         variant="outline"
                         className={`text-[10px] font-medium ${
-                          entry.entryType === "IN"
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                            : "border-red-200 bg-red-50 text-red-600"
+                          SAMPLE_REF_TYPES.has(entry.refType)
+                            ? "border-violet-200 bg-violet-50 text-violet-700"
+                            : entry.entryType === "IN"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : "border-red-200 bg-red-50 text-red-600"
                         }`}
                       >
-                        {entry.entryType === "IN" ? "Masuk" : "Keluar"}
+                        {REF_TYPE_LABELS[entry.refType] ?? entry.refType}
                       </Badge>
-                      <span className="text-[10px] text-slate-400">{entry.refType}</span>
                     </div>
                     {entry.notes && (
                       <div className="max-w-48 truncate text-[10px] text-slate-400 mt-0.5" title={entry.notes}>
@@ -217,7 +256,7 @@ export function LedgerHistoryTable({
                   </span>
                 </div>
                 <div className="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500">
-                  <span>{entry.refType}</span>
+                  <span>{REF_TYPE_LABELS[entry.refType] ?? entry.refType}</span>
                   <span>·</span>
                   <span>{entry.createdByName}</span>
                   <span>·</span>

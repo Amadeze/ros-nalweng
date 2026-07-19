@@ -28,7 +28,11 @@ const triggerSilentPrint = (url: string) => {
   if (!iframe) {
     iframe = document.createElement("iframe");
     iframe.id = "silent-print-iframe";
-    iframe.style.display = "none";
+    iframe.style.position = "absolute";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "none";
+    iframe.style.visibility = "hidden";
     document.body.appendChild(iframe);
   }
   iframe.src = url;

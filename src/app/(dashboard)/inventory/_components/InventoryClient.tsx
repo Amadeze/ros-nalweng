@@ -24,6 +24,7 @@ import type {
   ProductStockRow,
   FGStockRow,
   SupplierOption,
+  SampleConsumptionSummary,
 } from "../actions";
 import type { ReorderSummary } from "@/lib/reorder";
 import { calcInventoryMetrics, isReorderConfigured } from "@/lib/inventory-utils";
@@ -40,6 +41,7 @@ interface InventoryClientProps {
   suppliers:  SupplierOption[];
   gbProducts: GBProductOption[];
   packagings: PackagingOption[];
+  sampleConsumption: SampleConsumptionSummary;
   productReorderSummaries?: ReorderSummary[];
   packagingReorderSummaries?: ReorderSummary[];
   poSummary?: {
@@ -196,7 +198,7 @@ const WORKSPACE_TABS: Array<{ id: WorkspaceTab; label: string; icon: typeof Boxe
 // ── Main component ──
 
 export function InventoryClient({
-  gbStocks, rbStocks, fgStocks, pkgStocks, ledgerEntries, suppliers, gbProducts, packagings,
+  gbStocks, rbStocks, fgStocks, pkgStocks, ledgerEntries, suppliers, gbProducts, packagings, sampleConsumption,
   productReorderSummaries, packagingReorderSummaries, poSummary,
 }: InventoryClientProps) {
   const router = useRouter();
@@ -422,6 +424,22 @@ export function InventoryClient({
             </>
           )}
         </div>
+
+        {/* ── Sample Consumption Summary (Stock tab only) ── */}
+        {activeView === "stock" && (sampleConsumption.rbConsumedKg > 0 || sampleConsumption.fgConsumedUnits > 0 || sampleConsumption.pkgConsumedUnits > 0) && (
+          <div className="mb-4 rounded-xl border border-violet-200 bg-violet-50/50 px-4 py-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-xs font-semibold text-violet-700">Sample Bulan Ini</span>
+              <span className="text-[10px] text-violet-500">{sampleConsumption.sampleCount} transaksi</span>
+            </div>
+            <div className="flex flex-wrap gap-4 text-xs text-violet-600">
+              {sampleConsumption.rbConsumedKg > 0 && <span>RB: <strong>{sampleConsumption.rbConsumedKg.toLocaleString("id-ID", { maximumFractionDigits: 2 })}</strong> kg</span>}
+              {sampleConsumption.fgConsumedUnits > 0 && <span>FG: <strong>{sampleConsumption.fgConsumedUnits.toLocaleString("id-ID")}</strong> unit</span>}
+              {sampleConsumption.pkgConsumedUnits > 0 && <span>PKG: <strong>{sampleConsumption.pkgConsumedUnits.toLocaleString("id-ID")}</strong> pcs</span>}
+              <span>Total Biaya: <strong>{formatRupiah(sampleConsumption.totalCost)}</strong></span>
+            </div>
+          </div>
+        )}
 
         {/* ── Workspace Content ── */}
         <div>

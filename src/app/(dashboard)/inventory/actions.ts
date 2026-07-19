@@ -65,6 +65,15 @@ export type InventoryPageData = {
   ledgerEntries: LedgerHistoryRow[];
   suppliers: SupplierOption[];
   gbProducts: GBProductOption[];
+  sampleConsumption: SampleConsumptionSummary;
+};
+
+export type SampleConsumptionSummary = {
+  rbConsumedKg: number;
+  fgConsumedUnits: number;
+  pkgConsumedUnits: number;
+  totalCost: number;
+  sampleCount: number;
 };
 
 export type LedgerHistoryRow = {
@@ -283,9 +292,60 @@ async function fetchLedgerHistory(): Promise<LedgerHistoryRow[]> {
 // PUBLIC SERVER ACTIONS
 // =============================================================================
 
+async function fetchSampleConsumption(
+  start: Date,
+  end: Date,
+): Promise<SampleConsumptionSummary> {
+  const tp = await requireTenantPrisma();
+  const samples = await tp.sampleUsage.findMany({
+    where: { status: "COMPLETED", givenAt: { gte: start, lt: end } },
+    select: {
+      totalCost: true,
+      components: {
+        select: {
+          quantityKg: true,
+          quantityUnit: true,
+          productId: true,
+          packagingId: true,
+          product: { select: { type: true } },
+        },
+      },
+    },
+  });
+
+  let rbConsumedKg = 0;
+  let fgConsumedUnits = 0;
+  let pkgConsumedUnits = 0;
+  let totalCost = 0;
+
+  for (const sample of samples) {
+    totalCost += Number(sample.totalCost);
+    for (const comp of sample.components) {
+      if (comp.product?.type === "ROASTED_BEAN" && comp.quantityKg) {
+        rbConsumedKg += Number(comp.quantityKg);
+      } else if (comp.product?.type === "FINISHED_GOODS" && comp.quantityUnit) {
+        fgConsumedUnits += comp.quantityUnit;
+      } else if (comp.packagingId && comp.quantityUnit) {
+        pkgConsumedUnits += comp.quantityUnit;
+      }
+    }
+  }
+
+  return {
+    rbConsumedKg,
+    fgConsumedUnits,
+    pkgConsumedUnits,
+    totalCost,
+    sampleCount: samples.length,
+  };
+}
+
 export async function getInventoryPageData(): Promise<InventoryPageData> {
   const tp = await requireTenantPrisma();
-  const [gbStocks, rbStocks, pkgStocks, fgStocks, ledgerEntries, suppliers, gbProducts] =
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [gbStocks, rbStocks, pkgStocks, fgStocks, ledgerEntries, suppliers, gbProducts, sampleConsumption] =
     await Promise.all([
       fetchProductStocks("GREEN_BEAN"),
       fetchProductStocks("ROASTED_BEAN"),
@@ -302,9 +362,10 @@ export async function getInventoryPageData(): Promise<InventoryPageData> {
         select: { id: true, name: true, origin: true },
         orderBy: { name: "asc" },
       }),
+      fetchSampleConsumption(monthStart, now),
     ]);
 
-  return { gbStocks, rbStocks, pkgStocks, fgStocks, ledgerEntries, suppliers, gbProducts };
+  return { gbStocks, rbStocks, pkgStocks, fgStocks, ledgerEntries, suppliers, gbProducts, sampleConsumption };
 }
 
 // Tambah packaging options ke page data helper

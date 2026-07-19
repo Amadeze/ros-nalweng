@@ -10,20 +10,34 @@ import {
   getBalanceSheetReport,
   getCoffeeFlowReport,
   getInventoryValuationReport,
+  getSampleReport,
   type BalanceSheetReport,
   type CoffeeFlowReport,
   type InventoryValuationReport,
+  type SampleReport,
 } from "../actions";
 import { cn } from "@/lib/utils";
-import { FileText, Database, Scale, Activity } from "lucide-react";
+import { FileText, Database, Scale, Activity, Beaker, ChevronLeft, ChevronRight } from "lucide-react";
 import { CoffeeFlowClient } from "./CoffeeFlowClient";
+import { SampleReportClient } from "./SampleReportClient";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 interface SuperDashboardClientProps {
   pnlReport: PnLReport;
 }
 
-type ReportTab = "pnl" | "inventory" | "balanceSheet" | "flow";
+type ReportTab = "pnl" | "inventory" | "balanceSheet" | "flow" | "sample";
+
+const MONTHS = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+];
+
+function navigateMonth(month: number, year: number, delta: number) {
+  const d = new Date(year, month - 1 + delta, 1);
+  return { month: d.getMonth() + 1, year: d.getFullYear() };
+}
 
 function ReportPanelSkeleton() {
   return (
@@ -50,14 +64,20 @@ function ReportPanelSkeleton() {
 }
 
 export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
-  const [activeTab, setActiveTab] = useState<"pnl" | "inventory" | "balanceSheet" | "flow">("pnl");
+  const [activeTab, setActiveTab] = useState<ReportTab>("pnl");
   const [isPending, startTransition] = useTransition();
   const [inventoryReport, setInventoryReport] = useState<InventoryValuationReport | null>(null);
   const [balanceSheetReport, setBalanceSheetReport] = useState<BalanceSheetReport | null>(null);
   const [flowReport, setFlowReport] = useState<CoffeeFlowReport | null>(null);
+  const [sampleReport, setSampleReport] = useState<SampleReport | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const reportAsOf = new Date(new Date(pnlReport.periodEnd).getTime() - 1);
   const reportStart = new Date(pnlReport.periodStart);
-  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const goToMonth = (month: number, year: number) => {
+    window.location.search = `month=${month}&year=${year}`;
+  };
 
   const openTab = (tab: ReportTab) => {
     setActiveTab(tab);
@@ -94,60 +114,110 @@ export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
         }
       });
     }
+
+    if (tab === "sample" && !sampleReport) {
+      startTransition(async () => {
+        try {
+          setSampleReport(await getSampleReport(reportStart, new Date(pnlReport.periodEnd)));
+        } catch {
+          setLoadError("Gagal memuat laporan sample.");
+        }
+      });
+    }
   };
+
+  const now = new Date();
+  const thisMonth = now.getMonth() + 1;
+  const thisYear = now.getFullYear();
+  const lastMonth = navigateMonth(thisMonth, thisYear, -1);
+
+  const presets = [
+    { label: "Bulan Ini", month: thisMonth, year: thisYear },
+    { label: "Bulan Lalu", month: lastMonth.month, year: lastMonth.year },
+  ];
+
+  const prev = navigateMonth(pnlReport.month, pnlReport.year, -1);
+  const next = navigateMonth(pnlReport.month, pnlReport.year, 1);
 
   return (
     <StandardPageLayout
       title="Laporan Finansial"
       description="Super Dashboard Laba Rugi dan Valuasi Aset"
     >
-      <div className="custom-scrollbar mb-6 flex w-full overflow-x-auto border-b border-stone-200">
-        <button
-          onClick={() => openTab("pnl")}
-          className={cn(
-            "-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors",
-            activeTab === "pnl" 
-              ? "border-stone-900 text-stone-900"
-              : "border-transparent text-stone-500 hover:text-stone-800"
-          )}
-        >
-          <FileText size={18} /> Laba Rugi
-        </button>
-        <button
-          onClick={() => openTab("inventory")}
-          className={cn(
-            "-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors",
-            activeTab === "inventory" 
-              ? "border-stone-900 text-stone-900"
-              : "border-transparent text-stone-500 hover:text-stone-800"
-          )}
-        >
-          <Database size={18} /> Valuasi Aset
-        </button>
-        <button
-          onClick={() => openTab("balanceSheet")}
-          className={cn(
-            "-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors",
-            activeTab === "balanceSheet" 
-              ? "border-stone-900 text-stone-900"
-              : "border-transparent text-stone-500 hover:text-stone-800"
-          )}
-        >
-          <Scale size={18} /> Neraca
-        </button>
-        <button
-          onClick={() => openTab("flow")}
-          className={cn(
-            "-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors",
-            activeTab === "flow" 
-              ? "border-stone-900 text-stone-900"
-              : "border-transparent text-stone-500 hover:text-stone-800"
-          )}
-        >
-          <Activity size={18} /> Arus Kopi
-        </button>
+      {/* Date Navigation */}
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-stone-200 bg-white/70 p-3 shadow-sm">
+        {/* Month Navigation */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => goToMonth(prev.month, prev.year)}
+            aria-label="Bulan sebelumnya"
+          >
+            <ChevronLeft size={16} />
+          </Button>
+          <span className="min-w-[140px] text-center text-sm font-bold text-stone-800">
+            {MONTHS[pnlReport.month - 1]} {pnlReport.year}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => goToMonth(next.month, next.year)}
+            aria-label="Bulan berikutnya"
+          >
+            <ChevronRight size={16} />
+          </Button>
+        </div>
+
+        <div className="h-6 w-px bg-stone-200" />
+
+        {/* Quick Presets */}
+        <div className="flex gap-1.5">
+          {presets.map((preset) => {
+            const isActive = pnlReport.month === preset.month && pnlReport.year === preset.year;
+            return (
+              <Button
+                key={preset.label}
+                size="sm"
+                variant={isActive ? "default" : "outline"}
+                onClick={() => goToMonth(preset.month, preset.year)}
+                className={cn(
+                  "h-8 text-xs font-semibold",
+                  isActive && "bg-stone-900 text-white"
+                )}
+              >
+                {preset.label}
+              </Button>
+            );
+          })}
+        </div>
       </div>
 
+      {/* Tab Bar */}
+      <div className="custom-scrollbar mb-6 flex w-full overflow-x-auto border-b border-stone-200">
+        {[
+          { id: "pnl" as const, icon: FileText, label: "Laba Rugi" },
+          { id: "inventory" as const, icon: Database, label: "Valuasi Aset" },
+          { id: "balanceSheet" as const, icon: Scale, label: "Neraca" },
+          { id: "flow" as const, icon: Activity, label: "Arus Kopi" },
+          { id: "sample" as const, icon: Beaker, label: "Sample" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => openTab(tab.id)}
+            className={cn(
+              "-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors",
+              activeTab === tab.id
+                ? "border-stone-900 text-stone-900"
+                : "border-transparent text-stone-500 hover:text-stone-800"
+            )}
+          >
+            <tab.icon size={18} /> {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Report Content */}
       <div className="h-full flex flex-col">
         {loadError && (
           <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -181,6 +251,15 @@ export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
             {flowReport && !isPending ? (
               <CoffeeFlowClient report={flowReport} />
+            ) : (
+              <ReportPanelSkeleton />
+            )}
+          </div>
+        )}
+        {activeTab === "sample" && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {sampleReport && !isPending ? (
+              <SampleReportClient report={sampleReport} />
             ) : (
               <ReportPanelSkeleton />
             )}
