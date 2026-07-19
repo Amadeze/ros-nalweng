@@ -36,6 +36,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
       - run: pnpm audit --prod
       - run: pnpm prisma validate
       - run: pnpm prisma migrate deploy
@@ -64,6 +65,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
       - run: pnpm exec playwright install --with-deps chromium
         if: env.DATABASE_URL != ''
       - run: pnpm test:e2e
