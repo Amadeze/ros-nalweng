@@ -14,6 +14,7 @@ import {
   Space_Mono,
 } from "next/font/google";
 import "./globals.css";
+import { ThemeProviderRoot } from "@/components/ThemeProviderRoot";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -112,7 +113,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${storefrontFonts} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="h-full">{children}</body>
+      <body className="h-full">
+        <ThemeProviderRoot>{children}</ThemeProviderRoot>
+      </body>
     </html>
   );
 }

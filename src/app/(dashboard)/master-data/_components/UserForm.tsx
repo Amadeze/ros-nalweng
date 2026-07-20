@@ -5,6 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -85,10 +86,11 @@ export function UserForm({ id, onSuccess, onPendingChange, initialData }: UserFo
             password: values.password ?? "",
           });
 
-      if (!result.success) { toast.error(result.error); return; }
+      if (!result.success) { toastSafe.error(result.error); return; }
       toast.success(isEditMode ? `${result.code} berhasil diperbarui` : `Pengguna ${result.code} berhasil ditambahkan`);
       onSuccess();
-    } catch {
+    } catch (err) {
+      console.error("[UserForm]", err);
       toast.error("Terjadi kesalahan sistem.");
     } finally {
       setIsSubmitting(false);

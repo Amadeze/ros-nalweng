@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -89,12 +90,13 @@ export function SupplierPaymentDialog({
         notes: values.notes || undefined,
       });
       if (!result.success) {
-        toast.error(result.error);
+        toastSafe.error(result.error);
         return;
       }
       toast.success(`${result.paymentCode} · Pembayaran supplier tercatat`);
       onSuccess();
-    } catch {
+    } catch (err) {
+      console.error("[SupplierPaymentDialog]", err);
       toast.error("Terjadi kesalahan saat mencatat pembayaran supplier.");
     } finally {
       setSubmitting(false);

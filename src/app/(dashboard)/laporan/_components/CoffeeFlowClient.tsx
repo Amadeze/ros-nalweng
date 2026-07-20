@@ -6,11 +6,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { CoffeeFlowReport } from "../actions";
 import { Package, Coffee, Box, ArrowRight, Search, TrendingUp, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatDate } from "@/lib/format";
 
 function exportCoffeeFlowCSV(report: CoffeeFlowReport) {
   const rows: string[][] = [
     ["Laporan Arus Kopi"],
-    [`Periode: ${report.periodStart ? new Date(report.periodStart).toLocaleDateString("id-ID") : "Awal"} - ${new Date(report.periodEnd).toLocaleDateString("id-ID")}`],
+    [`Periode: ${report.periodStart ? formatDate(report.periodStart) : "Awal"} - ${formatDate(report.periodEnd)}`],
     [],
     ["GREEN BEAN", "Beli (kg)", "Di-roast (kg)", "Opname Out (kg)", "Stok (kg)", "HPP Avg/kg"],
     ...report.greenBeans.map(gb => [

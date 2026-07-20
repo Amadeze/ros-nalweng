@@ -5,6 +5,7 @@ import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { Plus, Trash2, FlaskConical, Info, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -141,6 +142,7 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
 
   const estimatedHpp = useMemo(() => {
     if (!isFG) return 0;
+    // Hitung dari recipe
     let cost = 0;
     for (const item of recipeItems) {
       if (!item.rbProductId || !item.gramsPerUnit) continue;
@@ -153,7 +155,7 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
       const pkg = packagings.find(p => p.id === recipePackagingId);
       if (pkg) cost += Number(pkg.costPerUnit);
     }
-    return Math.round(cost);
+    return cost > 0 ? Math.round(cost) : 0;
   }, [isFG, recipeItems, recipePackagingId, rawMaterials, packagings]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,7 +180,7 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
         throw new Error(data.error);
       }
     } catch (e: any) {
-      toast.error("Upload gagal: " + e.message);
+      toastSafe.error("Upload gagal: " + e.message);
     } finally {
       setIsUploading(false);
     }
@@ -257,10 +259,11 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
             reorderLookbackDays: values.reorderLookbackDays,
           });
 
-      if (!result.success) { toast.error(result.error); return; }
+      if (!result.success) { toastSafe.error(result.error); return; }
       toast.success(isEditMode ? `Produk ${result.code} berhasil diperbarui` : `Produk ${result.code} berhasil ditambahkan`);
       onSuccess();
-    } catch {
+    } catch (err) {
+      console.error("[ProductForm]", err);
       toast.error("Terjadi kesalahan sistem.");
     } finally {
       setIsSubmitting(false);
@@ -390,7 +393,7 @@ export function ProductForm({ id, onSuccess, onPendingChange, initialData, rawMa
             <h3 className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Harga Jual</h3>
             {estimatedHpp > 0 && (
               <span className="text-[10px] font-bold text-amber-800 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                Estimasi HPP: Rp {estimatedHpp.toLocaleString("id-ID")}
+                {initialData?.lastHpp && Number(initialData.lastHpp) > 0 ? "HPP Aktual" : "Estimasi HPP (Resep)"}: Rp {estimatedHpp.toLocaleString("id-ID")}
               </span>
             )}
           </div>

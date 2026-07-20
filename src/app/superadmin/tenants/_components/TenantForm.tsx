@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createTenant } from "../actions";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { Plus, X, Server, User as UserIcon, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -34,7 +35,7 @@ export function TenantForm() {
         setAdminName("");
         setAdminEmail("");
       } else {
-        toast.error(res.error);
+        toastSafe.error(res.error);
       }
     } finally {
       setLoading(false);

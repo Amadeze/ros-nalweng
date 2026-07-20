@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 
 interface VoidConfirmDialogProps {
   open: boolean;
@@ -38,7 +39,7 @@ export function VoidConfirmDialog({
     setLoading(true);
     try {
       const result = await onConfirm(reason.trim());
-      if (!result.success) { toast.error(result.error ?? "Gagal void."); return; }
+      if (!result.success) { toastSafe.error(result.error ?? "Gagal void."); return; }
       toast.success("Berhasil di-void.");
       setReason("");
       onOpenChange(false);

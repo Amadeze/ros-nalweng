@@ -5,6 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,12 +55,13 @@ export function SupplierForm({ id, onSuccess, onPendingChange, initialData }: Su
         ? await updateSupplier({ id: initialData!.id, ...values })
         : await createSupplier(values);
       if (!result.success) {
-        toast.error(result.error);
+        toastSafe.error(result.error);
         return;
       }
       toast.success(isEditMode ? `${result.code} berhasil diperbarui` : `${values.name.trim()} berhasil ditambahkan`);
       onSuccess(result.data);
-    } catch {
+    } catch (err) {
+      console.error("[SupplierForm]", err);
       toast.error("Supplier belum tersimpan. Periksa koneksi lalu coba lagi.");
     } finally {
       setIsSubmitting(false);

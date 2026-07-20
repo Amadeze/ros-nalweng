@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { Edit2, X, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { updateTenantAdmin } from "../actions";
@@ -33,7 +34,7 @@ export function EditTenantDialog({ tenant }: EditTenantDialogProps) {
         toast.success(`Outlet ${tenant.name} updated successfully!`);
         setIsOpen(false);
       } else {
-        toast.error(res.error);
+        toastSafe.error(res.error);
       }
     } finally {
       setLoading(false);

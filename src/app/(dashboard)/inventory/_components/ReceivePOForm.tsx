@@ -5,6 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -83,7 +84,7 @@ export function ReceivePOForm({ poId, items, onSuccess, onCancel }: ReceivePOFor
         toast.success(`Berhasil menerima barang. Kode Purchase: ${result.purchaseCodes?.join(", ")}`);
         onSuccess();
       } else {
-        toast.error(result.error);
+        toastSafe.error(result.error);
       }
     } finally {
       setIsSubmitting(false);

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -12,8 +11,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatRupiah } from "@/lib/format";
-import { getPODetail, cancelPOAction, receivePOAction } from "../po-actions";
+import { formatRupiah, formatDate as formatDateUtil } from "@/lib/format";
+import { getPODetail, cancelPOAction } from "../po-actions";
 import { ReceivePOForm } from "./ReceivePOForm";
 import type { POStatus } from "@prisma/client";
 
@@ -79,12 +78,9 @@ interface PODetailProps {
   poId: string;
   onClose: () => void;
   onUpdate: () => void;
-  suppliers: Array<{ id: string; name: string }>;
-  products: Array<{ id: string; name: string; type: string; stockKg: number }>;
-  packagings: Array<{ id: string; name: string; stockUnit: number }>;
 }
 
-export function PODetail({ poId, onClose, onUpdate, suppliers, products, packagings }: PODetailProps) {
+export function PODetail({ poId, onClose, onUpdate }: PODetailProps) {
   const [detail, setDetail] = useState<PODetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showReceiveForm, setShowReceiveForm] = useState(false);
@@ -120,11 +116,7 @@ export function PODetail({ poId, onClose, onUpdate, suppliers, products, packagi
 
   const formatDate = (date: string | null) => {
     if (!date) return "-";
-    return new Date(date).toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
+    return formatDateUtil(date);
   };
 
   if (loading) {
@@ -143,8 +135,6 @@ export function PODetail({ poId, onClose, onUpdate, suppliers, products, packagi
     );
   }
 
-  const canEdit = detail.status === "DRAFT";
-  const canSend = detail.status === "DRAFT";
   const canReceive = detail.status === "SENT" || detail.status === "PARTIAL";
   const canCancel = detail.status === "DRAFT" || detail.status === "SENT";
 

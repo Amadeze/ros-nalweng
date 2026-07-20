@@ -43,10 +43,10 @@ export async function POST(req: Request) {
     const bearerToken = authorization?.startsWith("Bearer ")
       ? authorization.slice("Bearer ".length)
       : null;
-    const token = bearerToken || url.searchParams.get("token");
-    if (!token) {
+    if (!bearerToken) {
       return NextResponse.json({ error: "Missing authentication token" }, { status: 401 });
     }
+    const token = bearerToken;
 
     const tenant = await prisma.tenant.findUnique({
       where: { artisanWebhookToken: token },

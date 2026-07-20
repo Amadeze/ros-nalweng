@@ -7,6 +7,7 @@ import { z } from "zod";
 import { useEffect, useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 import { Input } from "@/components/ui/input";
@@ -233,7 +234,7 @@ export function PurchaseForm({
       });
 
       if (!result.success) {
-        toast.error(result.error);
+        toastSafe.error(result.error);
         return;
       }
 
@@ -241,7 +242,8 @@ export function PurchaseForm({
       reset();
       setOperationKey(crypto.randomUUID());
       onSuccess();
-    } catch {
+    } catch (err) {
+      console.error("[PurchaseForm]", err);
       toast.error("Terjadi kesalahan sistem. Coba lagi.");
     } finally {
       setIsSubmitting(false);

@@ -6,6 +6,7 @@ import { SESSION_OPTIONS, type SessionUser } from "@/lib/session";
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password", "/about", "/pricing", "/_next", "/favicon.ico", "/images", "/tenant"];
 const ROOT_DOMAINS = ['localhost', '127.0.0.1', 'ros.com', 'www.ros.com', 'app.ros.com', 'beanslab.vercel.app', 'ros-beanslab.vercel.app'];
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{1,80}$/;
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 function requestContext(request: NextRequest) {
   const incoming = request.headers.get("x-request-id")?.trim();
@@ -96,6 +97,29 @@ export async function proxy(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return withRequestId(NextResponse.redirect(loginUrl), requestId);
+  }
+
+  // CSRF: Validate Origin header on state-changing requests
+  if (!SAFE_METHODS.has(request.method)) {
+    const origin = request.headers.get("origin");
+    const host = request.headers.get("host");
+    if (origin) {
+      try {
+        const originUrl = new URL(origin);
+        const allowedHosts = ROOT_DOMAINS;
+        if (!allowedHosts.includes(originUrl.hostname) && !originUrl.hostname.endsWith(".vercel.app")) {
+          return withRequestId(
+            NextResponse.json({ error: "Invalid origin" }, { status: 403 }),
+            requestId,
+          );
+        }
+      } catch {
+        return withRequestId(
+          NextResponse.json({ error: "Invalid origin header" }, { status: 403 }),
+          requestId,
+        );
+      }
+    }
   }
 
   const role = session.user.role;

@@ -87,7 +87,8 @@ export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
       startTransition(async () => {
         try {
           setInventoryReport(await getInventoryValuationReport(reportAsOf));
-        } catch {
+        } catch (err) {
+          console.error("[SuperDashboardClient]", err);
           setLoadError("Gagal memuat valuasi aset.");
         }
       });
@@ -99,7 +100,8 @@ export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
           const inventory = inventoryReport ?? await getInventoryValuationReport(reportAsOf);
           setInventoryReport(inventory);
           setBalanceSheetReport(await getBalanceSheetReport(inventory.grandTotalValue, reportAsOf));
-        } catch {
+        } catch (err) {
+          console.error("[SuperDashboardClient]", err);
           setLoadError("Gagal memuat neraca.");
         }
       });
@@ -109,7 +111,8 @@ export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
       startTransition(async () => {
         try {
           setFlowReport(await getCoffeeFlowReport(reportStart, new Date(pnlReport.periodEnd)));
-        } catch {
+        } catch (err) {
+          console.error("[SuperDashboardClient]", err);
           setLoadError("Gagal memuat arus kopi.");
         }
       });
@@ -119,7 +122,8 @@ export function SuperDashboardClient({ pnlReport }: SuperDashboardClientProps) {
       startTransition(async () => {
         try {
           setSampleReport(await getSampleReport(reportStart, new Date(pnlReport.periodEnd)));
-        } catch {
+        } catch (err) {
+          console.error("[SuperDashboardClient]", err);
           setLoadError("Gagal memuat laporan sample.");
         }
       });

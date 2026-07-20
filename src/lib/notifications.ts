@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { formatRupiah } from './format';
 
 // Helper for Resend (Email)
 const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder_key_here');
@@ -80,7 +81,7 @@ export async function sendInvoiceEmail(to: string, invoiceCode: string, paymentU
     return { success: true, data };
   } catch (error) {
     console.error("Failed to send email:", error);
-    return { success: false, error };
+    return { success: false, error: String(error) };
   }
 }
 
@@ -131,7 +132,7 @@ export async function sendInvoiceWhatsApp(phone: string, invoiceCode: string, pa
     return await sendWhatsAppMessage(phone, message);
   } catch (error) {
     console.error("Failed to send WA:", error);
-    return { success: false, error };
+    return { success: false, error: String(error) };
   }
 }
 
@@ -147,11 +148,7 @@ export async function sendOverdueReminderEmail(input: {
   if (!process.env.RESEND_API_KEY) {
     return { success: true as const, mocked: true as const };
   }
-  const currency = new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(input.balance);
+  const currency = formatRupiah(input.balance);
   const { data, error } = await resend.emails.send({
     from: process.env.EMAIL_FROM || "Roastery OS <no-reply@example.com>",
     to: [input.to],
@@ -179,11 +176,7 @@ export async function sendOverdueReminderWhatsApp(input: {
   balance: number;
   paymentUrl: string | null;
 }) {
-  const currency = new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(input.balance);
+  const currency = formatRupiah(input.balance);
   const message =
     `Halo ${input.customerName}, pengingat tagihan *${input.invoiceCode}* dari ${input.tenantName}. ` +
     `Sisa tagihan ${currency} telah melewati jatuh tempo.` +

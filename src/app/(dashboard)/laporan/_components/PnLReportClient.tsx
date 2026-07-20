@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { StandardPageLayout } from "@/components/StandardPageLayout";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, formatDateLong } from "@/lib/format";
 import type { PnLReport } from "../../keuangan/actions";
 import { TrendingUp, TrendingDown, Minus, ChevronLeft, ChevronRight, FileText, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -531,7 +531,7 @@ export function PnLReportClient({ report, hideLayout }: PnLReportClientProps) {
               Laporan ini digenerate otomatis oleh Roastery OS · Beanslab
             </span>
             <span className="tabular-nums">
-              Dicetak: {getCurrentDate().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+              Dicetak: {formatDateLong(getCurrentDate())}
             </span>
           </div>
         </div>

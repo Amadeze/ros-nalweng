@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -83,6 +84,9 @@ function HppSummary({
   const pkg = packagingOptions.find((p) => p.id === packagingId);
 
   // Simplified HPP preview (tidak bisa hitung HPP RB yang akurat di client karena butuh DB;
+  const rbPerUnit = unitsProduced > 0 ? totalRbGrams / unitsProduced : 0;
+  const isUnrealistic = rbPerUnit > 0 && rbPerUnit < 500; // < 500g RB per 1kg FG is suspicious
+
   return (
     <div className={cn(glassCard, "p-4 space-y-3 mt-4")}>
       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -94,7 +98,7 @@ function HppSummary({
         <span className="text-slate-600">Total RB digunakan</span>
         <span className="font-semibold text-slate-900 text-right">{formatKg(totalRbGrams / 1000)}</span>
         <span className="text-slate-600">Rata-rata RB/unit</span>
-        <span className="font-semibold text-slate-900 text-right">
+        <span className={cn("font-semibold text-right", isUnrealistic ? "text-red-600" : "text-slate-900")}>
           {unitsProduced > 0
             ? `${(totalRbGrams / unitsProduced).toFixed(1)} g`
             : "—"}
@@ -108,6 +112,12 @@ function HppSummary({
           </>
         )}
       </div>
+      {isUnrealistic && (
+        <div className="mt-2 rounded-lg bg-red-50 border border-red-200 p-2 text-xs text-red-700">
+          <strong>Peringatan:</strong> Rasio RB/unit terlalu rendah ({(rbPerUnit / 1000).toFixed(2)} kg RB per unit). 
+          Untuk kopi 1kg, biasanya butuh 1.1-1.3 kg RB (susut 10-20%). Periksa kembali jumlah RB yang dimasukkan.
+        </div>
+      )}
     </div>
   );
 }
@@ -242,7 +252,7 @@ export function ProductionForm({
       });
 
       if (!result.success) {
-        toast.error(result.error);
+        toastSafe.error(result.error);
         return;
       }
 
@@ -250,7 +260,8 @@ export function ProductionForm({
       reset();
       setOperationKey(crypto.randomUUID());
       onSuccess();
-    } catch {
+    } catch (err) {
+      console.error("[ProductionForm]", err);
       toast.error("Terjadi kesalahan sistem. Coba lagi.");
     } finally {
       setIsSubmitting(false);

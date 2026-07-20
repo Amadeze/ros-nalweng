@@ -13,6 +13,7 @@ import {
 import { updateInvoiceShipping } from "../actions";
 import type { InvoiceRow } from "../actions";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { Truck } from "lucide-react";
 
 interface ResiDialogProps {
@@ -45,13 +46,13 @@ export function ResiDialog({ invoice, open, onOpenChange }: ResiDialogProps) {
         shippingCost: shippingCost ? Number(shippingCost) : 0,
       });
       if (res.error) {
-        toast.error(res.error);
+        toastSafe.error(res.error);
       } else {
         toast.success("Data pengiriman berhasil diupdate");
         onOpenChange(false);
       }
     } catch (e: any) {
-      toast.error(e.message || "Terjadi kesalahan");
+      toastSafe.error(e.message || "Terjadi kesalahan");
     } finally {
       setIsLoading(false);
     }

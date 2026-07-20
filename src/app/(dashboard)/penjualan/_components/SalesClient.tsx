@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ReceiptText, Loader2, DollarSign, FileText, CheckCircle2, Clock, Download, FileText as FileTextIcon, FileSpreadsheet, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, formatDate } from "@/lib/format";
 import { StandardPageLayout } from "@/components/StandardPageLayout";
 import { StandardDrawer } from "@/components/StandardDrawer";
 import { InvoiceTable } from "./InvoiceTable";
@@ -68,7 +68,7 @@ function ExportMenu({ invoices }: { invoices: InvoiceRow[] }) {
         const tableData = invoices.map((i) => [
           i.code,
           i.customerName,
-          new Date(i.issuedAt).toLocaleDateString(),
+          formatDate(i.issuedAt),
           i.status,
           formatRupiah(i.grandTotal),
         ]);
@@ -91,7 +91,7 @@ function ExportMenu({ invoices }: { invoices: InvoiceRow[] }) {
         ...invoices.map((invoice) => [
           invoice.code,
           invoice.customerName,
-          new Date(invoice.issuedAt).toLocaleDateString("id-ID"),
+          formatDate(invoice.issuedAt),
           invoice.status,
           invoice.grandTotal,
         ]),
@@ -208,7 +208,7 @@ export function SalesClient({ invoices, customers, fgOptions, sampleData }: Sale
                     const tableData = invoices.map((i) => [
                       i.code,
                       i.customerName,
-                      new Date(i.issuedAt).toLocaleDateString(),
+                      formatDate(i.issuedAt),
                       i.status,
                       formatRupiah(i.grandTotal),
                     ]);
@@ -252,7 +252,7 @@ export function SalesClient({ invoices, customers, fgOptions, sampleData }: Sale
                     ...invoices.map((invoice) => [
                       invoice.code,
                       invoice.customerName,
-                      new Date(invoice.issuedAt).toLocaleDateString("id-ID"),
+                      formatDate(invoice.issuedAt),
                       invoice.status,
                       invoice.grandTotal,
                     ]),

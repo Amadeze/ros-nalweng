@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { ChevronDown, Plus, Package } from "lucide-react";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -164,12 +165,13 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
         dueDate: data.dueDate,
         notes: data.notes,
       });
-      if (!result.success) { toast.error(result.error); return; }
+      if (!result.success) { toastSafe.error(result.error); return; }
       toast.success(`Kemasan datang dicatat: ${result.purchaseCode}`);
       reset();
       setOperationKey(crypto.randomUUID());
       onSuccess();
-    } catch {
+    } catch (err) {
+      console.error("[PackagingPurchaseForm]", err);
       toast.error("Terjadi kesalahan sistem.");
     } finally {
       setSubmitting(false);
@@ -182,7 +184,7 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
     setIsAddingPkg(true);
     try {
       const result = await createPackaging(data); // Panggil fungsi dari actions.ts
-      if (!result.success) { toast.error(result.error); return; }
+      if (!result.success) { toastSafe.error(result.error); return; }
       
       toast.success("Kemasan baru berhasil ditambahkan!");
       setPackagingOptions((current) => [
@@ -195,7 +197,8 @@ export function PackagingPurchaseForm({ suppliers, packagings, onSuccess, onPend
       // Otomatis pilih kemasan yang baru dibuat
       setValue("packagingId", result.packagingId, { shouldValidate: true });
       
-    } catch {
+    } catch (err) {
+      console.error("[PackagingPurchaseForm]", err);
       toast.error("Gagal menambahkan kemasan.");
     } finally {
       setIsAddingPkg(false);

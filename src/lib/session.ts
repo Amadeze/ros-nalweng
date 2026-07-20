@@ -35,7 +35,8 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Ses
     const cookieStore = await cookies();
     const session = await getIronSession<{ user?: SessionUser }>(cookieStore, SESSION_OPTIONS);
     return session.user ?? null;
-  } catch {
+  } catch (error) {
+    // Session not found or invalid - return null for unauthenticated state
     return null;
   }
 });

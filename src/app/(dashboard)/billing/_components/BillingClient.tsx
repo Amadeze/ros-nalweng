@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Tenant } from "@prisma/client";
 import { CreditCard, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, formatDate } from "@/lib/format";
 import Script from "next/script";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { PLAN_CATALOG } from "@/lib/plans";
 import { StandardPageLayout } from "@/components/StandardPageLayout";
 
@@ -38,14 +39,14 @@ export default function BillingClient({ tenant }: { tenant: Tenant }) {
       // Midtrans Snap
       if (window.snap) {
         window.snap.pay(data.token, {
-          onSuccess: function (result: any) {
+          onSuccess: function () {
             toast.success("Pembayaran berhasil! Mengupdate akun Anda...");
             setTimeout(() => window.location.reload(), 2000);
           },
-          onPending: function (result: any) {
+          onPending: function () {
             toast.info("Menunggu pembayaran Anda.");
           },
-          onError: function (result: any) {
+          onError: function () {
             toast.error("Pembayaran gagal!");
           },
           onClose: function () {
@@ -56,7 +57,7 @@ export default function BillingClient({ tenant }: { tenant: Tenant }) {
         toast.error("Sistem pembayaran belum siap, coba sesaat lagi.");
       }
     } catch (error: any) {
-      toast.error(error.message);
+      toastSafe.error(error.message);
     } finally {
       setLoadingTier(null);
     }
@@ -102,7 +103,7 @@ export default function BillingClient({ tenant }: { tenant: Tenant }) {
                   </p>
                 ) : (
                   <p className="text-sm text-slate-500">
-                    Next billing date: {tenant.nextBillingDate ? new Date(tenant.nextBillingDate).toLocaleDateString() : 'N/A'}
+                    Next billing date: {tenant.nextBillingDate ? formatDate(tenant.nextBillingDate) : 'N/A'}
                   </p>
                 )}
               </div>

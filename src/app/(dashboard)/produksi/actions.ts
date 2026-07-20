@@ -336,6 +336,13 @@ export async function createProductionBatch(
       
       const hppPerKg = Number(rbProduct.avgCostPerKg ?? 0);
 
+      if (hppPerKg <= 0) {
+        return {
+          success: false,
+          error: `Biaya bahan "${rbProduct.name}" belum tercatat (avgCostPerKg = 0). Periksa data pembelian/roasting terlebih dahulu.`,
+        };
+      }
+
       totalRbCost += hppPerKg * actualKg;
       totalRbUsedKg += actualKg;
       rbDetails.push({ productId, actualKg, hppPerKg });

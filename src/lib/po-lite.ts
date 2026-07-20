@@ -1,5 +1,6 @@
 import type { PrismaClient, POStatus } from "@prisma/client";
 import { Prisma } from "@prisma/client";
+import { appendLedger } from "./stock";
 
 // =============================================================================
 // TYPES
@@ -62,6 +63,11 @@ export type POListItem = {
   receivedAt: string | null;
   createdAt: string;
   itemCount: number;
+  items: Array<{
+    productName: string | null;
+    packagingName: string | null;
+    quantity: number;
+  }>;
 };
 
 export type PODetail = POListItem & {
@@ -387,36 +393,31 @@ export async function receivePO(
 
       purchaseCodes.push(purchaseCode);
 
-      // Create ledger entry (IN)
-      // Note: appendLedger needs to be called from stock.ts
-      // For now, we'll create the ledger entry directly
-      await tx.inventoryLedger.create({
-        data: {
-          productId: poItem.productId,
-          packagingId: poItem.packagingId,
-          entryType: "IN",
-          refType: isProduct ? "PURCHASE_GB" : "PURCHASE_PKG",
-          refId: purchase.id,
-          quantityKg: isProduct ? received.receivedQuantity : null,
-          quantityUnit: isProduct ? null : Math.round(received.receivedQuantity),
-          notes: `PO ${poId} - ${purchaseCode}`,
-          createdById: userId,
-        },
-      });
-
-      // Update cached stock
+      // Create ledger entry + update cached stock + avgCostPerKg via appendLedger
       if (isProduct && poItem.productId) {
-        await tx.product.updateMany({
-          where: { id: poItem.productId },
+        await appendLedger(tx, {
           data: {
-            stockKg: { increment: received.receivedQuantity },
+            productId: poItem.productId,
+            entryType: "IN",
+            refType: "PURCHASE_GB",
+            refId: purchase.id,
+            quantityKg: received.receivedQuantity,
+            incomingPrice: totalCost / received.receivedQuantity,
+            notes: `PO ${poId} - ${purchaseCode}`,
+            createdById: userId,
           },
         });
       } else if (poItem.packagingId) {
-        await tx.packaging.updateMany({
-          where: { id: poItem.packagingId },
+        await appendLedger(tx, {
           data: {
-            stockUnit: { increment: Math.round(received.receivedQuantity) },
+            packagingId: poItem.packagingId,
+            entryType: "IN",
+            refType: "PURCHASE_PKG",
+            refId: purchase.id,
+            quantityUnit: Math.round(received.receivedQuantity),
+            incomingPrice: totalCost / Math.round(received.receivedQuantity),
+            notes: `PO ${poId} - ${purchaseCode}`,
+            createdById: userId,
           },
         });
       }
@@ -512,7 +513,14 @@ export async function getPOList(
       where,
       include: {
         supplier: { select: { name: true } },
-        items: { select: { id: true } },
+        items: {
+          select: {
+            id: true,
+            quantity: true,
+            product: { select: { name: true } },
+            packaging: { select: { name: true } },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
@@ -533,6 +541,11 @@ export async function getPOList(
       receivedAt: po.receivedAt?.toISOString() ?? null,
       createdAt: po.createdAt.toISOString(),
       itemCount: po.items.length,
+      items: po.items.map((item) => ({
+        productName: item.product?.name ?? null,
+        packagingName: item.packaging?.name ?? null,
+        quantity: Number(item.quantity),
+      })),
     })),
     total,
   };

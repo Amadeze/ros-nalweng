@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { formatRupiah } from "@/lib/format";
 import { createSampleUsage, type SamplePageData, type SampleSourceType } from "../sample-actions";
@@ -76,7 +77,7 @@ export function SampleForm({
     });
     onPendingChange(false);
     if (!result.success) {
-      toast.error(result.error);
+      toastSafe.error(result.error);
       return;
     }
     toast.success(`${result.sampleCode} tercatat. Stok dan laporan sudah diperbarui.`);

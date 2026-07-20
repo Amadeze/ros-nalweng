@@ -31,6 +31,26 @@ export function formatDate(date: Date | string): string {
   }).format(new Date(date));
 }
 
+/** Format tanggal dengan waktu ke format lokal Indonesia. */
+export function formatDateTime(date: Date | string): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(date));
+}
+
+/** Format tanggal dengan bulan panjang ke format lokal Indonesia. */
+export function formatDateLong(date: Date | string): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(date));
+}
+
 /** Hitung HPP per kg = (harga * berat + ongkir) / berat */
 export function calcHppPerKg(
   pricePerKg: number,

@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StandardDrawer } from "@/components/StandardDrawer";
 import { createExpense } from "../actions";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { getCurrentDate, getTodayString } from "@/lib/date-utils";
 
 const CATEGORIES = [
@@ -65,7 +66,7 @@ export function CatatPengeluaranDrawer({ open, onOpenChange }: Props) {
         amount:      data.amount,
         description: data.description,
       });
-      if (!result.success) { toast.error(result.error); return; }
+      if (!result.success) { toastSafe.error(result.error); return; }
       toast.success("Pengeluaran berhasil dicatat.");
       close();
     } finally {

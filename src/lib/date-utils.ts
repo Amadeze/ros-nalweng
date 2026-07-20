@@ -15,6 +15,7 @@ export function normalizeTimeZone(timezone?: string | null): string {
     new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date());
     return timezone;
   } catch {
+    // Invalid timezone - fallback to default
     return DEFAULT_TIMEZONE;
   }
 }

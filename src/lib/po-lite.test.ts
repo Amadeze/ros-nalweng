@@ -39,6 +39,7 @@ function createMockPrisma() {
       create: vi.fn(),
     },
     product: {
+      findUnique: vi.fn().mockResolvedValue({ stockKg: 0, stockUnit: 0, avgCostPerKg: 0 }),
       updateMany: vi.fn(),
     },
     packaging: {
@@ -283,7 +284,7 @@ describe("receivePO", () => {
 
     expect(result.purchaseCodes).toHaveLength(1);
     expect(prisma.purchase.create).toHaveBeenCalled();
-    expect(prisma.inventoryLedger.create).toHaveBeenCalled();
+    expect(prisma.product.findUnique).toHaveBeenCalled();
     expect(prisma.product.updateMany).toHaveBeenCalled();
   });
 

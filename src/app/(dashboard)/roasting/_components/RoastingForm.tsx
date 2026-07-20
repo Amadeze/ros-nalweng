@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
 
@@ -268,7 +269,7 @@ export function RoastingForm({
       });
 
       if (!result.success) {
-        toast.error(result.error);
+        toastSafe.error(result.error);
         return;
       }
 
@@ -286,7 +287,8 @@ export function RoastingForm({
       reset();
       setOperationKey(crypto.randomUUID());
       onSuccess();
-    } catch {
+    } catch (err) {
+      console.error("[RoastingForm]", err);
       toast.error("Terjadi kesalahan sistem. Coba lagi.");
     } finally {
       setIsSubmitting(false);

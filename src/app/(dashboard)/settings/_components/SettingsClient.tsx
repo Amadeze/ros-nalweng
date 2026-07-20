@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { updateTenantSettings } from "../actions";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { Tenant } from "@prisma/client";
 import { Save, ExternalLink, Upload, Phone, Plus, Trash2 } from "lucide-react";
 
@@ -145,7 +146,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
         throw new Error(data.error);
       }
     } catch (e: any) {
-      toast.error("Upload failed: " + e.message);
+      toastSafe.error("Upload failed: " + e.message);
     } finally {
       setIsUploading(prev => ({ ...prev, [type]: false }));
     }
@@ -169,9 +170,9 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(data.message);
+        toastSafe.success(data.message);
       } else {
-        toast.error(data.message);
+        toastSafe.error(data.message);
       }
     } catch (e) {
       toast.error("Failed to connect to Midtrans");
@@ -218,7 +219,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
       toast.success("Settings saved successfully!");
       setRefreshKey(prev => prev + 1);
     } catch (e: any) {
-      toast.error("Failed to save settings: " + (e?.message || String(e)));
+      toastSafe.error("Failed to save settings: " + (e?.message || String(e)));
     } finally {
       setIsSaving(false);
     }

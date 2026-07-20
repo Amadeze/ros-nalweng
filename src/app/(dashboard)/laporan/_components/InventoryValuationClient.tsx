@@ -1,7 +1,7 @@
 "use client";
 
 import { StandardPageLayout } from "@/components/StandardPageLayout";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, formatDate } from "@/lib/format";
 import type { InventoryValuationReport } from "../actions";
 import { Package, Download, Database, Boxes, Coffee, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ const CATEGORY_MAP: Record<string, { label: string, icon: React.ReactNode }> = {
 
 function exportToCSV(report: InventoryValuationReport) {
   const rows = [
-    ["Laporan Valuasi Persediaan", `Beanslab Roastery - ${new Date(report.asOf).toLocaleDateString("id-ID")}`],
+    ["Laporan Valuasi Persediaan", `Beanslab Roastery - ${formatDate(report.asOf)}`],
     ["Metode biaya", "Rata-rata tertimbang"],
     [],
     ["Ringkasan Valuasi", "Nilai (IDR)"],

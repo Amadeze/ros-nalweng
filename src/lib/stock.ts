@@ -63,8 +63,7 @@ export async function computeFGUnitStock(productId: string): Promise<number> {
  * Harus dijalankan di dalam transaksi (tx).
  */
 export async function appendLedger(tx: TransactionClient, data: LedgerEntryData | { data: LedgerEntryData }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const payload = (data as any)?.data ?? data as LedgerEntryData;
+  const payload = ("data" in data ? data.data : data) as LedgerEntryData;
   const quantityUnit = Number(payload.quantityUnit ?? 0);
   const quantityKg = Number(payload.quantityKg ?? 0);
 

@@ -64,6 +64,21 @@ export async function getInventoryValuationReport(asOf = getCurrentDate()): Prom
         where: { createdAt: { lte: asOf } },
         select: { entryType: true, quantityKg: true, quantityUnit: true },
       },
+      // Untuk hitung HPP dari resep
+      recipes: {
+        where: { isActive: true },
+        select: {
+          packagingId: true,
+          items: {
+            select: {
+              productId: true,
+              gramsPerUnit: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
     },
     orderBy: [{ type: "asc" }, { name: "asc" }],
   });
@@ -102,6 +117,34 @@ export async function getInventoryValuationReport(asOf = getCurrentDate()): Prom
         totalCost: Number(roast.targetWeightKg) * (greenBeanCost.get(roast.inputProductId) ?? 0),
       }));
     roastedBeanCost.set(product.id, weightedAverageCost(layers));
+  }
+
+  // Fetch packaging data for recipe-based HPP calculation
+  const packagingMap = new Map<string, number>();
+  const allPackaging = await tp.packaging.findMany({
+    select: { id: true, costPerUnit: true },
+  });
+  for (const pkg of allPackaging) {
+    packagingMap.set(pkg.id, Number(pkg.costPerUnit));
+  }
+
+  // Calculate recipe-based HPP for FINISHED_GOODS
+  const recipeHppMap = new Map<string, number>();
+  for (const product of products.filter((row) => row.type === "FINISHED_GOODS")) {
+    const recipe = product.recipes?.[0];
+    if (recipe) {
+      let cost = 0;
+      for (const item of recipe.items) {
+        const rbCost = roastedBeanCost.get(item.productId) ?? 0;
+        cost += rbCost * (Number(item.gramsPerUnit) / 1000);
+      }
+      if (recipe.packagingId) {
+        cost += packagingMap.get(recipe.packagingId) ?? 0;
+      }
+      if (cost > 0) {
+        recipeHppMap.set(product.id, cost);
+      }
+    }
   }
 
   // Compute sample write-off per item from completed samples in the period
@@ -160,10 +203,14 @@ export async function getInventoryValuationReport(asOf = getCurrentDate()): Prom
         const quantity = Number(entry.quantityUnit ?? 0);
         return stock + (entry.entryType === "IN" ? quantity : -quantity);
       }, 0);
-      const unitCost = weightedAverageCost(p.productionBatches.map((batch) => ({
-        quantity: batch.unitsProduced,
-        totalCost: batch.unitsProduced * Number(batch.hppPerUnit),
-      })));
+      // Prioritas: HPP dari resep, fallback ke production batch
+      const recipeHpp = recipeHppMap.get(p.id);
+      const unitCost = recipeHpp && recipeHpp > 0
+        ? recipeHpp
+        : weightedAverageCost(p.productionBatches.map((batch) => ({
+            quantity: batch.unitsProduced,
+            totalCost: batch.unitsProduced * Number(batch.hppPerUnit),
+          })));
       const retailPrice = Number(p.price || 0);
       const potentialRevenue = stockUnit * retailPrice;
       
@@ -519,6 +566,30 @@ export async function getCoffeeFlowReport(
   const finishedGoods: FinishedGoodsFlow[] = [];
   const inPeriod = (date: Date) => !periodStart || date >= periodStart;
 
+  // Build roasted bean cost map (weighted average from purchases)
+  const roastedBeanCostMap = new Map<string, number>();
+  for (const p of products) {
+    if (p.type === "ROASTED_BEAN") {
+      const totalKg = p.purchases.reduce((sum, pur) => sum + Number(pur.weightKg), 0);
+      const totalCost = p.purchases.reduce((sum, pur) => sum + Number(pur.totalCost), 0);
+      roastedBeanCostMap.set(p.id, totalKg > 0 ? totalCost / totalKg : 0);
+    }
+  }
+
+  // Build recipe-based HPP map for FINISHED_GOODS
+  const recipeHppMap = new Map<string, number>();
+  for (const p of products) {
+    if (p.type === "FINISHED_GOODS" && p.recipes.length > 0) {
+      const recipe = p.recipes[0];
+      let cost = 0;
+      for (const item of (recipe as any).items ?? []) {
+        const rbCost = roastedBeanCostMap.get(item.productId) ?? 0;
+        cost += rbCost * (Number(item.gramsPerUnit) / 1000);
+      }
+      if (cost > 0) recipeHppMap.set(p.id, cost);
+    }
+  }
+
   for (const p of products) {
     if (p.type === "GREEN_BEAN") {
       let bought = 0, roasted = 0, adjOut = 0, stock = 0;
@@ -572,6 +643,8 @@ export async function getCoffeeFlowReport(
       
       let salesRevenue = 0;
       let cogs = 0;
+      // Gunakan HPP dari resep, bukan dari invoice
+      const hppPerUnit = recipeHppMap.get(p.id) ?? 0;
       for (const inv of p.invoiceItems) {
         if (
           (inv.invoice.status === "PAID" || inv.invoice.status === "PARTIAL" || inv.invoice.status === "ISSUED")
@@ -579,7 +652,7 @@ export async function getCoffeeFlowReport(
           && inPeriod(inv.invoice.issuedAt)
         ) {
           salesRevenue += Number(inv.subtotal);
-          cogs += Number(inv.hpp) * inv.quantity;
+          cogs += hppPerUnit * inv.quantity;
         }
       }
       const grossProfit = salesRevenue - cogs;

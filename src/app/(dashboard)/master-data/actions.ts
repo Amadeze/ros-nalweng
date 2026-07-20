@@ -68,6 +68,7 @@ export type ProductRow = {
   priceSilver: number;
   priceGold: number;
   latestHppPerKg?: number;
+  lastHpp?: number;
   recipe: ProductRecipe | null;
   reorderAlertEnabled: boolean;
   leadTimeDays: number;
@@ -118,6 +119,7 @@ export async function getMasterData(): Promise<MasterPageData> {
     price: true,
     priceSilver: true,
     priceGold: true,
+    lastHpp: true,
     reorderAlertEnabled: true,
     leadTimeDays: true,
     safetyStockQuantity: true,
@@ -153,6 +155,13 @@ export async function getMasterData(): Promise<MasterPageData> {
       orderBy: { createdAt: "desc" },
       take: 1,
       select: { refId: true }
+    },
+    // For FINISHED_GOODS HPP fallback
+    productionBatches: {
+      where: { status: "COMPLETED" },
+      orderBy: { producedAt: "desc" },
+      take: 1,
+      select: { hppPerUnit: true }
     },
   },
 }),
@@ -254,6 +263,11 @@ export async function getMasterData(): Promise<MasterPageData> {
         priceSilver: p.priceSilver ? Number(p.priceSilver) : 0,
         priceGold: p.priceGold ? Number(p.priceGold) : 0,
         latestHppPerKg,
+        lastHpp: p.lastHpp
+          ? Number(p.lastHpp)
+          : p.productionBatches[0]
+            ? Number(p.productionBatches[0].hppPerUnit)
+            : undefined,
         createdAt: p.createdAt.toISOString(),
         recipe: r
           ? {

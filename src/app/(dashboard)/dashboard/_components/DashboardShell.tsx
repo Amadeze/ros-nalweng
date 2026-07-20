@@ -4,10 +4,10 @@ import Link from "next/link";
 import {
   Banknote, Clock, AlertTriangle, TrendingUp,
   Package, Flame, Factory, ReceiptText, Inbox,
-  ArrowRight, PlusCircle, ShoppingCart, Beaker
+  ArrowRight, ShoppingCart, Beaker
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { formatRupiah, formatKg, formatUnit, formatDate } from "@/lib/format";
+import { formatRupiah, formatKg, formatUnit } from "@/lib/format";
 import type { DashboardData, ActivityItem, LowStockItem } from "../actions";
 import { RevenueChart } from "./RevenueChart";
 import { TopProductsChart } from "./TopProductsChart";

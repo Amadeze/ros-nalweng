@@ -5,6 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import { Loader2, CreditCard, Banknote, QrCode, Clock } from "lucide-react";
 
 import {
@@ -125,7 +126,7 @@ export function TerimaPaymentDialog({
       });
 
       if (!result.success) {
-        toast.error(result.error);
+        toastSafe.error(result.error);
         return;
       }
 
@@ -133,7 +134,8 @@ export function TerimaPaymentDialog({
       toast.success(`${result.paymentCode} · ${statusLabel}`);
       reset();
       onSuccess();
-    } catch {
+    } catch (err) {
+      console.error("[TerimaPaymentDialog]", err);
       toast.error("Terjadi kesalahan sistem. Coba lagi.");
     } finally {
       setIsSubmitting(false);

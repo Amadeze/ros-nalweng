@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatRupiah } from "@/lib/format";
+import { formatRupiah, formatDate as formatDateUtil } from "@/lib/format";
 import { getPOList } from "../po-actions";
 import { InventoryEmptyState } from "./InventoryEmptyState";
 import type { POStatus } from "@prisma/client";
@@ -26,6 +26,11 @@ type POListItem = {
   receivedAt: string | null;
   createdAt: string;
   itemCount: number;
+  items: Array<{
+    productName: string | null;
+    packagingName: string | null;
+    quantity: number;
+  }>;
 };
 
 interface ReceivingListProps {
@@ -72,7 +77,7 @@ export function ReceivingList({ onSelectPO, refreshKey }: ReceivingListProps) {
 
   const formatDate = (date: string | null) => {
     if (!date) return "-";
-    return new Date(date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+    return formatDateUtil(date);
   };
 
   const isOverdue = (expectedDate: string | null) => {
@@ -89,8 +94,8 @@ export function ReceivingList({ onSelectPO, refreshKey }: ReceivingListProps) {
             <TableRow className="border-b border-slate-100">
               <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Kode</TableHead>
               <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Supplier</TableHead>
+              <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Produk/Kemasan</TableHead>
               <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Status</TableHead>
-              <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Item</TableHead>
               <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500">Total</TableHead>
               <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Estimasi</TableHead>
             </TableRow>
@@ -115,8 +120,23 @@ export function ReceivingList({ onSelectPO, refreshKey }: ReceivingListProps) {
                 >
                   <TableCell className="font-medium text-sm text-slate-900">{po.code}</TableCell>
                   <TableCell className="text-sm text-slate-700">{po.supplierName}</TableCell>
+                  <TableCell className="text-xs text-slate-600">
+                    {po.items.length > 0 ? (
+                      <div className="flex flex-col gap-0.5">
+                        {po.items.slice(0, 2).map((item, idx) => (
+                          <span key={idx} className="truncate max-w-[180px]">
+                            {item.productName || item.packagingName || "-"}
+                          </span>
+                        ))}
+                        {po.items.length > 2 && (
+                          <span className="text-slate-400">+{po.items.length - 2} lainnya</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </TableCell>
                   <TableCell><POStatusBadge status={po.status} /></TableCell>
-                  <TableCell className="text-sm text-slate-600 tabular-nums">{po.itemCount} item</TableCell>
                   <TableCell className="text-sm font-semibold text-slate-900 tabular-nums text-right">{formatRupiah(po.totalEstimate)}</TableCell>
                   <TableCell>
                     <span className={`text-xs ${isOverdue(po.expectedDate) ? "text-red-600 font-semibold" : "text-slate-500"}`}>
@@ -150,11 +170,21 @@ export function ReceivingList({ onSelectPO, refreshKey }: ReceivingListProps) {
                 <span className="text-sm font-medium text-slate-900">{po.code}</span>
                 <POStatusBadge status={po.status} />
               </div>
-              <div className="flex items-center justify-between mt-1 text-xs text-slate-500">
-                <span>{po.supplierName} · {po.itemCount} item</span>
-                <span className={`tabular-nums ${isOverdue(po.expectedDate) ? "text-red-600 font-semibold" : ""}`}>
+              <div className="mt-1 text-xs text-slate-500">
+                <span>{po.supplierName}</span>
+                {po.items.length > 0 && (
+                  <span className="ml-1 text-slate-400">
+                    · {po.items[0].productName || po.items[0].packagingName}
+                    {po.items.length > 1 && ` +${po.items.length - 1}`}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center justify-between mt-0.5 text-xs">
+                <span className={`tabular-nums ${isOverdue(po.expectedDate) ? "text-red-600 font-semibold" : "text-slate-500"}`}>
                   {formatDate(po.expectedDate)}
+                  {isOverdue(po.expectedDate) && " (lewat)"}
                 </span>
+                <span className="font-semibold text-slate-900 tabular-nums">{formatRupiah(po.totalEstimate)}</span>
               </div>
             </div>
           ))

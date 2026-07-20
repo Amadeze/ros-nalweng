@@ -1,7 +1,16 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { Prisma, PrismaClient } from "@prisma/client";
 
 import { Pool } from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
+
+// Stores the active tenant-scoped client so assertion queries inside
+// $transaction use the same connection and can see uncommitted writes.
+const assertionClientStore = new AsyncLocalStorage<any>();
+
+function getAssertionClient() {
+  return assertionClientStore.getStore() ?? prisma;
+}
 
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL || "";
@@ -119,6 +128,7 @@ async function assertOwnedRelationsBelongToTenant(
   data: Record<string, any> | Record<string, any>[],
   tenantId: string,
 ) {
+  const client = getAssertionClient();
   const rows = Array.isArray(data) ? data : [data];
   const relations = ownedRelations[model] ?? [];
 
@@ -134,7 +144,7 @@ async function assertOwnedRelationsBelongToTenant(
     ];
     if (ids.length === 0) continue;
 
-    const matching = await (prisma as any)[relation.delegate].count({
+    const matching = await (client as any)[relation.delegate].count({
       where: { id: { in: ids }, tenantId },
     });
     if (matching !== ids.length) {
@@ -165,7 +175,7 @@ async function assertOwnedRelationsBelongToTenant(
     ];
     if (ids.length === 0) continue;
 
-    const matching = await (prisma as any)[nested.relation.delegate].count({
+    const matching = await (client as any)[nested.relation.delegate].count({
       where: { id: { in: ids }, tenantId },
     });
     if (matching !== ids.length) {
@@ -175,7 +185,7 @@ async function assertOwnedRelationsBelongToTenant(
 }
 
 export function withTenant(tenantId: string) {
-  return prisma.$extends({
+  const client = prisma.$extends({
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
@@ -235,4 +245,24 @@ export function withTenant(tenantId: string) {
       },
     },
   });
+
+  // Wrap $transaction to set the AsyncLocalStorage context so that
+  // assertion queries inside the transaction use the same connection
+  // and can see uncommitted writes (e.g. a product created in the same tx).
+  const origTx = (client as any).$transaction.bind(client);
+  (client as any).$transaction = async function (
+    fnOrOps: any,
+    options?: any,
+  ) {
+    if (typeof fnOrOps === "function") {
+      return assertionClientStore.run(client, async () => {
+        return origTx(async (tx: any) => {
+          return assertionClientStore.run(tx, () => fnOrOps(tx));
+        }, options);
+      });
+    }
+    return origTx(fnOrOps, options);
+  };
+
+  return client;
 }

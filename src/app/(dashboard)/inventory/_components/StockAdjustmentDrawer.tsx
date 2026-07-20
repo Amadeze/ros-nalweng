@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,14 +78,14 @@ export function StockAdjustmentDrawer({
       });
 
       if (!res.success) {
-        toast.error(res.error || "Gagal menyimpan penyesuaian");
+        toastSafe.error(res.error || "Gagal menyimpan penyesuaian");
       } else {
         toast.success("Penyesuaian stok berhasil disimpan!");
         reset();
         onSuccess?.();
       }
     } catch (err: any) {
-      toast.error(err.message || "Gagal memproses form");
+      toastSafe.error(err.message || "Gagal memproses form");
     } finally {
       setIsSubmitting(false);
       onPendingChange?.(false);

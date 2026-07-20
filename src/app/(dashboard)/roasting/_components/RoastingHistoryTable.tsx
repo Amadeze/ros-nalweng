@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
+import { toastSafe } from "@/lib/toast";
 import {
   Table,
   TableBody,
@@ -134,7 +135,7 @@ export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
       setCompleteTarget(null);
       setActualOutputKg("");
     } else {
-      toast.error(result.error);
+      toastSafe.error(result.error);
     }
   };
 

@@ -592,7 +592,7 @@ export async function approveInvoiceForMidtrans(invoiceId: string) {
 
         const snapParams = {
           order_id: inv.code,
-          gross_amount: Number(inv.grandTotal),
+          gross_amount: Math.round(Number(inv.grandTotal)),
           customer_details: {
             first_name: inv.customer.name,
             phone: inv.customer.phone || undefined,
@@ -620,6 +620,7 @@ export async function approveInvoiceForMidtrans(invoiceId: string) {
       where: { id: invoiceId },
       data: { 
         status: "ISSUED",
+        midtransOrderId: inv.code,
         notes: newNotes
       }
     });

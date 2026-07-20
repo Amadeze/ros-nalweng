@@ -5,7 +5,8 @@ import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Plus, Trash2, Package } from "lucide-react";
+import { toastSafe } from "@/lib/toast";
+import { Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,6 @@ type FormValues = z.infer<typeof schema>;
 // =============================================================================
 
 interface POFormProps {
-  id: string;
   onSuccess: () => void;
   onCancel: () => void;
   initialData?: {
@@ -75,7 +75,6 @@ interface POFormProps {
 // =============================================================================
 
 export function POForm({
-  id,
   onSuccess,
   onCancel,
   initialData,
@@ -122,6 +121,13 @@ export function POForm({
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
   const items = watch("items") ?? [];
 
+  // Lookup maps to resolve IDs to readable names
+  const supplierNameMap = new Map(suppliers.map((s) => [s.id, s.name] as const));
+  const productNameMap = new Map<string, string>([
+    ...products.map((p) => [p.id, `${p.name} (${p.type === "GREEN_BEAN" ? "GB" : "RB"})`] as const),
+    ...packagings.map((p) => [p.id, `${p.name} (PKG)`] as const),
+  ]);
+
   // Calculate total
   const totalEstimate = items.reduce(
     (sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0),
@@ -163,7 +169,7 @@ export function POForm({
         toast.success(isEditMode ? "PO berhasil diupdate." : "PO berhasil dibuat.");
         onSuccess();
       } else {
-        toast.error(result.error);
+        toastSafe.error(result.error);
       }
     } finally {
       setIsSubmitting(false);
@@ -179,7 +185,7 @@ export function POForm({
         toast.success("PO berhasil dikirim ke supplier.");
         onSuccess();
       } else {
-        toast.error(result.error);
+        toastSafe.error(result.error);
       }
     } finally {
       setIsSubmitting(false);
@@ -208,7 +214,9 @@ export function POForm({
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange} disabled={isReadOnly}>
                   <SelectTrigger className={cn("h-9", glassInput)}>
-                    <SelectValue placeholder="Pilih Supplier" />
+                    <SelectValue placeholder="Pilih Supplier">
+                      {field.value ? supplierNameMap.get(field.value) || "Pilih Supplier" : "Pilih Supplier"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {suppliers.map((s) => (
@@ -288,7 +296,9 @@ export function POForm({
                   render={({ field: f }) => (
                     <Select value={f.value ?? ""} onValueChange={f.onChange} disabled={isReadOnly}>
                       <SelectTrigger className={cn("h-9 text-xs", glassInput)}>
-                        <SelectValue placeholder="Pilih Produk" />
+                        <SelectValue placeholder="Pilih Produk">
+                          {f.value ? productNameMap.get(f.value) || "Pilih Produk" : "Pilih Produk"}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {products.map((p) => (
