@@ -14,7 +14,7 @@ import { z } from "zod";
 export const poItemSchema = z.object({
   productId: z.string().optional(),
   packagingId: z.string().optional(),
-  quantity: z.number().min(0.001, "Quantity harus lebih dari 0"),
+  quantity: z.number().min(0, "Quantity harus lebih dari 0"),
   unitPrice: z.number().min(0, "Harga tidak boleh negatif"),
   reorderPoint: z.number().optional(),
   currentStock: z.number().optional(),

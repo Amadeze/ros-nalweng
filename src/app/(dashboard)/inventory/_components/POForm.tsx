@@ -25,7 +25,7 @@ const glassCard = "rounded-[1.25rem] border border-white/60 bg-white/30 backdrop
 const itemSchema = z.object({
   productId: z.string().optional(),
   packagingId: z.string().optional(),
-  quantity: z.number().min(0.001, "Quantity harus lebih dari 0"),
+  quantity: z.number().min(0, "Quantity harus lebih dari 0"),
   unitPrice: z.number().min(0, "Harga tidak boleh negatif"),
   reorderPoint: z.number().optional(),
   currentStock: z.number().optional(),
@@ -324,8 +324,8 @@ export function POForm({
                 </Label>
                 <Input
                   type="number"
-                  min="0.001"
-                  step="0.1"
+                  min="0"
+                  step="any"
                   className={cn("h-9 text-xs", glassInput)}
                   {...register(`items.${index}.quantity`, { valueAsNumber: true })}
                   disabled={isReadOnly}
