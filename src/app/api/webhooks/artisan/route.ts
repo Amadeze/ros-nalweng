@@ -84,10 +84,15 @@ export async function POST(req: Request) {
     }
 
     const data = parsed.data;
+    const timestampStr = String(data.timestamp || "");
+    const isDummyTimestamp = !timestampStr || timestampStr === "no-timestamp" || timestampStr.includes("%YYYY");
+    const uniqueTime = isDummyTimestamp ? Date.now().toString() : timestampStr;
+    
     const eventId =
       data.event_id ??
-      `${data.machine_id}:${String(data.timestamp ?? "no-timestamp")}:${data.event}`;
-    const eventTime = recordedAt(data.timestamp);
+      `${data.machine_id}:${uniqueTime}:${data.event}`;
+      
+    const eventTime = isDummyTimestamp ? new Date() : recordedAt(data.timestamp);
     if (!eventTime) {
       return NextResponse.json({ error: "Invalid timestamp" }, { status: 400 });
     }

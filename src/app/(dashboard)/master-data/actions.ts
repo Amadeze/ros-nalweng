@@ -1,10 +1,11 @@
 "use server";
-import { requireRole, requireTenantPrisma } from "@/lib/auth";
+import { requireRole, requireTenantPrisma, getCurrentTenantId } from "@/lib/auth";
 
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { roastedBeanName, type RoastLevelValue } from "@/lib/roast-product";
 import {
   customerInputSchema,
   emptyToNull,
@@ -60,6 +61,7 @@ export type ProductRecipe = {
 export type ProductRow = {
   id: string; code: string; name: string;
   type: "GREEN_BEAN" | "ROASTED_BEAN" | "FINISHED_GOODS" | "PACKAGING";
+  coffeeSpecies: string | null;
   category: string | null;
   origin: string | null; roastLevel: string | null; description: string | null;
   imageUrl: string | null;
@@ -109,6 +111,7 @@ export async function getMasterData(): Promise<MasterPageData> {
     code: true,
     name: true,
     type: true,
+    coffeeSpecies: true,
     category: true,
     origin: true,
     roastLevel: true,
@@ -120,6 +123,7 @@ export async function getMasterData(): Promise<MasterPageData> {
     priceSilver: true,
     priceGold: true,
     lastHpp: true,
+    avgCostPerKg: true,
     reorderAlertEnabled: true,
     leadTimeDays: true,
     safetyStockQuantity: true,
@@ -142,19 +146,6 @@ export async function getMasterData(): Promise<MasterPageData> {
       },
       orderBy: { createdAt: "desc" },
       take: 1,
-    },
-    purchases: {
-      where: { status: "COMPLETED" },
-      orderBy: { receivedAt: "desc" },
-      take: 1,
-      select: { pricePerUnit: true, weightKg: true, shippingCost: true }
-    },
-    // For ROASTED_BEAN HPP
-    ledgerEntries: {
-      where: { entryType: "IN", refType: "ROASTING_RB_IN" },
-      orderBy: { createdAt: "desc" },
-      take: 1,
-      select: { refId: true }
     },
     // For FINISHED_GOODS HPP fallback
     productionBatches: {
@@ -183,29 +174,6 @@ export async function getMasterData(): Promise<MasterPageData> {
     }),
   ]);
 
-  // We need to resolve ROASTED_BEAN HPP by fetching the roasting batch details
-  const rbLedgerRefIds = products
-    .filter(p => p.type === "ROASTED_BEAN" && p.ledgerEntries[0])
-    .map(p => p.ledgerEntries[0].refId);
-
-  const roastingBatches = rbLedgerRefIds.length > 0 ? await tp.parentRoastingBatch.findMany({
-    where: { id: { in: rbLedgerRefIds } },
-    include: {
-      inputProduct: {
-        include: {
-          purchases: {
-            where: { status: "COMPLETED" },
-            orderBy: { receivedAt: "desc" },
-            take: 1,
-            select: { pricePerUnit: true, weightKg: true, shippingCost: true },
-          },
-        },
-      },
-    }
-  }) : [];
-
-  const roastingBatchMap = new Map(roastingBatches.map(b => [b.id, b]));
-
   return {
     suppliers: suppliers.map((s) => ({
       id: s.id, code: s.code, name: s.name, phone: s.phone,
@@ -223,36 +191,15 @@ export async function getMasterData(): Promise<MasterPageData> {
 
     products: products.map((p) => {
       const r = p.recipes[0] ?? null;
-      let latestHppPerKg = 0;
-
-      if (p.type === "GREEN_BEAN") {
-        if (p.purchases[0]) {
-          const pur = p.purchases[0];
-          const wKg = Number(pur.weightKg ?? 0);
-          if (wKg > 0) {
-            latestHppPerKg = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
-          }
-        }
-      } else if (p.type === "ROASTED_BEAN") {
-        if (p.ledgerEntries[0]) {
-          const batch = roastingBatchMap.get(p.ledgerEntries[0].refId);
-          if (batch?.inputProduct.purchases[0]) {
-            const pur = batch.inputProduct.purchases[0];
-            const wKg = Number(pur.weightKg ?? 0);
-            if (wKg > 0) {
-              const gbHppPerKg = (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
-              const shrinkage = Number(batch.totalShrinkagePercent) / 100;
-              latestHppPerKg = shrinkage < 1 ? gbHppPerKg / (1 - shrinkage) : gbHppPerKg;
-            }
-          }
-        }
-      }
+      // Use the WAC-maintained avgCostPerKg — already updated by appendLedger on every purchase/roasting IN
+      const latestHppPerKg = Number(p.avgCostPerKg ?? 0);
 
       return {
         id: p.id,
         code: p.code,
         name: p.name,
         type: p.type as ProductRow["type"],
+        coffeeSpecies: p.coffeeSpecies,
         category: p.category,
         origin: p.origin,
         roastLevel: p.roastLevel,
@@ -626,6 +573,12 @@ export async function createUser(input: CreateUserInput): Promise<ActionResult> 
     if (!password || password.length < 8) {
       return { success: false, error: "Password minimal 8 karakter." };
     }
+    if (!/[A-Z]/.test(password)) {
+      return { success: false, error: "Password harus mengandung huruf kapital." };
+    }
+    if (!/[0-9]/.test(password)) {
+      return { success: false, error: "Password harus mengandung angka." };
+    }
     if (!USER_ROLES.includes(input.role)) return { success: false, error: "Role pengguna tidak valid." };
 
     const tp = await requireTenantPrisma();
@@ -751,6 +704,7 @@ export type RecipeInput = {
 export type CreateProductInput = {
   name: string;
   type: "GREEN_BEAN" | "ROASTED_BEAN" | "FINISHED_GOODS" | "PACKAGING";
+  coffeeSpecies?: string; // "ARABICA", "ROBUSTA", "LIBERICA", "EXCELSA", "HIBRIDA", "LAINNYA"
   category?:    string; // e.g. "Espresso Base", "Specialty"
   origin?:      string;
   roastLevel?:  "LIGHT" | "MEDIUM" | "MEDIUM_DARK" | "DARK" | null;
@@ -804,6 +758,7 @@ export async function createProduct(input: CreateProductInput): Promise<ActionRe
       const product = await tx.product.create({
         data: {
           code, name: input.name.trim(), type: input.type,
+          coffeeSpecies: input.coffeeSpecies?.trim() || null,
           category:    input.category?.trim()    || null,
           origin:      input.origin?.trim()      || null,
           roastLevel:  input.type === "ROASTED_BEAN" ? (input.roastLevel ?? null) : null,
@@ -1041,5 +996,76 @@ export async function updatePackaging(input: UpdatePackagingInput): Promise<Acti
   } catch (err) {
     console.error("[updatePackaging]", err);
     return { success: false, error: "Gagal memperbarui kemasan." };
+  }
+}
+
+// =============================================================================
+// RENAME RB PRODUCTS — One-time fix for naming ambiguity
+// =============================================================================
+
+export async function renameRbProducts(): Promise<{ success: boolean; renamed: number; skipped: number; error?: string }> {
+  try {
+    await requireRole("OWNER");
+    const tenantId = await getCurrentTenantId();
+    const tp = await requireTenantPrisma();
+
+    // Find all RB products that don't have "·" in their name (not following convention)
+    const rbProducts = await tp.product.findMany({
+      where: {
+        type: "ROASTED_BEAN",
+        isActive: true,
+        name: { contains: "·" },
+      },
+      select: { id: true, name: true },
+    });
+    const alreadyCorrect = rbProducts.length;
+
+    const needsRename = await tp.product.findMany({
+      where: {
+        type: "ROASTED_BEAN",
+        isActive: true,
+        NOT: { name: { contains: "·" } },
+      },
+      select: { id: true, name: true, roastLevel: true, sourceGreenBeanId: true },
+    });
+
+    let renamed = 0;
+    let skipped = 0;
+
+    for (const rb of needsRename) {
+      if (!rb.sourceGreenBeanId || !rb.roastLevel) {
+        skipped++;
+        continue;
+      }
+      const gb = await tp.product.findUnique({
+        where: { id: rb.sourceGreenBeanId },
+        select: { name: true },
+      });
+      if (!gb) {
+        skipped++;
+        continue;
+      }
+      const newName = roastedBeanName(gb.name, rb.roastLevel as RoastLevelValue);
+      // Skip if the generated name already exists for another product
+      const existing = await tp.product.findFirst({
+        where: { id: { not: rb.id }, name: newName, type: "ROASTED_BEAN" },
+        select: { id: true },
+      });
+      if (existing) {
+        skipped++;
+        continue;
+      }
+      await tp.product.update({ where: { id: rb.id }, data: { name: newName } });
+      renamed++;
+    }
+
+    revalidatePath("/master-data");
+    revalidatePath("/roasting");
+    revalidatePath("/produksi");
+    revalidatePath("/inventory");
+    return { success: true, renamed, skipped };
+  } catch (err) {
+    console.error("[renameRbProducts]", err);
+    return { success: false, renamed: 0, skipped: 0, error: err instanceof Error ? err.message : "Gagal merename produk." };
   }
 }

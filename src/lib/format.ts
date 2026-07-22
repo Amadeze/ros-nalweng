@@ -1,5 +1,6 @@
 /** Format angka menjadi Rupiah (IDR). Contoh: 1500000 → "Rp 1.500.000" */
 export function formatRupiah(amount: number): string {
+  if (!Number.isFinite(amount)) return "Rp 0";
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",

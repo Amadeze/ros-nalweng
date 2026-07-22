@@ -105,6 +105,8 @@ export type PurchaseActionInput = {
   paymentMethod?: "CASH" | "TRANSFER" | "QRIS";
   dueDate?: string;
   notes?: string;
+  lotNumber?: string;       // nomor lot dari supplier
+  bestBeforeDate?: string;  // "YYYY-MM-DD"
 };
 
 export type PackagingPurchaseInput = {
@@ -119,6 +121,8 @@ export type PackagingPurchaseInput = {
   paymentMethod?: "CASH" | "TRANSFER" | "QRIS";
   dueDate?: string;
   notes?: string;
+  lotNumber?: string;
+  bestBeforeDate?: string;
 };
 
 export type ActionResult =
@@ -156,39 +160,29 @@ async function fetchProductStocks(
 ): Promise<ProductStockRow[]> {
   const products = await (await requireTenantPrisma()).product.findMany({
     where: { type, isActive: true },
-    include: {
-      purchases: {
-        where: { status: "COMPLETED" },
-        orderBy: { receivedAt: "desc" },
-        take: 1,
-        select: { pricePerUnit: true, weightKg: true, shippingCost: true },
-      },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      type: true,
+      origin: true,
+      roastLevel: true,
+      stockKg: true,
+      avgCostPerKg: true,
     },
     orderBy: { name: "asc" },
   });
 
-  return products.map((p) => {
-    let latestHppPerKg: number | null = null;
-    if (p.purchases[0]) {
-      const pur = p.purchases[0];
-      const wKg = Number(pur.weightKg ?? 0);
-      if (wKg > 0) {
-        latestHppPerKg =
-          (Number(pur.pricePerUnit) * wKg + Number(pur.shippingCost ?? 0)) / wKg;
-      }
-    }
-
-    return {
-      id: p.id,
-      code: p.code,
-      name: p.name,
-      type: p.type as "GREEN_BEAN" | "ROASTED_BEAN",
-      origin: p.origin,
-      roastLevel: p.roastLevel,
-      stockKg: Number(p.stockKg),
-      latestHppPerKg,
-    };
-  });
+  return products.map((p) => ({
+    id: p.id,
+    code: p.code,
+    name: p.name,
+    type: p.type as "GREEN_BEAN" | "ROASTED_BEAN",
+    origin: p.origin,
+    roastLevel: p.roastLevel,
+    stockKg: Number(p.stockKg),
+    latestHppPerKg: p.avgCostPerKg ? Number(p.avgCostPerKg) : null,
+  }));
 }
 
 async function fetchPackagingStocks(): Promise<PackagingStockRow[]> {
@@ -469,6 +463,8 @@ export async function createGreenBeanPurchase(
           paidAmount: payment.paidAmount,
           dueDate,
           receivedAt,
+          lotNumber: input.lotNumber ?? null,
+          bestBeforeDate: input.bestBeforeDate ? new Date(`${input.bestBeforeDate}T00:00:00`) : null,
           notes: input.notes ?? null,
           createdById: userId,
         },
@@ -496,6 +492,8 @@ export async function createGreenBeanPurchase(
           refId: purchase.id,
           quantityKg: input.weightKg,
           incomingPrice: input.totalCost / input.weightKg,
+          lotNumber: input.lotNumber ?? null,
+          expiryDate: input.bestBeforeDate ? new Date(`${input.bestBeforeDate}T00:00:00`) : null,
           notes: `Barang datang: ${purchase.code}`,
           createdById: userId,
         },
@@ -516,7 +514,7 @@ export async function createGreenBeanPurchase(
         },
         metadata: { operationKey: input.operationKey, balance: payment.balance },
       });
-    });
+    }, { isolationLevel: "Serializable" });
 
     revalidatePath("/inventory");
     revalidatePath("/dashboard");
@@ -604,6 +602,8 @@ export async function createPackagingPurchase(
           paidAmount:   payment.paidAmount,
           dueDate,
           receivedAt,
+          lotNumber: input.lotNumber ?? null,
+          bestBeforeDate: input.bestBeforeDate ? new Date(`${input.bestBeforeDate}T00:00:00`) : null,
           notes:        input.notes ?? null,
           createdById:  userId,
         },
@@ -631,6 +631,8 @@ export async function createPackagingPurchase(
           refId:        purchase.id,
           quantityUnit: input.quantityUnits,
           incomingPrice: input.totalCost / input.quantityUnits,
+          lotNumber: input.lotNumber ?? null,
+          expiryDate: input.bestBeforeDate ? new Date(`${input.bestBeforeDate}T00:00:00`) : null,
           notes:        `Kemasan datang: ${purchase.code}`,
           createdById:  userId,
         },
@@ -651,7 +653,7 @@ export async function createPackagingPurchase(
         },
         metadata: { operationKey: input.operationKey, balance: payment.balance },
       });
-    });
+    }, { isolationLevel: "Serializable" });
 
     revalidatePath("/inventory");
     revalidatePath("/dashboard");
@@ -737,6 +739,7 @@ export async function createPackaging(data: {
 // =============================================================================
 
 export async function adjustStock(input: {
+  operationKey?: string;
   targetId: string;
   isPackaging: boolean;
   type: "IN" | "OUT";
@@ -751,6 +754,16 @@ export async function adjustStock(input: {
     // Validasi input
     if (input.quantity <= 0) {
       throw new Error("Kuantitas penyesuaian harus lebih dari 0");
+    }
+
+    const refId = input.operationKey || "OPNAME-" + Date.now();
+
+    if (input.operationKey) {
+      const existing = await (await requireTenantPrisma()).inventoryLedger.findFirst({
+        where: { refId: input.operationKey, refType: { in: ["ADJUSTMENT_IN", "ADJUSTMENT_OUT"] } },
+        select: { id: true },
+      });
+      if (existing) return { success: true };
     }
 
     await (await requireTenantPrisma()).$transaction(async (tx) => {
@@ -770,17 +783,36 @@ export async function adjustStock(input: {
         }
       }
 
+      // For IN adjustments, preserve the current moving average
+      let incomingPrice: number | undefined;
+      if (input.type === "IN") {
+        if (input.isPackaging) {
+          const pkg = await tx.packaging.findUnique({
+            where: { id: input.targetId },
+            select: { avgCostPerUnit: true },
+          });
+          incomingPrice = Number(pkg?.avgCostPerUnit ?? 0);
+        } else {
+          const prod = await tx.product.findUnique({
+            where: { id: input.targetId },
+            select: { avgCostPerKg: true },
+          });
+          incomingPrice = Number(prod?.avgCostPerKg ?? 0);
+        }
+      }
+
       await appendLedger(tx, {
         data: {
-          productId:   input.isPackaging ? null : input.targetId,
-          packagingId: input.isPackaging ? input.targetId : null,
-          entryType:   input.type,
+          productId:     input.isPackaging ? null : input.targetId,
+          packagingId:   input.isPackaging ? input.targetId : null,
+          entryType:     input.type,
           refType,
-          refId:       "OPNAME-" + Date.now(),
-          quantityKg:  qtyKg,
-          quantityUnit: qtyUnit,
-          notes:       input.notes || "Penyesuaian stok fisik (Opname)",
-          createdById: userId,
+          refId,
+          quantityKg:    qtyKg,
+          quantityUnit:  qtyUnit,
+          incomingPrice: incomingPrice,
+          notes:         input.notes || "Penyesuaian stok fisik (Opname)",
+          createdById:   userId,
         }
       });
 
@@ -796,7 +828,7 @@ export async function adjustStock(input: {
           notes: input.notes,
         },
       });
-    });
+    }, { isolationLevel: "Serializable" });
 
     revalidatePath("/inventory");
     return { success: true };
@@ -810,6 +842,6 @@ export async function adjustStock(input: {
  * Get reorder alert data for all products and packaging
  */
 export async function getReorderAlertData() {
-  const { prisma } = await import("@/lib/prisma");
-  return getBatchReorderSummaries(prisma);
+  const tp = await requireTenantPrisma();
+  return getBatchReorderSummaries(tp);
 }

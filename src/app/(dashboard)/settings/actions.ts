@@ -53,6 +53,7 @@ const SettingsSchema = z.object({
   midtransClientKey: optionalText(255),
   midtransServerKey: optionalText(255),
   midtransIsProduction: z.boolean().optional(),
+  isArtisanEnabled: z.boolean().optional(),
   backgroundImageUrl: optionalUrl,
   contactEmail: z.union([z.literal(""), z.string().email().max(254)]).optional(),
   instagramHandle: optionalText(100),
@@ -101,6 +102,7 @@ export async function updateTenantSettings(_tenantId: string, data: unknown) {
           ? encryptCredential(parsed.midtransServerKey)
           : undefined,
         midtransIsProduction: parsed.midtransIsProduction,
+        isArtisanEnabled: parsed.isArtisanEnabled,
         backgroundImageUrl: parsed.backgroundImageUrl,
         contactEmail: parsed.contactEmail,
         instagramHandle: parsed.instagramHandle,

@@ -78,7 +78,7 @@ export function PiutangTable({ rows, onTerimaPayment }: PiutangTableProps) {
                 key={row.id}
                 className={cn(
                   "transition-colors",
-                  row.isOverdue ? "bg-red-50/30 hover:bg-red-50/50" : "hover:bg-white/40"
+                  (row.agingBucket !== "CURRENT") ? "bg-red-50/30 hover:bg-red-50/50" : "hover:bg-white/40"
                 )}
               >
                 <TableCell>
@@ -108,10 +108,10 @@ export function PiutangTable({ rows, onTerimaPayment }: PiutangTableProps) {
                 <TableCell>
                   {row.dueDate ? (
                     <div className="flex flex-col gap-0.5">
-                      <p className={`text-xs ${row.isOverdue ? "text-red-600 font-medium" : "text-zinc-500"}`}>
+                      <p className={`text-xs ${(row.agingBucket !== "CURRENT") ? "text-red-600 font-medium" : "text-zinc-500"}`}>
                         {formatDate(row.dueDate)}
                       </p>
-                      {row.isOverdue && (
+                      {(row.agingBucket !== "CURRENT") && (
                         <p className="text-[10px] font-semibold text-red-500">
                           {Math.floor((Date.now() - new Date(row.dueDate).getTime()) / 86_400_000)} hari terlambat
                         </p>
@@ -149,7 +149,7 @@ export function PiutangTable({ rows, onTerimaPayment }: PiutangTableProps) {
         </div>
       ) : (
         rows.map((row) => (
-          <div key={row.id} className={`flex flex-col gap-2 rounded-[1.25rem] border border-white/60 bg-white/30 p-4 shadow-sm backdrop-blur-xl transition-colors ${row.isOverdue ? 'bg-red-50/40' : ''}`}>
+          <div key={row.id} className={`flex flex-col gap-2 rounded-[1.25rem] border border-white/60 bg-white/30 p-4 shadow-sm backdrop-blur-xl transition-colors ${(row.agingBucket !== "CURRENT") ? 'bg-red-50/40' : ''}`}>
             <div className="flex justify-between items-start">
               <div>
                 <p className="font-bold text-slate-900">{row.customerName}</p>
@@ -173,10 +173,10 @@ export function PiutangTable({ rows, onTerimaPayment }: PiutangTableProps) {
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-1.5">
                   <StatusBadge status={row.status} />
-                  {row.isOverdue && <OverdueBadge />}
+                  {(row.agingBucket !== "CURRENT") && <OverdueBadge />}
                 </div>
                 {row.dueDate ? (
-                  <span className={`text-[10px] font-semibold ${row.isOverdue ? 'text-red-600' : 'text-slate-500'}`}>
+                  <span className={`text-[10px] font-semibold ${(row.agingBucket !== "CURRENT") ? 'text-red-600' : 'text-slate-500'}`}>
                     Tempo: {formatDate(row.dueDate)}
                   </span>
                 ) : (

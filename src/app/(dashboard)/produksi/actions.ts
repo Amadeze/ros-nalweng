@@ -64,6 +64,7 @@ export type RBStockOption = {
   name: string;
   roastLevel: string | null;
   stockKg: number;
+  avgCostPerKg: number;
 };
 
 export type PackagingOption = {
@@ -157,7 +158,7 @@ async function fetchFGOptions(): Promise<FGProductOption[]> {
 async function fetchRBOptions(): Promise<RBStockOption[]> {
   const products = await (await requireTenantPrisma()).product.findMany({
     where: { type: { in: ["ROASTED_BEAN", "GREEN_BEAN"] }, isActive: true },
-    select: { id: true, name: true, roastLevel: true, stockKg: true },
+    select: { id: true, name: true, roastLevel: true, stockKg: true, avgCostPerKg: true },
     orderBy: { name: "asc" },
   });
 
@@ -167,6 +168,7 @@ async function fetchRBOptions(): Promise<RBStockOption[]> {
       name: p.name,
       roastLevel: p.roastLevel,
       stockKg: Number(p.stockKg),
+      avgCostPerKg: Number(p.avgCostPerKg),
     }))
     .filter((p) => p.stockKg > 0);
 }
@@ -352,6 +354,15 @@ export async function createProductionBatch(
       return { success: false, error: "Total berat Roasted Bean yang digunakan adalah 0." };
     }
 
+    // Sanity check: prevent unrealistic RB-to-FG ratio (max 100 units per kg of RB = ~10g RB minimum per unit)
+    const MAX_UNITS_PER_KG_RB = 100;
+    if (input.unitsProduced > totalRbUsedKg * MAX_UNITS_PER_KG_RB) {
+      return {
+        success: false,
+        error: `Jumlah produksi (${input.unitsProduced} unit) terlalu besar untuk ${totalRbUsedKg.toFixed(3)} kg bahan baku. Maksimal ${Math.floor(totalRbUsedKg * MAX_UNITS_PER_KG_RB)} unit.`,
+      };
+    }
+
     // 4. Hitung HPP per unit
     const pkgCostTotal = Number(packaging.avgCostPerUnit || packaging.costPerUnit) * input.unitsProduced;
     const totalCost = totalRbCost + pkgCostTotal;
@@ -406,6 +417,12 @@ export async function createProductionBatch(
         },
       });
 
+      // Read current stock BEFORE incrementing (for weighted HPP calculation)
+      const currentProduct = await tx.product.findUnique({
+        where: { id: input.outputProductId },
+        select: { stockUnit: true, lastHpp: true },
+      });
+
       // Finished Goods masuk
       await appendLedger(tx, {
         data: {
@@ -419,9 +436,16 @@ export async function createProductionBatch(
         },
       });
 
+      // Weighted average: blend current stock cost with new batch cost
+      const currentStock = Number(currentProduct?.stockUnit ?? 0);
+      const currentAvg = Number(currentProduct?.lastHpp ?? 0);
+      const weightedHpp = currentStock > 0
+        ? (currentStock * currentAvg + input.unitsProduced * hppPerUnit) / (currentStock + input.unitsProduced)
+        : hppPerUnit;
+
       await tx.product.update({
         where: { id: input.outputProductId },
-        data: { lastHpp: hppPerUnit },
+        data: { lastHpp: weightedHpp },
       });
 
       await recordAudit(tx, {
@@ -438,7 +462,7 @@ export async function createProductionBatch(
         },
         metadata: { operationKey: input.operationKey, componentCount: rbDetails.length },
       });
-    });
+    }, { isolationLevel: "Serializable" });
 
     revalidatePath("/produksi");
     revalidatePath("/inventory");

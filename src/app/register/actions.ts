@@ -61,6 +61,14 @@ export async function registerTenant(data: {
       return { success: false, error: "Password must be at least 8 characters" };
     }
 
+    if (!/[A-Z]/.test(password)) {
+      return { success: false, error: "Password must contain at least one uppercase letter" };
+    }
+
+    if (!/[0-9]/.test(password)) {
+      return { success: false, error: "Password must contain at least one number" };
+    }
+
     // 2. Check if subdomain exists
     const existingTenant = await prisma.tenant.findUnique({
       where: { subdomain },

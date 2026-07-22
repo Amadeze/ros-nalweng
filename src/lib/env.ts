@@ -21,7 +21,7 @@ const serverSchema = z.object({
 
 export type ServerEnv = z.infer<typeof serverSchema>;
 
-function validateServerEnv(): ServerEnv | null {
+function validateServerEnv(): ServerEnv {
   const result = serverSchema.safeParse(process.env);
   if (!result.success) {
     const formatted = result.error.format();
@@ -29,8 +29,7 @@ function validateServerEnv(): ServerEnv | null {
       .filter(([, v]) => v && typeof v === "object" && "_errors" in v && (v as any)._errors.length > 0)
       .map(([key, val]) => `  ${key}: ${(val as any)._errors.join(", ")}`)
       .join("\n");
-    console.error("\nEnvironment validation failed:\n" + errors + "\n");
-    return null;
+    throw new Error("Environment validation failed:\n" + errors);
   }
   return result.data;
 }
@@ -39,10 +38,10 @@ let _env: ServerEnv | null = null;
 
 /**
  * Get validated server environment variables.
- * Returns null if validation fails (with console errors).
+ * Throws on first call if validation fails (prevents app from running with missing secrets).
  * Safe to call multiple times (cached after first call).
  */
-export function getEnv(): ServerEnv | null {
+export function getEnv(): ServerEnv {
   if (_env === null) {
     _env = validateServerEnv();
   }
@@ -50,7 +49,6 @@ export function getEnv(): ServerEnv | null {
 }
 
 // Validate on import in server environments
-if (typeof window === "undefined" && !process.env.__ENV_VALIDATED) {
-  process.env.__ENV_VALIDATED = "1";
-  validateServerEnv();
+if (typeof window === "undefined") {
+  getEnv();
 }

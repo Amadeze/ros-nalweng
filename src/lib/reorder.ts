@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { getStartOfTodayWIB } from "./date-utils";
+import { withTenant } from "@/lib/prisma";
 
 // =============================================================================
 // CONSUMPTION REF TYPES — mutations that count toward averageDailyUsage
@@ -202,7 +203,7 @@ export async function getPackagingUsageAggregate(
  * Uses 3 groupBy queries (kg products, unit products, unit packaging) — no N+1.
  */
 export async function getBatchReorderSummaries(
-  prisma: PrismaClient,
+  prisma: ReturnType<typeof withTenant>,
 ): Promise<{
   productSummaries: ReorderSummary[];
   packagingSummaries: ReorderSummary[];

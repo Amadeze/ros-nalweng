@@ -31,7 +31,8 @@ import {
 const rbComponentSchema = z.object({
   productId:   z.string().min(1, "Pilih RB"),
   productName: z.string(),
-  actualGrams: z.number().positive("> 0"),
+  actualGrams: z.number().positive("> 0").optional(), // kept for compatibility if needed
+  gramsPerUnit: z.number().positive("> 0"),
 });
 
 const schema = z.object({
@@ -72,7 +73,7 @@ function HppSummary({
   packagingId,
   unitsProduced,
 }: {
-  rbComponents: Array<{ productId: string; actualGrams: number }>;
+  rbComponents: Array<{ productId: string; actualGrams?: number; gramsPerUnit: number }>;
   rbOptions: RBStockOption[];
   packagingOptions: PackagingOption[];
   packagingId: string;
@@ -80,11 +81,19 @@ function HppSummary({
 }) {
   if (unitsProduced < 1) return null;
 
-  const totalRbGrams = rbComponents.reduce((s, c) => s + (Number(c.actualGrams) || 0), 0);
+  const rbPerUnit = rbComponents.reduce((s, c) => s + (Number(c.gramsPerUnit) || 0), 0);
+  const totalRbGrams = rbPerUnit * unitsProduced;
   const pkg = packagingOptions.find((p) => p.id === packagingId);
 
-  // Simplified HPP preview (tidak bisa hitung HPP RB yang akurat di client karena butuh DB;
-  const rbPerUnit = unitsProduced > 0 ? totalRbGrams / unitsProduced : 0;
+  let hasMissingCost = false;
+  const rbCostPerUnit = rbComponents.reduce((sum, comp) => {
+    const rb = rbOptions.find((r) => r.id === comp.productId);
+    if (!rb) return sum;
+    if (!rb.avgCostPerKg) hasMissingCost = true;
+    return sum + ((Number(comp.gramsPerUnit) || 0) / 1000) * (rb.avgCostPerKg || 0);
+  }, 0);
+
+  const estimatedHpp = rbCostPerUnit + (pkg?.costPerUnit || 0);
   const isUnrealistic = rbPerUnit > 0 && rbPerUnit < 500; // < 500g RB per 1kg FG is suspicious
 
   return (
@@ -111,6 +120,17 @@ function HppSummary({
             </span>
           </>
         )}
+        <span className="text-slate-600 mt-1 pt-2 border-t border-slate-200/50">Estimasi HPP/unit</span>
+        <span className="font-semibold text-slate-900 text-right mt-1 pt-2 border-t border-slate-200/50">
+          {hasMissingCost ? (
+            <span className="text-amber-600 text-xs flex flex-col items-end">
+              <span>{formatRupiah(estimatedHpp)}</span>
+              <span className="text-[10px] font-normal mt-0.5">⚠ data harga RB tidak lengkap</span>
+            </span>
+          ) : (
+            formatRupiah(estimatedHpp)
+          )}
+        </span>
       </div>
       {isUnrealistic && (
         <div className="mt-2 rounded-lg bg-red-50 border border-red-200 p-2 text-xs text-red-700">
@@ -166,7 +186,7 @@ export function ProductionForm({
       recipeId:        "",
       packagingId:     "",
       unitsProduced:   1,
-      rbComponents:    [{ productId: "", productName: "", actualGrams: 0 }],
+      rbComponents:    [{ productId: "", productName: "", gramsPerUnit: 0 }],
       notes:           "",
     },
   });
@@ -192,44 +212,23 @@ export function ProductionForm({
     if (!fg?.recipe) return;
 
     const recipe = fg.recipe;
-    const units = Number(unitsProduced) || 1;
 
     // Set packaging default dari resep
     setValue("packagingId", recipe.packagingId);
     setValue("recipeId", recipe.id);
 
-    // Set komponen RB dengan saran gramasi = gramsPerUnit × units
+    // Set komponen RB dengan saran gramasi
     if (recipe.items.length > 0) {
       replace(
         recipe.items.map((item) => ({
           productId:   item.productId,
           productName: item.productName,
-          actualGrams: Math.round(item.gramsPerUnit * units),
+          gramsPerUnit: Number(item.gramsPerUnit),
         }))
       );
     }
-  // Intentional: only trigger when outputProductId changes, not on every form value change
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outputProductId]);
-
-  // ── Recalculate gramasi saat units berubah (jika masih dari resep) ──
-  useEffect(() => {
-    if (!outputProductId) return;
-    const fg = fgOptions.find((f) => f.id === outputProductId);
-    if (!fg?.recipe) return;
-
-    const units = Number(unitsProduced) || 1;
-    const recipe = fg.recipe;
-
-    // Hanya recalc jika jumlah komponen sama dengan resep (user belum edit struktur)
-    if (fields.length === recipe.items.length) {
-      recipe.items.forEach((item, i) => {
-        setValue(`rbComponents.${i}.actualGrams`, Math.round(item.gramsPerUnit * units));
-      });
-    }
-  // Intentional: only trigger when unitsProduced changes to recalculate grams
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unitsProduced]);
 
   // ── Submit ──
   const onSubmit = async (values: FormValues) => {
@@ -246,7 +245,7 @@ export function ProductionForm({
         rbComponents:    values.rbComponents.map((c) => ({
           productId:   c.productId,
           productName: c.productName,
-          actualGrams: c.actualGrams,
+          actualGrams: Math.round(c.gramsPerUnit * values.unitsProduced),
         })),
         notes: values.notes,
       });
@@ -362,7 +361,7 @@ export function ProductionForm({
           </Label>
           <button
             type="button"
-            onClick={() => append({ productId: "", productName: "", actualGrams: 0 })}
+            onClick={() => append({ productId: "", productName: "", gramsPerUnit: 0 })}
             className="flex items-center gap-1 rounded-lg border border-white/60 bg-white/30 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-white/50 transition-colors shadow-sm"
           >
             <Plus size={14} /> Tambah
@@ -377,7 +376,7 @@ export function ProductionForm({
           {fields.map((field, index) => {
             const comp = rbComponents?.[index];
             const selectedRB = rbOptions.find((r) => r.id === comp?.productId);
-            const neededKg = (Number(comp?.actualGrams) || 0) / 1000;
+            const neededKg = ((Number(comp?.gramsPerUnit) || 0) * (Number(unitsProduced) || 1)) / 1000;
             const isOverStock = selectedRB ? neededKg > selectedRB.stockKg : false;
 
             return (
@@ -444,19 +443,22 @@ export function ProductionForm({
                 </div>
 
                 {/* Gram input */}
-                <div className="w-32 shrink-0 space-y-1">
-                  <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Gramasi</Label>
+                <div className="w-36 shrink-0 space-y-1">
+                  <Label className="text-[10px] uppercase font-bold text-slate-500 mb-1 block tracking-wider">Gramasi per Unit</Label>
                   <div className="relative">
                     <Input
                       type="number"
-                      step="1"
-                      min="0"
-                      placeholder="0"
-                      className={cn("h-9 text-right tabular-nums text-sm font-semibold pr-10", glassInput)}
-                      {...register(`rbComponents.${index}.actualGrams`, { valueAsNumber: true })}
+                      step="0.1"
+                      min="1"
+                      placeholder="e.g. 1000"
+                      className={cn("h-9 tabular-nums font-semibold pr-8 text-slate-900", glassInput, 
+                        errors.rbComponents?.[index]?.gramsPerUnit ? "border-red-400 bg-red-50/50 focus:border-red-500 focus:bg-white" : "")
+                      }
+                      {...register(`rbComponents.${index}.gramsPerUnit`, { valueAsNumber: true })}
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">g</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">g</span>
                   </div>
+                  <FieldError message={errors.rbComponents?.[index]?.gramsPerUnit?.message} />
                 </div>
               </div>
             );

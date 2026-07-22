@@ -91,7 +91,7 @@ export function InvoiceTable({ invoices }: { invoices: InvoiceRow[] }) {
     status: payTarget.status as "ISSUED" | "PARTIAL",
     issuedAt: payTarget.issuedAt,
     dueDate: payTarget.dueDate,
-    isOverdue: false,
+    agingBucket: "CURRENT" as any,
     itemSummary: `${payTarget.itemCount} item`,
   } : null;
 

@@ -15,6 +15,7 @@ export const getTenantAccessRecord = cache(async (tenantId: string) =>
       subscriptionStatus: true,
       trialEndsAt: true,
       nextBillingDate: true,
+      setupCompletedAt: true,
     },
   }),
 );
@@ -65,7 +66,17 @@ export async function requireRole(...allowedRoles: SessionUser["role"][]) {
 export async function requireFeature(feature: PlanFeature) {
   const user = await requireCurrentUser();
   const tenant = await getTenantAccessRecord(user.tenantId);
-  if (!tenant || !planHasFeature(tenant.subscriptionTier, feature)) {
+  if (!tenant || !tenant.isActive) {
+    redirect("/login");
+  }
+  const accessState = getTenantAccessState(tenant);
+  if (accessState === "INACTIVE") {
+    redirect("/login");
+  }
+  if (accessState === "SUBSCRIPTION_REQUIRED") {
+    redirect("/billing");
+  }
+  if (!planHasFeature(tenant.subscriptionTier, feature)) {
     throw new Error("FEATURE_NOT_AVAILABLE");
   }
   return tenant.subscriptionTier;

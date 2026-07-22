@@ -16,7 +16,7 @@ function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL || "";
   const pool = new Pool({
     connectionString,
-    max: 2, // Limit pool size in serverless environments to prevent connection exhaustion
+    max: 10, // Allow sufficient connections for concurrent queries
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 30000,
   });

@@ -93,7 +93,7 @@ export function StandardPageLayout({
       {hasSpeedDial && (
         <>
           {speedDialOpen && <button type="button" className="fixed inset-0 z-[99] bg-stone-950/25 md:hidden" onClick={closeSpeedDial} aria-label="Tutup menu aksi" />}
-          <div ref={speedDialRef} className="fixed bottom-[calc(16px+env(safe-area-inset-bottom,0px))] right-4 z-[100] flex flex-col items-end md:hidden">
+          <div ref={speedDialRef} className="fixed bottom-[calc(16px+env(safe-area-inset-bottom,0px))] right-4 z-[100] flex flex-col items-end">
             {speedDialOpen && (
               <div id={panelId} role="menu" aria-label="Menu aksi" className="mb-2 flex flex-col items-end gap-2">
                 {mobileSpeedDialItems?.map((item) => (
@@ -137,7 +137,7 @@ export function StandardPageLayout({
         <button
           type="button"
           onClick={mobileFabAction?.onClick}
-          className="fixed bottom-[calc(16px+env(safe-area-inset-bottom,0px))] right-4 z-[100] flex min-h-12 items-center gap-2 rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white shadow-lg md:hidden"
+          className="fixed bottom-[calc(16px+env(safe-area-inset-bottom,0px))] right-4 z-[100] flex min-h-12 items-center gap-2 rounded-xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white shadow-lg"
           aria-label={mobileFabAction?.["aria-label"] || mobileFabAction?.label}
         >
           {mobileFabAction?.icon || <Plus size={19} />}

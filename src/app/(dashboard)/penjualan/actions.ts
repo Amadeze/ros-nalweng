@@ -8,6 +8,7 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import { Prisma } from "@prisma/client";
 import { findDuplicateSaleProductIds, resolveSalePrice } from "@/lib/sale-intent";
+import { calculateTax } from "@/lib/tax";
 
 // =============================================================================
 // TYPES
@@ -44,6 +45,9 @@ export type CreateInvoiceInput = {
   items: InvoiceItemInput[];
   invoiceDiscount: number;
   tax: number;
+  taxType?: "PPN" | "PPH_21" | "PPH_23" | "PPH_4_2" | "NONE";
+  customTaxRate?: number;
+  pphType?: string;
   status: "PAID" | "ISSUED";
   paymentMethod?: "CASH" | "TRANSFER" | "QRIS" | "CREDIT";
   dueDate?: string; // YYYY-MM-DD
@@ -122,6 +126,9 @@ const CreateInvoiceSchema = z.object({
   })).min(1).max(100),
   invoiceDiscount: z.number().nonnegative(),
   tax: z.number().nonnegative(),
+  taxType: z.enum(["PPN", "PPH_21", "PPH_23", "PPH_4_2", "NONE"]).optional(),
+  customTaxRate: z.number().optional(),
+  pphType: z.string().optional(),
   status: z.enum(["PAID", "ISSUED"]),
   paymentMethod: z.enum(["CASH", "TRANSFER", "QRIS", "CREDIT"]).optional(),
   dueDate: z.string().optional(),
@@ -303,7 +310,15 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
     if (parsed.invoiceDiscount > subtotal) {
       return { success: false, error: "Diskon invoice tidak boleh melebihi subtotal." };
     }
-    const grandTotal = subtotal - parsed.invoiceDiscount + parsed.tax;
+    const taxResult = calculateTax(
+      subtotal,
+      parsed.invoiceDiscount,
+      parsed.taxType || "NONE",
+      parsed.customTaxRate,
+      parsed.pphType
+    );
+
+    const grandTotal = subtotal - parsed.invoiceDiscount + taxResult.taxAmount;
     if (grandTotal <= 0) {
       return { success: false, error: "Total invoice harus lebih dari 0." };
     }
@@ -317,7 +332,12 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
           customerId: parsed.customerId,
           subtotal,
           discount: parsed.invoiceDiscount,
-          tax: parsed.tax,
+          tax: taxResult.taxAmount,
+          taxType: taxResult.taxType,
+          taxRate: taxResult.taxRate,
+          taxableAmount: taxResult.taxableAmount,
+          pphType: taxResult.pphType,
+          pphWithholding: taxResult.pphWithholding,
           grandTotal,
           paidAmount: parsed.status === "PAID" ? grandTotal : 0,
           status: parsed.status === "PAID" ? "PAID" : "ISSUED",
@@ -483,6 +503,68 @@ export async function getInvoiceForPrint(id: string): Promise<InvoicePrintData |
       paidAt: p.paidAt.toISOString(),
     })),
     notes: inv.notes,
+  };
+}
+
+// =============================================================================
+// GET INVOICE FOR RETURN (CREDIT NOTE)
+// =============================================================================
+
+export type InvoiceReturnData = {
+  id: string;
+  code: string;
+  customerName: string;
+  grandTotal: number;
+  returnedAmount: number;
+  items: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    unitDiscount: number;
+    returnedQuantity: number;
+  }[];
+};
+
+export async function getInvoiceForReturn(id: string): Promise<InvoiceReturnData | null> {
+  const inv = await (await requireTenantPrisma()).invoice.findUnique({
+    where: { id },
+    include: {
+      customer: { select: { name: true } },
+      items: {
+        include: { product: { select: { name: true } } },
+      },
+      creditNotes: {
+        include: { items: true },
+      },
+    },
+  });
+
+  if (!inv) return null;
+
+  const items = inv.items.map((item) => {
+    const returnedQuantity = inv.creditNotes.reduce((sum, cn) => {
+      const cnItem = cn.items.find((i) => i.productId === item.productId);
+      return sum + (cnItem?.quantity || 0);
+    }, 0);
+
+    return {
+      productId: item.productId,
+      productName: item.product.name,
+      quantity: item.quantity,
+      unitPrice: Number(item.unitPrice),
+      unitDiscount: Number(item.discount),
+      returnedQuantity,
+    };
+  });
+
+  return {
+    id: inv.id,
+    code: inv.code,
+    customerName: inv.customer.name,
+    grandTotal: Number(inv.grandTotal),
+    returnedAmount: Number(inv.returnedAmount || 0),
+    items,
   };
 }
 
@@ -695,5 +777,132 @@ export async function updateInvoiceShipping(
   } catch (error: any) {
     console.error("Update Shipping Error:", error);
     return { success: false, error: "Gagal update data pengiriman: " + error.message };
+  }
+}
+
+// =============================================================================
+// CREATE CREDIT NOTE (RETUR)
+// =============================================================================
+
+export type CreditNoteInput = {
+  invoiceId: string;
+  reason: string;
+  items: {
+    productId: string;
+    quantity: number;
+    unitDiscount: number;
+  }[];
+};
+
+export async function createCreditNote(input: CreditNoteInput) {
+  try {
+    const tenantId = await getCurrentTenantId();
+    const userId = await getSystemUserId();
+
+    if (!tenantId || !userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const { invoiceId, reason, items } = input;
+
+    // Validate invoice
+    const inv = await (await requireTenantPrisma()).invoice.findUnique({
+      where: { id: invoiceId, tenantId },
+      include: {
+        items: true,
+        creditNotes: {
+          include: { items: true },
+        },
+      },
+    });
+
+    if (!inv) return { success: false, error: "Invoice not found" };
+
+    // Validate quantities
+    for (const item of items) {
+      const invItem = inv.items.find((i) => i.productId === item.productId);
+      if (!invItem) return { success: false, error: "Product not found in invoice" };
+
+      const returnedQty = inv.creditNotes.reduce((sum, cn) => {
+        const cnItem = cn.items.find((i) => i.productId === item.productId);
+        return sum + (cnItem?.quantity || 0);
+      }, 0);
+
+      if (item.quantity > (invItem.quantity - returnedQty)) {
+        return { success: false, error: "Quantity for product exceeds maximum returnable limit" };
+      }
+    }
+
+    let creditNoteCode = "";
+
+    await (await requireTenantPrisma()).$transaction(async (tx) => {
+      // Get next credit note code
+      const count = await tx.creditNote.count({ where: { tenantId } });
+      const nextId = String(count + 1).padStart(5, "0");
+      creditNoteCode = `CN-${nextId}`;
+
+      let totalReturnedAmount = 0;
+
+      const cnItemsData = items.map((item) => {
+        const invItem = inv.items.find((i) => i.productId === item.productId)!;
+        const unitPrice = invItem.unitPrice;
+        const subtotal = (Number(unitPrice) - item.unitDiscount) * item.quantity;
+        totalReturnedAmount += subtotal;
+
+        return {
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice,
+          unitDiscount: item.unitDiscount,
+          subtotal,
+          tenantId,
+        };
+      });
+
+      const creditNote = await tx.creditNote.create({
+        data: {
+          code: creditNoteCode,
+          invoiceId,
+          total: totalReturnedAmount,
+          reason,
+          tenantId,
+          items: {
+            create: cnItemsData,
+          },
+        },
+      });
+
+      // Update Invoice returned amount
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          returnedAmount: {
+            increment: totalReturnedAmount,
+          },
+        },
+      });
+
+      // Restore stock via appendLedger
+      for (const item of items) {
+        await appendLedger(tx, {
+          data: {
+            tenantId,
+            productId: item.productId,
+            entryType: "IN",
+            quantityUnit: item.quantity,
+            refType: "RETURN_FG_IN",
+            refId: creditNote.id,
+            notes: `Retur dari nota ${inv.code}`,
+            createdById: userId,
+          },
+        });
+      }
+    });
+
+    revalidatePath("/penjualan");
+    return { success: true, creditNoteCode };
+  } catch (error: any) {
+    console.error("Create Credit Note Error:", error);
+    return { success: false, error: error.message || "Terjadi kesalahan internal." };
   }
 }

@@ -15,6 +15,8 @@ interface LedgerEntryData {
   quantityUnit?: FlexibleNumber;
   quantityKg?: FlexibleNumber;
   incomingPrice?: FlexibleNumber;
+  lotNumber?: string | null;
+  expiryDate?: Date | string | null;
   reference?: string;
   notes?: string;
   [key: string]: unknown;
@@ -94,11 +96,9 @@ export async function appendLedger(tx: TransactionClient, data: LedgerEntryData 
         const oldAvg = Number(product.avgCostPerKg ?? 0);
         newAvgCostKg = (oldStock * oldAvg + quantityKg * incPrice) / (oldStock + quantityKg);
       }
-      if (product && quantityUnit > 0) {
-        const oldStock = Number(product.stockUnit);
-        const oldAvg = Number(product.avgCostPerKg ?? 0); // Reusing avgCostPerKg field for FG avg cost if needed, or we just leave it for lastHpp logic in produksi
-        newAvgCostUnit = (oldStock * oldAvg + quantityUnit * incPrice) / (oldStock + quantityUnit);
-      }
+      // FG unit cost is NOT tracked via moving average on avgCostPerKg.
+      // FG cost comes from lastHpp (set by production batches).
+      // AVOID: writing newAvgCostUnit to avgCostPerKg — that corrupts the kg cost.
     } else if (payload.packagingId) {
       const pkg = await tx.packaging.findUnique({
         where: { id: payload.packagingId },

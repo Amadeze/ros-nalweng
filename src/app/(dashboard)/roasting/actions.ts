@@ -20,6 +20,7 @@ export type GBStockOption = {
   name: string;
   origin: string | null;
   stockKg: number;
+  lots: { lotNumber: string; expiryDate: string | null; remainingKg: number }[];
 };
 
 export type RBProductOption = {
@@ -63,6 +64,7 @@ export type CreateParentRoastingBatchInput = {
   outputRoastLevel?: string;
   actualOutputKg?: number;
   notes?: string;
+  lotNumber?: string;
 };
 
 export type RoastingActionResult =
@@ -95,19 +97,59 @@ function generateRBCode(name: string): string {
 // =============================================================================
 
 async function fetchGBOptions(): Promise<GBStockOption[]> {
-  const products = await (await requireTenantPrisma()).product.findMany({
+  const tp = await requireTenantPrisma();
+  const products = await tp.product.findMany({
     where: { type: "GREEN_BEAN", isActive: true },
     select: { id: true, name: true, origin: true, stockKg: true },
     orderBy: { name: "asc" },
   });
 
+  const productIds = products.map((p) => p.id);
+  
+  const ledgerEntries = await tp.inventoryLedger.findMany({
+    where: { productId: { in: productIds }, lotNumber: { not: null } },
+    select: { productId: true, entryType: true, quantityKg: true, lotNumber: true, expiryDate: true },
+  });
+
+  const lotsByProduct: Record<string, Record<string, { lotNumber: string, expiryDate: string | null, remainingKg: number }>> = {};
+  
+  for (const entry of ledgerEntries) {
+    if (!entry.productId || !entry.lotNumber) continue;
+    if (!lotsByProduct[entry.productId]) lotsByProduct[entry.productId] = {};
+    if (!lotsByProduct[entry.productId][entry.lotNumber]) {
+      lotsByProduct[entry.productId][entry.lotNumber] = {
+        lotNumber: entry.lotNumber,
+        expiryDate: entry.expiryDate ? entry.expiryDate.toISOString() : null,
+        remainingKg: 0,
+      };
+    }
+    const qty = Number(entry.quantityKg || 0);
+    if (entry.entryType === "IN") {
+      lotsByProduct[entry.productId][entry.lotNumber].remainingKg += qty;
+    } else {
+      lotsByProduct[entry.productId][entry.lotNumber].remainingKg -= qty;
+    }
+  }
+
   return products
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      origin: p.origin,
-      stockKg: Number(p.stockKg),
-    }))
+    .map((p) => {
+      const pLotsObj = lotsByProduct[p.id] || {};
+      const lots = Object.values(pLotsObj)
+        .filter((l) => l.remainingKg > 0.001) // handle floating point issues
+        .sort((a, b) => {
+           if (!a.expiryDate) return 1;
+           if (!b.expiryDate) return -1;
+           return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
+        });
+      
+      return {
+        id: p.id,
+        name: p.name,
+        origin: p.origin,
+        stockKg: Number(p.stockKg),
+        lots,
+      };
+    })
     .filter((p) => p.stockKg > 0);
 }
 
@@ -355,6 +397,7 @@ export async function createParentRoastingBatch(
           refType:     "ROASTING_GB_OUT",
           refId:       batch.id,
           quantityKg:  input.targetWeightKg,
+          lotNumber:   input.lotNumber || null,
           notes:       `Roasting: ${batch.code}`,
           createdById: userId,
         },
@@ -570,16 +613,21 @@ export async function voidParentRoastingBatch(
         },
       });
 
-      // Return GB (Always)
+      // Return GB (Always) — restore WAC by passing current avg cost
+      const gbProduct = await tx.product.findUnique({
+        where: { id: batch.inputProductId },
+        select: { avgCostPerKg: true },
+      });
       await appendLedger(tx, {
         data: {
-          productId:   batch.inputProductId,
-          entryType:   "IN",
-          refType:     "VOID_REVERSAL",
-          refId:       batch.id,
-          quantityKg:  batch.targetWeightKg,
-          notes:       `Reversal Roasting: ${batch.code}`,
-          createdById: userId,
+          productId:      batch.inputProductId,
+          entryType:      "IN",
+          refType:        "VOID_REVERSAL",
+          refId:          batch.id,
+          quantityKg:     batch.targetWeightKg,
+          incomingPrice:  Number(gbProduct?.avgCostPerKg ?? 0),
+          notes:          `Reversal Roasting: ${batch.code}`,
+          createdById:    userId,
         },
       });
 

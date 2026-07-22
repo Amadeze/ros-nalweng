@@ -75,3 +75,23 @@ export function getPayableAgingBucket(
   if (daysOverdue <= 60) return "OVERDUE_31_60";
   return "OVERDUE_61_PLUS";
 }
+
+export type ReceivableAgingBucket =
+  | "CURRENT"
+  | "OVERDUE_1_30"
+  | "OVERDUE_31_60"
+  | "OVERDUE_61_PLUS";
+
+export function getReceivableAgingBucket(
+  dueDate: Date | null,
+  asOf = getCurrentDate(),
+): ReceivableAgingBucket {
+  if (!dueDate || dueDate >= asOf) return "CURRENT";
+  const daysOverdue = Math.max(
+    1,
+    Math.ceil((asOf.getTime() - dueDate.getTime()) / 86_400_000),
+  );
+  if (daysOverdue <= 30) return "OVERDUE_1_30";
+  if (daysOverdue <= 60) return "OVERDUE_31_60";
+  return "OVERDUE_61_PLUS";
+}

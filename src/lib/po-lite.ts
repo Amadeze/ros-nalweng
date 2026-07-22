@@ -352,11 +352,30 @@ export async function receivePO(
   const receivedAt = new Date(input.receivedAt);
 
   await prisma.$transaction(async (tx) => {
+    // Load all previously received quantities per item (matched by productId/packagingId)
+    const prevPurchases = await tx.purchase.findMany({
+      where: { purchaseOrderId: poId },
+      select: { productId: true, packagingId: true, weightKg: true, quantityUnits: true },
+    });
+
     for (const received of input.items) {
       if (received.receivedQuantity <= 0) continue;
 
       const poItem = poItemMap.get(received.poItemId)!;
       const isProduct = !!poItem.productId;
+
+      // H12: Prevent over-receipt per item
+      const previousForItem = prevPurchases
+        .filter((p) =>
+          isProduct ? p.productId === poItem.productId : p.packagingId === poItem.packagingId
+        )
+        .reduce((sum, p) => sum + Number(p.weightKg ?? 0) + (p.quantityUnits ?? 0), 0);
+      const remainingForItem = Number(poItem.quantity) - previousForItem;
+      if (received.receivedQuantity > remainingForItem) {
+        throw new Error(
+          `Over-receipt: item ${poItem.id} hanya sisa ${remainingForItem} unit/kg yang bisa diterima.`
+        );
+      }
 
       // Generate purchase code
       const purchasePrefix = `PUR-${receivedAt.getFullYear()}${String(receivedAt.getMonth() + 1).padStart(2, "0")}`;
@@ -423,25 +442,21 @@ export async function receivePO(
       }
     }
 
-    // Determine new PO status
-    // Check if all items are fully received
-    const totalOrdered = po.items.reduce((sum, item) => sum + Number(item.quantity), 0);
-    const totalReceived = input.items.reduce((sum, item) => sum + item.receivedQuantity, 0);
-
-    // Get previously received quantities
-    const previousPurchases = await tx.purchase.findMany({
-      where: { purchaseOrderId: poId },
-      select: { weightKg: true, quantityUnits: true },
+    // H11: Determine new PO status per-item (all items fully received → RECEIVED)
+    const allItemsFullyReceived = po.items.every((item) => {
+      const prevForItem = prevPurchases
+        .filter((p) =>
+          item.productId ? p.productId === item.productId : p.packagingId === item.packagingId
+        )
+        .reduce((sum, p) => sum + Number(p.weightKg ?? 0) + (p.quantityUnits ?? 0), 0);
+      const receivedNow = input.items
+        .filter((r) => r.poItemId === item.id)
+        .reduce((sum, r) => sum + r.receivedQuantity, 0);
+      return prevForItem + receivedNow >= Number(item.quantity);
     });
 
-    const previousReceived = previousPurchases.reduce((sum, p) => {
-      return sum + Number(p.weightKg ?? 0) + (p.quantityUnits ?? 0);
-    }, 0);
-
-    const totalAllReceived = previousReceived + totalReceived;
-
     let newStatus: POStatus;
-    if (totalAllReceived >= totalOrdered) {
+    if (allItemsFullyReceived) {
       newStatus = "RECEIVED";
     } else {
       newStatus = "PARTIAL";

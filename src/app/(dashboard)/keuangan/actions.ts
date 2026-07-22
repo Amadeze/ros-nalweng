@@ -5,7 +5,8 @@ import { getCurrentTenantId, getSystemUserId, requireRole, requireTenantPrisma }
 import { recordAudit } from "@/lib/audit";
 import { randomBytes } from "crypto";
 import { appendLedger } from "@/lib/stock";
-import { getPurchasePaymentStatus } from "@/lib/purchase-payments";
+import { getPurchasePaymentStatus, getReceivableAgingBucket, type ReceivableAgingBucket as _ReceivableAgingBucket } from "@/lib/purchase-payments";
+export type ReceivableAgingBucket = _ReceivableAgingBucket;
 import { getCurrentDate, getZonedMonthRange } from "@/lib/date-utils";
 import { calculateSalesPerformance } from "@/lib/financial-reporting";
 import { prisma } from "@/lib/prisma";
@@ -25,8 +26,15 @@ export type PiutangRow = {
   status: "ISSUED" | "PARTIAL";
   issuedAt: string;
   dueDate: string | null;
-  isOverdue: boolean;
+  agingBucket: ReceivableAgingBucket;
   itemSummary: string;
+};
+
+export type AgingBucketSummary = {
+  current: { count: number; total: number };
+  overdue1_30: { count: number; total: number };
+  overdue31_60: { count: number; total: number };
+  overdue61Plus: { count: number; total: number };
 };
 
 export type KpiSummary = {
@@ -34,6 +42,7 @@ export type KpiSummary = {
   piutangCount: number;
   overdueCount: number;
   overdueTotal: number;
+  agingBuckets: AgingBucketSummary;
   revenueMTD: number;
   revenueLastMonth: number;
 };
@@ -44,6 +53,7 @@ export type KeuanganPageData = {
 };
 
 export type RecordPaymentInput = {
+  operationKey?: string;
   invoiceId: string;
   amount: number;
   method: "CASH" | "TRANSFER" | "QRIS" | "CREDIT";
@@ -189,7 +199,7 @@ export async function getKeuanganPageData(): Promise<KeuanganPageData> {
     const grandTotal = Number(inv.grandTotal);
     const paidAmount = Number(inv.paidAmount);
     const balance = grandTotal - paidAmount;
-    const isOverdue = inv.dueDate ? inv.dueDate < now : false;
+    const agingBucket = getReceivableAgingBucket(inv.dueDate, now);
     const shown = inv.items.slice(0, 2);
     const rest  = inv.items.length - shown.length;
     const itemSummary =
@@ -206,14 +216,21 @@ export async function getKeuanganPageData(): Promise<KeuanganPageData> {
       status: inv.status as "ISSUED" | "PARTIAL",
       issuedAt: inv.issuedAt.toISOString(),
       dueDate: inv.dueDate ? inv.dueDate.toISOString() : null,
-      isOverdue,
+      agingBucket,
       itemSummary,
     };
   });
 
-  // Sort: overdue rows first, then by due date ascending
+  // Sort: most overdue first, then by due date ascending
+  const bucketOrder: Record<ReceivableAgingBucket, number> = {
+    "OVERDUE_61_PLUS": 0,
+    "OVERDUE_31_60": 1,
+    "OVERDUE_1_30": 2,
+    "CURRENT": 3,
+  };
   piutangRows.sort((a, b) => {
-    if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
+    const bucketDiff = bucketOrder[a.agingBucket] - bucketOrder[b.agingBucket];
+    if (bucketDiff !== 0) return bucketDiff;
     if (!a.dueDate && !b.dueDate) return 0;
     if (!a.dueDate) return 1;
     if (!b.dueDate) return -1;
@@ -221,8 +238,16 @@ export async function getKeuanganPageData(): Promise<KeuanganPageData> {
   });
 
   const totalPiutang = piutangRows.reduce((s, r) => s + r.balance, 0);
-  const overdueCount = piutangRows.filter((r) => r.isOverdue).length;
-  const overdueTotal = piutangRows.filter((r) => r.isOverdue).reduce((s, r) => s + r.balance, 0);
+  const overdueRows = piutangRows.filter((r) => r.agingBucket !== "CURRENT");
+  const overdueCount = overdueRows.length;
+  const overdueTotal = overdueRows.reduce((s, r) => s + r.balance, 0);
+
+  function bucketCount(bucket: ReceivableAgingBucket) {
+    return piutangRows.filter((r) => r.agingBucket === bucket).length;
+  }
+  function bucketTotal(bucket: ReceivableAgingBucket) {
+    return piutangRows.filter((r) => r.agingBucket === bucket).reduce((s, r) => s + r.balance, 0);
+  }
 
   return {
     piutangRows,
@@ -231,6 +256,12 @@ export async function getKeuanganPageData(): Promise<KeuanganPageData> {
       piutangCount: piutangRows.length,
       overdueCount,
       overdueTotal,
+      agingBuckets: {
+        current:       { count: bucketCount("CURRENT"),       total: bucketTotal("CURRENT") },
+        overdue1_30:   { count: bucketCount("OVERDUE_1_30"),   total: bucketTotal("OVERDUE_1_30") },
+        overdue31_60:  { count: bucketCount("OVERDUE_31_60"),  total: bucketTotal("OVERDUE_31_60") },
+        overdue61Plus: { count: bucketCount("OVERDUE_61_PLUS"), total: bucketTotal("OVERDUE_61_PLUS") },
+      },
       revenueMTD: Number(revenueMTDRaw._sum.subtotal ?? 0) - Number(revenueMTDRaw._sum.discount ?? 0),
       revenueLastMonth: Number(revenueLastMonthRaw._sum.subtotal ?? 0) - Number(revenueLastMonthRaw._sum.discount ?? 0),
     },
@@ -247,6 +278,7 @@ export async function recordPayment(input: RecordPaymentInput): Promise<PaymentA
     const userId = await getSystemUserId();
     const tenantId = await getCurrentTenantId();
     if (input.amount <= 0) return { success: false, error: "Nominal harus lebih dari 0." };
+    const opKey = input.operationKey && /^[0-9a-f-]{36}$/i.test(input.operationKey) ? input.operationKey : randomBytes(16).toString("hex");
     const paidAt = new Date(input.paidAt + "T00:00:00");
     if (Number.isNaN(paidAt.getTime())) {
       return { success: false, error: "Tanggal pembayaran tidak valid." };
@@ -256,12 +288,20 @@ export async function recordPayment(input: RecordPaymentInput): Promise<PaymentA
     const refParts = [input.bankName, input.reference].filter(Boolean);
     const refString = refParts.length > 0 ? refParts.join(" / ") : undefined;
     const tenantPrisma = await requireTenantPrisma();
+    const previousAttempt = await tenantPrisma.payment.findFirst({
+      where: { operationKey: opKey },
+      select: { code: true },
+    });
+    if (previousAttempt) {
+      return { success: true, paymentCode: previousAttempt.code, newStatus: "PARTIAL" };
+    }
     const result = await tenantPrisma.$transaction(async (tx) => {
       const inv = await tx.invoice.findUnique({
         where: { id: input.invoiceId },
         select: { id: true, code: true, grandTotal: true, paidAmount: true, status: true },
       });
       if (!inv) throw new Error("Nota tidak ditemukan.");
+      if (inv.status === "DRAFT") throw new Error("Nota belum diterbitkan.");
       if (inv.status === "PAID") throw new Error("Nota ini sudah lunas.");
       if (inv.status === "VOID") throw new Error("Nota ini sudah di-void.");
 
@@ -275,7 +315,7 @@ export async function recordPayment(input: RecordPaymentInput): Promise<PaymentA
         newPaidTotal >= grandTotal - 0.01 ? "PAID" : "PARTIAL";
 
       const payment = await tx.payment.create({
-        data: { code: payCode, invoiceId: inv.id, amount: input.amount, method: input.method, reference: refString, paidAt, notes: input.notes, createdById: userId },
+        data: { code: payCode, operationKey: opKey, invoiceId: inv.id, amount: input.amount, method: input.method, reference: refString, paidAt, notes: input.notes, createdById: userId },
       });
       await tx.invoice.update({ where: { id: inv.id }, data: { paidAmount: newPaidTotal, status: newStatus } });
       await recordAudit(tx, {
@@ -297,6 +337,16 @@ export async function recordPayment(input: RecordPaymentInput): Promise<PaymentA
     revalidatePath("/penjualan");
     return { success: true, paymentCode: payCode, newStatus: result.newStatus };
   } catch (err) {
+    if (
+      typeof err === "object" && err !== null && "code" in err && err.code === "P2002"
+      && input.operationKey
+    ) {
+      const existing = await (await requireTenantPrisma()).payment.findFirst({
+        where: { operationKey: input.operationKey },
+        select: { code: true },
+      });
+      if (existing) return { success: true, paymentCode: existing.code, newStatus: "PARTIAL" };
+    }
     console.error("[recordPayment]", err);
     return {
       success: false,
