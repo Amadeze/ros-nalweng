@@ -7,7 +7,7 @@ import { toastSafe } from "@/lib/toast";
 import { Tenant } from "@prisma/client";
 import { Save, ExternalLink, Upload, Phone, Plus, Trash2, RotateCcw } from "lucide-react";
 import { resetOnboarding } from "@/app/onboarding/actions";
-import { WebhookLogModal } from "./WebhookLogsDialog";
+import { WebhookLogModal } from "./WebhookLogModal";
 
 // Helper type for tenant since Prisma Client might not have typed the new fields perfectly in this file's context if cached
 type ExtendedTenant = Omit<Tenant, "midtransServerKey"> & {

@@ -333,10 +333,10 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<SalesAct
           subtotal,
           discount: parsed.invoiceDiscount,
           tax: taxResult.taxAmount,
-          taxType: taxResult.taxType as any,
+          taxType: taxResult.taxType,
           taxRate: taxResult.taxRate,
           taxableAmount: taxResult.taxableAmount,
-          pphType: taxResult.pphType as any,
+          pphType: taxResult.pphType,
           pphWithholding: taxResult.pphWithholding,
           grandTotal,
           paidAmount: parsed.status === "PAID" ? grandTotal : 0,
@@ -584,28 +584,27 @@ export async function voidInvoice(
     await requireRole("OWNER", "MANAGER");
     const userId = await getSystemUserId();
     const tenantId = await getCurrentTenantId();
-    const tenantPrisma = await requireTenantPrisma();
 
-    return await tenantPrisma.$transaction(async (tx) => {
-      const inv = await tx.invoice.findUnique({
-        where: { id: invoiceId },
-        include: { items: true },
-      });
+    const inv = await (await requireTenantPrisma()).invoice.findUnique({
+      where: { id: invoiceId },
+      include: { items: true },
+    });
 
-      if (!inv) return { success: false, error: "Nota tidak ditemukan." };
-      if (inv.status === "VOID") return { success: false, error: "Nota sudah di-void." };
-      if (inv.status === "PAID") return { success: false, error: "Nota yang sudah LUNAS tidak bisa di-void. Hubungi manajer." };
+    if (!inv)                  return { success: false, error: "Nota tidak ditemukan." };
+    if (inv.status === "VOID") return { success: false, error: "Nota sudah di-void." };
+    if (inv.status === "PAID") return { success: false, error: "Nota yang sudah LUNAS tidak bisa di-void. Hubungi manajer." };
 
+    await (await requireTenantPrisma()).$transaction(async (tx) => {
       // Kembalikan stok FG
       for (const item of inv.items) {
         await appendLedger(tx, {
           data: {
-            productId: item.productId,
-            entryType: "IN",
-            refType: "VOID_REVERSAL",
-            refId: invoiceId,
+            productId:    item.productId,
+            entryType:    "IN",
+            refType:      "VOID_REVERSAL",
+            refId:        invoiceId,
             quantityUnit: item.quantity,
-            notes: `VOID reversal: ${inv.code}`,
+            notes:        `VOID reversal: ${inv.code}`,
             createdById: userId,
           },
         });
@@ -625,12 +624,12 @@ export async function voidInvoice(
         before: { code: inv.code, status: inv.status },
         after: { status: "VOID", reason },
       });
+    });
 
-      revalidatePath("/penjualan");
-      revalidatePath("/inventory");
-      revalidatePath("/keuangan");
-      return { success: true };
-    }, { isolationLevel: "Serializable" });
+    revalidatePath("/penjualan");
+    revalidatePath("/inventory");
+    revalidatePath("/keuangan");
+    return { success: true };
   } catch (err) {
     console.error("[voidInvoice]", err);
     return { success: false, error: "Gagal melakukan void." };
@@ -797,10 +796,8 @@ export type CreditNoteInput = {
 
 export async function createCreditNote(input: CreditNoteInput) {
   try {
-    await requireRole("OWNER", "MANAGER", "CASHIER");
     const tenantId = await getCurrentTenantId();
     const userId = await getSystemUserId();
-    const tenantPrisma = await requireTenantPrisma();
 
     if (!tenantId || !userId) {
       return { success: false, error: "Unauthorized" };
@@ -809,7 +806,7 @@ export async function createCreditNote(input: CreditNoteInput) {
     const { invoiceId, reason, items } = input;
 
     // Validate invoice
-    const inv = await tenantPrisma.invoice.findUnique({
+    const inv = await (await requireTenantPrisma()).invoice.findUnique({
       where: { id: invoiceId, tenantId },
       include: {
         items: true,
@@ -838,7 +835,7 @@ export async function createCreditNote(input: CreditNoteInput) {
 
     let creditNoteCode = "";
 
-    await tenantPrisma.$transaction(async (tx) => {
+    await (await requireTenantPrisma()).$transaction(async (tx) => {
       // Get next credit note code
       const count = await tx.creditNote.count({ where: { tenantId } });
       const nextId = String(count + 1).padStart(5, "0");
