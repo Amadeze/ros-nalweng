@@ -11,6 +11,7 @@ export default async function RoastingPage() {
       batches={data.batches}
       gbOptions={data.gbOptions}
       rbOptions={data.rbOptions}
+      machineOptions={data.machineOptions}
     />
   );
 }

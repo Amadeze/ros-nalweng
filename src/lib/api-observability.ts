@@ -31,6 +31,34 @@ export function logServerError(
   }));
 }
 
+export function logInfo(
+  scope: string,
+  message: string,
+  context: Record<string, unknown> = {},
+) {
+  console.log(JSON.stringify({
+    level: "info",
+    scope,
+    message,
+    timestamp: getCurrentDate().toISOString(),
+    ...context,
+  }));
+}
+
+export function logWarn(
+  scope: string,
+  message: string,
+  context: Record<string, unknown> = {},
+) {
+  console.warn(JSON.stringify({
+    level: "warn",
+    scope,
+    message,
+    timestamp: getCurrentDate().toISOString(),
+    ...context,
+  }));
+}
+
 export function internalErrorResponse(
   requestId: string,
   message = "Terjadi kesalahan sistem. Silakan coba lagi.",

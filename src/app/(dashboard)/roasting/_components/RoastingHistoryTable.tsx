@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatKg, formatDate } from "@/lib/format";
 import { VoidConfirmDialog } from "@/components/VoidConfirmDialog";
-import { voidParentRoastingBatch, completeParentRoastingBatch, type ParentRoastingBatchRow } from "../actions";
+import { voidParentRoastingBatch, completeParentRoastingBatch, splitBatchByCapacity, type ParentRoastingBatchRow } from "../actions";
 
 // ─────────────────────────────────────────────
 // Shrinkage badge
@@ -86,15 +86,19 @@ function EmptyState({ isFiltered }: { isFiltered: boolean }) {
 
 interface RoastingHistoryTableProps {
   batches: ParentRoastingBatchRow[];
+  machineOptions: { id: string; name: string; capacityKg: number | null }[];
 }
 
 // ─────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────
 
-export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
+export function RoastingHistoryTable({ batches, machineOptions }: RoastingHistoryTableProps) {
   const [voidTarget, setVoidTarget] = useState<ParentRoastingBatchRow | null>(null);
   const [completeTarget, setCompleteTarget] = useState<ParentRoastingBatchRow | null>(null);
+  const [splitTarget, setSplitTarget] = useState<ParentRoastingBatchRow | null>(null);
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [selectedMachineId, setSelectedMachineId] = useState("");
   const [actualOutputKg, setActualOutputKg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -134,6 +138,23 @@ export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
       }
       setCompleteTarget(null);
       setActualOutputKg("");
+    } else {
+      toastSafe.error(result.error);
+    }
+  };
+
+  const handleSplit = async () => {
+    if (!splitTarget || !selectedMachineId) return;
+
+    setIsSubmitting(true);
+    const result = await splitBatchByCapacity(splitTarget.id, selectedMachineId);
+    setIsSubmitting(false);
+
+    if (result.success) {
+      toast.success(`Batch dibagi menjadi ${result.splits} batch.`);
+      setShowSplitModal(false);
+      setSplitTarget(null);
+      setSelectedMachineId("");
     } else {
       toastSafe.error(result.error);
     }
@@ -220,14 +241,38 @@ export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
                     </Button>
                   )}
                   {b.status === "PENDING" && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 px-2 text-xs text-indigo-500 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg"
-                      onClick={() => setCompleteTarget(b)}
-                    >
-                      Selesaikan
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs text-amber-500 hover:bg-amber-50 hover:text-amber-600 rounded-lg"
+                        onClick={() => {
+                          setSplitTarget(b);
+                          setShowSplitModal(true);
+                        }}
+                      >
+                        Split
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs text-indigo-500 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg"
+                        onClick={() => {
+                          setCompleteTarget(b);
+                          // Auto-fill from linked roast data (sum all child batches)
+                          const totalRoasted = b.childBatches
+                            .filter((c) => c.roastedWeightGrams)
+                            .reduce((sum, c) => sum + (c.roastedWeightGrams || 0), 0);
+                          if (totalRoasted > 0) {
+                            setActualOutputKg((totalRoasted / 1000).toFixed(2));
+                          } else {
+                            setActualOutputKg("");
+                          }
+                        }}
+                      >
+                        Selesaikan
+                      </Button>
+                    </>
                   )}
                 </TableCell>
               </TableRow>
@@ -275,7 +320,17 @@ export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
                   </Button>
                 )}
                 {b.status === "PENDING" && (
-                  <Button size="sm" variant="ghost" onClick={() => setCompleteTarget(b)} className="h-7 px-2.5 text-[11px] font-bold uppercase text-indigo-500 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">
+                  <Button size="sm" variant="ghost" onClick={() => {
+                    setCompleteTarget(b);
+                    const totalRoasted = b.childBatches
+                      .filter((c) => c.roastedWeightGrams)
+                      .reduce((sum, c) => sum + (c.roastedWeightGrams || 0), 0);
+                    if (totalRoasted > 0) {
+                      setActualOutputKg((totalRoasted / 1000).toFixed(2));
+                    } else {
+                      setActualOutputKg("");
+                    }
+                  }} className="h-7 px-2.5 text-[11px] font-bold uppercase text-indigo-500 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg">
                     Validasi Sore
                   </Button>
                 )}
@@ -299,7 +354,7 @@ export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
 
     {completeTarget && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95">
+        <div className="rounded-2xl border border-stone-200/60 bg-white/70 shadow-xl backdrop-blur-md w-full max-w-sm overflow-hidden animate-in zoom-in-95">
           <div className="p-5">
             <h3 className="font-bold text-lg mb-1">Validasi Akhir Sesi</h3>
             <p className="text-xs text-slate-500 mb-4">Selesaikan {completeTarget.code} ({completeTarget.outputProductName}) dengan menginput berat akhir.</p>
@@ -319,6 +374,20 @@ export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
                   onChange={(e) => setActualOutputKg(e.target.value)}
                   className="font-mono text-sm font-bold border-indigo-200 focus:border-indigo-500"
                 />
+                {(() => {
+                  const totalRoasted = completeTarget.childBatches
+                    .filter((c) => c.roastedWeightGrams)
+                    .reduce((sum, c) => sum + (c.roastedWeightGrams || 0), 0);
+                  if (totalRoasted > 0) {
+                    return (
+                      <p className="text-[10px] text-indigo-500 mt-1">
+                        Dari Artisan: {(totalRoasted / 1000).toFixed(2)} kg
+                        ({completeTarget.childBatches.filter((c) => c.roastId).length} roast profile)
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
           </div>
@@ -326,6 +395,47 @@ export function RoastingHistoryTable({ batches }: RoastingHistoryTableProps) {
             <Button variant="ghost" onClick={() => { setCompleteTarget(null); setActualOutputKg(""); }}>Batal</Button>
             <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={isSubmitting} onClick={handleComplete}>
               {isSubmitting ? "Menyimpan..." : "Selesaikan Laporan"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {showSplitModal && splitTarget && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+        <div className="rounded-2xl border border-stone-200/60 bg-white/70 shadow-xl backdrop-blur-md w-full max-w-sm overflow-hidden animate-in zoom-in-95">
+          <div className="p-5">
+            <h3 className="font-bold text-lg mb-1">Split Batch</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Batch {splitTarget.code} ({splitTarget.targetWeightKg} kg) akan dibagi berdasarkan kapasitas mesin.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Berat Masuk (Kg)</label>
+                <Input value={splitTarget.targetWeightKg} disabled className="bg-slate-50 font-mono text-sm" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Pilih Mesin</label>
+                <select
+                  value={selectedMachineId}
+                  onChange={(e) => setSelectedMachineId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-mono"
+                >
+                  <option value="">-- Pilih Mesin --</option>
+                  {machineOptions.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} {m.capacityKg ? `(${m.capacityKg} kg)` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div className="bg-slate-50 p-4 border-t flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => { setShowSplitModal(false); setSplitTarget(null); setSelectedMachineId(""); }}>Batal</Button>
+            <Button className="bg-amber-600 hover:bg-amber-700 text-white" disabled={isSubmitting || !selectedMachineId} onClick={handleSplit}>
+              {isSubmitting ? "Memproses..." : "Split Batch"}
             </Button>
           </div>
         </div>

@@ -17,6 +17,10 @@ const serverSchema = z.object({
   SUPABASE_STORAGE_BUCKET: z.string().optional(),
   WA_API_KEY: z.string().optional(),
   WA_API_URL: z.string().url().optional(),
+  ARTISAN_CONNECTOR_TOKEN_PEPPER: z.string().min(1).optional(),
+  ARTISAN_PAIRING_CODE_PEPPER: z.string().min(1).optional(),
+  ARTISAN_MAX_UPLOAD_BYTES: z.string().optional(),
+  ARTISAN_CONNECTOR_DOWNLOAD_URL: z.string().url().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;

@@ -9,6 +9,7 @@ const PUBLIC_ROUTES = [
   "/api/health",
   "/api/cron",
   "/api/webhooks",
+  "/api/integrations",
 ];
 
 function isPublicRoute(pathname: string): boolean {

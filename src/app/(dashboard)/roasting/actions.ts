@@ -31,6 +31,15 @@ export type RBProductOption = {
   sourceGreenBeanId: string | null;
 };
 
+export type ChildBatchRow = {
+  id: string;
+  roastId: string | null;
+  roastDuration: number | null;
+  dropTemp: number | null;
+  roastTitle: string | null;
+  roastedWeightGrams: number | null;
+};
+
 export type ParentRoastingBatchRow = {
   id: string;
   code: string;
@@ -44,12 +53,20 @@ export type ParentRoastingBatchRow = {
   status: string;
   createdAt: string;
   notes: string | null;
+  childBatches: ChildBatchRow[];
+};
+
+export type MachineOption = {
+  id: string;
+  name: string;
+  capacityKg: number | null;
 };
 
 export type RoastingPageData = {
   batches: ParentRoastingBatchRow[];
   gbOptions: GBStockOption[];
   rbOptions: RBProductOption[];
+  machineOptions: MachineOption[];
 };
 
 export type CreateParentRoastingBatchInput = {
@@ -65,10 +82,11 @@ export type CreateParentRoastingBatchInput = {
   actualOutputKg?: number;
   notes?: string;
   lotNumber?: string;
+  machineId?: string;
 };
 
 export type RoastingActionResult =
-  | { success: true; batchCode: string; outcome?: RoastOutcome }
+  | { success: true; batchCode: string; outcome?: RoastOutcome; splits?: number }
   | { success: false; error: string };
 
 // =============================================================================
@@ -168,8 +186,29 @@ async function fetchBatchHistory(): Promise<ParentRoastingBatchRow[]> {
     include: {
       inputProduct:  { select: { name: true } },
       outputProduct: { select: { name: true } },
+      childBatches: {
+        select: {
+          id: true,
+          roastId: true,
+          roastDuration: true,
+          dropTemp: true,
+        },
+      },
     },
   });
+
+  // Fetch linked roast data for child batches with roastId
+  const childRoastIds = batches
+    .flatMap((b) => b.childBatches)
+    .filter((c) => c.roastId)
+    .map((c) => c.roastId!);
+  const childRoasts = childRoastIds.length > 0
+    ? await (await requireTenantPrisma()).roast.findMany({
+        where: { id: { in: childRoastIds } },
+        select: { id: true, title: true, roastedWeightGrams: true, duration: true },
+      })
+    : [];
+  const childRoastMap = new Map(childRoasts.map((r) => [r.id, r]));
 
   return batches.map((b) => ({
     id: b.id,
@@ -184,6 +223,28 @@ async function fetchBatchHistory(): Promise<ParentRoastingBatchRow[]> {
     status:            b.status,
     notes:             b.notes,
     createdAt:         b.createdAt.toISOString(),
+    childBatches: b.childBatches.map((c) => ({
+      id: c.id,
+      roastId: c.roastId,
+      roastDuration: c.roastDuration,
+      dropTemp: c.dropTemp ? Number(c.dropTemp) : null,
+      roastTitle: c.roastId ? childRoastMap.get(c.roastId)?.title ?? null : null,
+      roastedWeightGrams: c.roastId ? childRoastMap.get(c.roastId)?.roastedWeightGrams ? Number(childRoastMap.get(c.roastId)!.roastedWeightGrams) : null : null,
+    })),
+  }));
+}
+
+async function fetchMachineOptions(): Promise<MachineOption[]> {
+  const tp = await requireTenantPrisma();
+  const machines = await tp.machine.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, capacityKg: true },
+    orderBy: { name: "asc" },
+  });
+  return machines.map((m) => ({
+    id: m.id,
+    name: m.name,
+    capacityKg: m.capacityKg ? Number(m.capacityKg) : null,
   }));
 }
 
@@ -192,12 +253,13 @@ async function fetchBatchHistory(): Promise<ParentRoastingBatchRow[]> {
 // =============================================================================
 
 export async function getRoastingPageData(): Promise<RoastingPageData> {
-  const [batches, gbOptions, rbOptions] = await Promise.all([
+  const [batches, gbOptions, rbOptions, machineOptions] = await Promise.all([
     fetchBatchHistory(),
     fetchGBOptions(),
     fetchRBOptions(),
+    fetchMachineOptions(),
   ]);
-  return { batches, gbOptions, rbOptions };
+  return { batches, gbOptions, rbOptions, machineOptions };
 }
 
 export async function createParentRoastingBatch(
@@ -386,8 +448,47 @@ export async function createParentRoastingBatch(
           notes:            input.notes?.trim() || null,
           completedAt:      input.mode === "MANUAL" ? getCurrentDate() : null,
           createdById:      userId,
+          machineId:        input.machineId || null,
         },
       });
+
+      // Auto-split: check if targetWeightKg exceeds machine capacity
+      let splits = 0;
+      if (input.machineId && input.mode === "ARTISAN") {
+        const machine = await tx.machine.findUnique({
+          where: { id: input.machineId },
+          select: { capacityKg: true, name: true },
+        });
+        if (machine?.capacityKg && Number(machine.capacityKg) > 0) {
+          const capacity = Number(machine.capacityKg);
+          if (input.targetWeightKg > capacity) {
+            // Calculate splits
+            splits = Math.ceil(input.targetWeightKg / capacity);
+            const weightPerSplit = input.targetWeightKg / splits;
+
+            // Create ChildRoastingBatches for each split
+            for (let i = 0; i < splits; i++) {
+              await tx.childRoastingBatch.create({
+                data: {
+                  parentId: batch.id,
+                  tenantId,
+                  roastDuration: null,
+                  dropTemp: null,
+                  recordedAt: new Date(),
+                },
+              });
+            }
+
+            // Update batch notes with split info
+            await tx.parentRoastingBatch.update({
+              where: { id: batch.id },
+              data: {
+                notes: `${input.notes?.trim() || ""}\n[Auto-split: ${splits} batch @ ${weightPerSplit.toFixed(2)} kg dari ${machine.name}]`.trim(),
+              },
+            });
+          }
+        }
+      }
 
       // Always deduct GB immediately
       await appendLedger(tx, {
@@ -444,7 +545,7 @@ export async function createParentRoastingBatch(
           historySampleCount: outcome?.historySampleCount ?? 0,
         },
       });
-      return { batchCode: batch.code, outcome };
+      return { batchCode: batch.code, outcome, splits };
     }, { isolationLevel: "Serializable" });
 
     revalidatePath("/roasting");
@@ -668,6 +769,178 @@ export async function voidParentRoastingBatch(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Gagal membatalkan batch.",
+    };
+  }
+}
+
+// =============================================================================
+// LINK ROAST TO BATCH
+// =============================================================================
+
+export async function linkRoastToBatch(
+  batchId: string,
+  roastId: string,
+): Promise<RoastingActionResult> {
+  try {
+    const user = await requireRole("OWNER", "MANAGER");
+    const tenantPrisma = await requireTenantPrisma();
+    const tenantId = user.tenantId;
+
+    // Verify batch exists and is PENDING
+    const batch = await tenantPrisma.parentRoastingBatch.findFirst({
+      where: { id: batchId, tenantId, status: "PENDING" },
+      select: { id: true, code: true },
+    });
+    if (!batch) {
+      return { success: false, error: "Batch tidak ditemukan atau sudah selesai." };
+    }
+
+    // Verify roast exists and belongs to tenant
+    const roast = await tenantPrisma.roast.findFirst({
+      where: { id: roastId, tenantId },
+      select: { id: true, title: true, duration: true, dropTemperature: true },
+    });
+    if (!roast) {
+      return { success: false, error: "Roast profile tidak ditemukan." };
+    }
+
+    // Link roast to batch — create a new ChildRoastingBatch for this roast
+    await tenantPrisma.$transaction(async (tx) => {
+      // Create a ChildRoastingBatch for this roast session
+      await tx.childRoastingBatch.create({
+        data: {
+          parentId: batchId,
+          tenantId,
+          roastId: roastId,
+          roastDuration: roast.duration,
+          dropTemp: roast.dropTemperature,
+          recordedAt: new Date(),
+        },
+      });
+
+      await recordAudit(tx, {
+        tenantId,
+        userId: user.id,
+        action: "LINK",
+        entityType: "ParentRoastingBatch",
+        entityId: batchId,
+        metadata: {
+          roastId: roastId,
+          roastTitle: roast.title,
+        },
+      });
+    });
+
+    revalidatePath("/roasting");
+    return { success: true, batchCode: batch.code };
+  } catch (err) {
+    console.error("[linkRoastToBatch]", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Gagal menghubungkan roast.",
+    };
+  }
+}
+
+// =============================================================================
+// SPLIT BATCH BY MACHINE CAPACITY
+// =============================================================================
+
+export async function splitBatchByCapacity(
+  batchId: string,
+  machineId: string,
+): Promise<RoastingActionResult> {
+  try {
+    const user = await requireRole("OWNER", "MANAGER");
+    const tenantPrisma = await requireTenantPrisma();
+    const tenantId = user.tenantId;
+
+    // Verify batch exists and is PENDING
+    const batch = await tenantPrisma.parentRoastingBatch.findFirst({
+      where: { id: batchId, tenantId, status: "PENDING" },
+      select: { id: true, code: true, targetWeightKg: true, notes: true },
+    });
+    if (!batch) {
+      return { success: false, error: "Batch tidak ditemukan atau sudah selesai." };
+    }
+
+    // Verify machine exists and has capacity
+    const machine = await tenantPrisma.machine.findFirst({
+      where: { id: machineId, tenantId, isActive: true },
+      select: { id: true, name: true, capacityKg: true },
+    });
+    if (!machine) {
+      return { success: false, error: "Mesin tidak ditemukan." };
+    }
+    if (!machine.capacityKg || Number(machine.capacityKg) <= 0) {
+      return { success: false, error: "Mesin tidak memiliki kapasitas yang valid." };
+    }
+
+    const capacity = Number(machine.capacityKg);
+    const targetWeight = Number(batch.targetWeightKg);
+
+    if (targetWeight <= capacity) {
+      return { success: false, error: "Berat batch tidak melebihi kapasitas mesin." };
+    }
+
+    // Calculate splits
+    const splits = Math.ceil(targetWeight / capacity);
+    const weightPerSplit = targetWeight / splits;
+
+    await tenantPrisma.$transaction(async (tx) => {
+      // Check existing child batches
+      const existingChildren = await tx.childRoastingBatch.count({
+        where: { parentId: batchId },
+      });
+
+      // Create new child batches
+      for (let i = 0; i < splits - existingChildren; i++) {
+        await tx.childRoastingBatch.create({
+          data: {
+            parentId: batchId,
+            tenantId,
+            roastDuration: null,
+            dropTemp: null,
+            recordedAt: new Date(),
+          },
+        });
+      }
+
+      // Update batch notes with split info
+      const splitNote = `[Auto-split: ${splits} batch @ ${weightPerSplit.toFixed(2)} kg dari ${machine.name}]`;
+      const existingNotes = batch.notes || "";
+      const newNotes = existingNotes.includes("[Auto-split:")
+        ? existingNotes.replace(/\[Auto-split:.*?\]/, splitNote)
+        : `${existingNotes}\n${splitNote}`.trim();
+
+      await tx.parentRoastingBatch.update({
+        where: { id: batchId },
+        data: { notes: newNotes },
+      });
+
+      await recordAudit(tx, {
+        tenantId,
+        userId: user.id,
+        action: "SPLIT",
+        entityType: "ParentRoastingBatch",
+        entityId: batchId,
+        metadata: {
+          machineId,
+          machineName: machine.name,
+          splits,
+          weightPerSplit,
+          targetWeight,
+        },
+      });
+    });
+
+    revalidatePath("/roasting");
+    return { success: true, batchCode: batch.code, splits };
+  } catch (err) {
+    console.error("[splitBatchByCapacity]", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Gagal split batch.",
     };
   }
 }

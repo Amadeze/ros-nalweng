@@ -120,6 +120,20 @@ enum ExpenseCategory {
   LAINNYA // Pengeluaran lain-lain
 }
 
+enum ArtisanConnectorStatus {
+  ONLINE
+  OFFLINE
+  REVOKED
+}
+
+enum ArtisanImportStatus {
+  UPLOADED
+  PARSING
+  IMPORTED
+  DUPLICATE
+  FAILED
+}
+
 /// Jenis transaksi asal untuk audit trail di InventoryLedger
 enum LedgerRefType {
   PURCHASE_GB // Green Bean masuk via Purchase
@@ -223,8 +237,39 @@ model Tenant {
   sampleUsageComponents SampleUsageComponent[]
   creditNotes           CreditNote[]
   creditNoteItems       CreditNoteItem[]
+  machines              Machine[]
+  artisanPairingCodes   ArtisanPairingCode[]
+  artisanConnectors     ArtisanConnector[]
+  artisanImports        ArtisanRoastImport[]
+  roasts                Roast[]
 
   @@map("tenants")
+}
+
+// =============================================================================
+// TABLE 0.8 · Machine (Roaster Machine)
+// =============================================================================
+
+model Machine {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  capacityKg  Decimal? @db.Decimal(8, 2) // Kapasitas maksimal per batch (kg)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  artisanConnectors ArtisanConnector[]
+  artisanImports    ArtisanRoastImport[]
+  artisanPairingCodes ArtisanPairingCode[]
+  roasts            Roast[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
+  @@map("machines")
 }
 
 // =============================================================================
@@ -603,6 +648,8 @@ model ParentRoastingBatch {
   completedAt DateTime?
   createdById String // FK → User (Roaster)
 
+  machineId String? // FK → Machine (mesin yang digunakan untuk batch ini)
+
   inputProduct  Product @relation("RoastingInput", fields: [inputProductId], references: [id])
   outputProduct Product @relation("RoastingOutput", fields: [outputProductId], references: [id])
   createdBy     User    @relation(fields: [createdById], references: [id])
@@ -623,6 +670,7 @@ model ChildRoastingBatch {
   artisanEventId String?  @unique // Mencegah duplikasi webhook (idempotency)
   roastDuration  Int? // Durasi sangrai dalam detik
   dropTemp       Decimal? @db.Decimal(5, 2) // Suhu saat drop (suhu sebelum crash)
+  roastId        String? // FK → Roast (dari Artisan Sync)
 
   recordedAt DateTime @default(now()) // Waktu webhook masuk
 
@@ -1239,4 +1287,140 @@ model PurchaseOrderItem {
 
   @@index([tenantId, purchaseOrderId])
   @@map("purchase_order_items")
+}
+
+// =============================================================================
+// ARTISAN DESKTOP INTEGRATION
+// =============================================================================
+
+model ArtisanPairingCode {
+  id              String   @id @default(cuid())
+  tenantId        String
+  machineId       String
+  createdByUserId String
+  codeHash        String   @unique
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdAt       DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  machine Machine @relation(fields: [machineId], references: [id])
+
+  @@index([tenantId])
+  @@index([codeHash])
+  @@index([expiresAt])
+  @@map("artisan_pairing_codes")
+}
+
+model ArtisanConnector {
+  id              String   @id @default(cuid())
+  tenantId        String
+  machineId       String
+  installationId  String   @unique
+  computerName    String
+  platform        String
+  appVersion      String
+  credentialHash  String   @unique
+  status          ArtisanConnectorStatus @default(OFFLINE)
+  lastSeenAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  machine  Machine  @relation(fields: [machineId], references: [id])
+  imports  ArtisanRoastImport[]
+
+  @@index([tenantId])
+  @@index([machineId])
+  @@index([credentialHash])
+  @@index([lastSeenAt])
+  @@index([status])
+  @@map("artisan_connectors")
+}
+
+model ArtisanRoastImport {
+  id               String   @id @default(cuid())
+  tenantId         String
+  machineId        String
+  connectorId      String
+  originalFilename String
+  fileHash         String
+  fileSize         Int
+  storageKey       String
+  status           ArtisanImportStatus @default(UPLOADED)
+  errorCode        String?
+  errorMessage     String?
+  roastId          String?
+  fileModifiedAt   DateTime?
+  uploadedAt       DateTime @default(now())
+  importedAt       DateTime?
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id])
+  machine   Machine          @relation(fields: [machineId], references: [id])
+  connector ArtisanConnector @relation(fields: [connectorId], references: [id])
+
+  @@unique([tenantId, machineId, fileHash])
+  @@index([tenantId])
+  @@index([machineId])
+  @@index([connectorId])
+  @@index([status])
+  @@index([uploadedAt])
+  @@map("artisan_roast_imports")
+}
+
+// =============================================================================
+// ROAST PROFILE (parsed from .alog files)
+// =============================================================================
+
+model Roast {
+  id        String   @id @default(cuid())
+  tenantId  String
+  machineId String
+  importId  String?  @unique
+
+  // Basic info
+  title         String?
+  roastDate     DateTime?
+  sourceVersion String?
+
+  // Timing (seconds)
+  chargeTime    Int?
+  dropTime      Int?
+  duration      Int?
+
+  // Temperatures (Celsius)
+  chargeTemperature Float?
+  dropTemperature   Float?
+  dryEndTime        Int?
+
+  // First/Second crack (seconds from start)
+  firstCrackStartTime  Int?
+  firstCrackEndTime    Int?
+  secondCrackStartTime Int?
+  secondCrackEndTime   Int?
+
+  // Weight
+  greenWeightGrams  Float?
+  roastedWeightGrams Float?
+  lossPercent       Float?
+
+  // Metadata
+  metadata Json?
+
+  // Temperature curves (stored as JSON arrays)
+  beanTemperatureSeries          Json
+  environmentalTemperatureSeries Json
+  events                         Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
+  machine  Machine @relation(fields: [machineId], references: [id])
+
+  @@index([tenantId])
+  @@index([machineId])
+  @@index([roastDate])
+  @@map("roasts")
 }

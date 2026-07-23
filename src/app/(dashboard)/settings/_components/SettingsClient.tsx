@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { toastSafe } from "@/lib/toast";
 import { Tenant } from "@prisma/client";
 import { Save, ExternalLink, Upload, Phone, Plus, Trash2, RotateCcw } from "lucide-react";
-import { WebhookLogModal } from "./WebhookLogsDialog";
+import { resetOnboarding } from "@/app/onboarding/actions";
+import { WebhookLogModal } from "./WebhookLogModal";
 
 // Helper type for tenant since Prisma Client might not have typed the new fields perfectly in this file's context if cached
 type ExtendedTenant = Omit<Tenant, "midtransServerKey"> & {
@@ -427,7 +428,8 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
         </div>
       </div>
 
-      {/* Integrasi Sistem */}
+      {/* Integrasi Sistem - Webhook lama disembunyikan, gunakan Artisan Sync */}
+      {false && (
       <div className="glass-card-static p-6 mt-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-800">Integrasi Sistem (Webhook)</h2>
@@ -526,6 +528,7 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
           </div>
         </div>
       </div>
+      )}
 
       {/* B2B Portal Customization */}
       <div className="glass-card-static p-6 mt-6">
@@ -896,6 +899,23 @@ export function SettingsClient({ tenant }: { tenant: ExtendedTenant }) {
             <p className="mt-1 text-xs text-red-700">
               Reset onboarding akan menghapus semua progres panduan awal dan mengembalikan Anda ke langkah pertama. Data operasional (supplier, produk, stok, resep, pelanggan) tidak akan dihapus.
             </p>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!confirm("Yakin ingin mengulangi panduan awal? Anda akan diarahkan ke /onboarding.")) return;
+                const res = await resetOnboarding();
+                if (res.success) {
+                  toast.success("Panduan awal direset. Mengalihkan...");
+                  setTimeout(() => { window.location.href = "/onboarding"; }, 1000);
+                } else {
+                  toastSafe.error("Gagal reset panduan awal.");
+                }
+              }}
+              className="mt-3 inline-flex items-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-2 text-xs font-bold text-red-700 shadow-sm transition-colors hover:bg-red-50"
+            >
+              <RotateCcw size={14} />
+              Ulangi Panduan Awal
+            </button>
           </div>
         </div>
       )}
