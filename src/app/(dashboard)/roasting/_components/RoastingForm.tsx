@@ -28,6 +28,7 @@ import {
   type GBStockOption,
   type ParentRoastingBatchRow,
   type RBProductOption,
+  type MachineOption,
 } from "../actions";
 
 // =============================================================================
@@ -54,6 +55,8 @@ const schema = z
     outputRoastLevel: z.string().optional(),
     actualOutputKg: z.number().optional(),
     notes: z.string().optional(),
+    lotNumber: z.string().optional(),
+    machineId: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (!data.outputRoastLevel) {
@@ -152,6 +155,7 @@ interface RoastingFormProps {
   id: string;
   gbOptions: GBStockOption[];
   rbOptions: RBProductOption[];
+  machineOptions: MachineOption[];
   batches: ParentRoastingBatchRow[];
   onSuccess: () => void;
   onPendingChange: (pending: boolean) => void;
@@ -165,6 +169,7 @@ export function RoastingForm({
   id,
   gbOptions,
   rbOptions,
+  machineOptions,
   batches,
   onSuccess,
   onPendingChange,
@@ -194,10 +199,12 @@ export function RoastingForm({
       outputRoastLevel: "",
       actualOutputKg: 0,
       notes: "",
+      lotNumber: "",
+      machineId: "",
     },
   });
 
-  const [mode, inputProductId, targetWeightKg, actualOutputKg, outputMode, outputProductId, outputRoastLevel] = watch([
+  const [mode, inputProductId, targetWeightKg, actualOutputKg, outputMode, outputProductId, outputRoastLevel, lotNumber, machineId] = watch([
     "mode",
     "inputProductId",
     "targetWeightKg",
@@ -205,9 +212,12 @@ export function RoastingForm({
     "outputMode",
     "outputProductId",
     "outputRoastLevel",
+    "lotNumber",
+    "machineId",
   ]);
 
   const selectedGB = gbOptions.find((g) => g.id === inputProductId);
+  const selectedLot = selectedGB?.lots?.find(l => l.lotNumber === lotNumber);
 
   const likelyRbOptions = useMemo(() => rbOptions.filter((rb) => {
     if (!selectedGB || !selectedGB.origin) return true;
@@ -231,6 +241,11 @@ export function RoastingForm({
     setValue("outputProductId", "");
     if (selectedGB?.origin && !watch("outputProductOrigin")) {
       setValue("outputProductOrigin", selectedGB.origin);
+    }
+    if (selectedGB?.lots && selectedGB.lots.length > 0) {
+      setValue("lotNumber", selectedGB.lots[0].lotNumber);
+    } else {
+      setValue("lotNumber", "");
     }
   }, [inputProductId, selectedGB, setValue, watch]);
 
@@ -266,6 +281,8 @@ export function RoastingForm({
         outputRoastLevel: values.outputRoastLevel || undefined,
         actualOutputKg: values.actualOutputKg,
         notes: values.notes,
+        lotNumber: values.lotNumber || undefined,
+        machineId: values.machineId || undefined,
       });
 
       if (!result.success) {
@@ -344,6 +361,84 @@ export function RoastingForm({
         <FieldError message={errors.inputProductId?.message} />
       </FieldGroup>
 
+      {/* ── Machine Selection ── */}
+      {machineOptions.length > 0 && (
+        <FieldGroup>
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+            Mesin Roasting
+          </Label>
+          <Controller
+            control={control}
+            name="machineId"
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onValueChange={(val: string | null) => field.onChange(val ?? "")}
+              >
+                <SelectTrigger className={cn("w-full h-9", glassInput)}>
+                  <SelectValue placeholder="Pilih mesin (opsional)...">
+                    {field.value ? machineOptions.find((m) => m.id === field.value)?.name : null}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Tidak ada mesin</SelectItem>
+                  {machineOptions.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name} {m.capacityKg ? `(${m.capacityKg} kg)` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {machineId && (() => {
+            const selectedMachine = machineOptions.find((m) => m.id === machineId);
+            if (selectedMachine?.capacityKg && targetWeightKg > selectedMachine.capacityKg) {
+              const splits = Math.ceil(targetWeightKg / selectedMachine.capacityKg);
+              return (
+                <p className="text-[10px] font-medium text-amber-600 pt-1">
+                  Auto-split: {splits} batch @ {(targetWeightKg / splits).toFixed(2)} kg
+                </p>
+              );
+            }
+            return null;
+          })()}
+        </FieldGroup>
+      )}
+
+      {/* ── Lot Number ── */}
+      {selectedGB && selectedGB.lots && selectedGB.lots.length > 0 && (
+        <FieldGroup>
+          <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
+            Batch / Lot <span className="text-red-500">*</span>
+          </Label>
+          <Controller
+            control={control}
+            name="lotNumber"
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onValueChange={(val: string | null) => field.onChange(val ?? "")}
+              >
+                <SelectTrigger className={cn("w-full h-9", glassInput)}>
+                  <SelectValue placeholder="Pilih Lot...">
+                    {field.value || "Otomatis (Paling Lama)"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Otomatis (FEFO)</SelectItem>
+                  {selectedGB.lots.map((lot) => (
+                    <SelectItem key={lot.lotNumber} value={lot.lotNumber}>
+                      {lot.lotNumber} {lot.expiryDate ? `(Exp: ${new Date(lot.expiryDate).toLocaleDateString("id-ID")})` : ""} — {formatKg(lot.remainingKg)} sisa
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </FieldGroup>
+      )}
+
       {/* ── Berat Masuk ── */}
       <FieldGroup>
         <Label className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
@@ -357,9 +452,14 @@ export function RoastingForm({
           className={cn("h-9 tabular-nums font-semibold", glassInput)}
           {...register("targetWeightKg", { valueAsNumber: true })}
         />
-        {selectedGB && Number(targetWeightKg) > selectedGB.stockKg && (
+        {selectedGB && !selectedLot && Number(targetWeightKg) > selectedGB.stockKg && (
           <p className="text-[10px] font-medium text-red-500">
-            Melebihi stok tersedia ({formatKg(selectedGB.stockKg)})
+            Melebihi stok total ({formatKg(selectedGB.stockKg)})
+          </p>
+        )}
+        {selectedLot && Number(targetWeightKg) > selectedLot.remainingKg && (
+          <p className="text-[10px] font-medium text-red-500">
+            Melebihi stok lot ini ({formatKg(selectedLot.remainingKg)})
           </p>
         )}
         <FieldError message={errors.targetWeightKg?.message} />
